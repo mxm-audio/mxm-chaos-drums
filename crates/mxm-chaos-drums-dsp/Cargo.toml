@@ -1,0 +1,19 @@
+[package]
+name = "mxm-chaos-drums-dsp"
+description = "Framework-free DSP for mxm-chaos-drums: charge, the pool, the engines and the models"
+version.workspace = true
+edition.workspace = true
+# Both runtime dependencies are framework-free kit crates at this floor. No GUI or plugin-framework
+# types here, ever.
+rust-version = "1.87"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+mxm-dsp.workspace = true
+mxm-rng.workspace = true
+
+[dev-dependencies]
+# The charge grid example writes its renders as WAV files.
+mxm-audio-file.workspace = true

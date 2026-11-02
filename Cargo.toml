@@ -1,0 +1,24 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/mxm-chaos-drums-dsp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"        # the GUI floor; crates that do not need it override downward
+license = "GPL-3.0-or-later"
+authors = ["mxm"]
+repository = "https://github.com/mxm-audio/mxm-chaos-drums"
+
+[workspace.dependencies]
+# Pinned exactly, as in every MXM repository; Cargo.lock is committed. Own crates by path, the
+# kit's from mxm-kit's `main`.
+mxm-audio-file = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-dsp = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-rng = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+
+[profile.release]
+lto = "thin"
+strip = "symbols"

@@ -2,7 +2,7 @@
 
 Required by mxm-kit's `docs/MXM_DESIGN_SYSTEM.md` §14 and written before any DSP or editor code. The
 product's plan is the owner's and private; this brief is the part of it this repository holds.
-**Gate:** the owner approves this brief before the DSP spike (P1) starts.
+**Approved by the owner, 2026-11-02** ("Approved, go ahead and start building"), so P1 starts.
 
 **Plugin:** `mxm-chaos-drums`; permanent CLAP id `dk.mxm.mxm-chaos-drums`. An original instrument: it
 copies no machine. MIDI in; stereo out, plus sixteen individual outputs; no audio input (the owner,

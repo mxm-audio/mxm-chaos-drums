@@ -6,5 +6,8 @@ are not covered by that licence; see `TRADEMARKS.md`.
 
 ## Third-party code in its builds
 
-None yet: there is no code. The list is completed when the first crate arrives, and every
-dependency and its licence will be in `Cargo.lock`.
+- [mxm-kit](https://github.com/mxm-audio/mxm-kit) — MIT: `mxm-dsp` and `mxm-rng`, and for the
+  examples `mxm-audio-file`.
+
+Every dependency and its licence is in `Cargo.lock`. The plugin (P3) adds nice-plug, egui and the
+VST3 bindings, and this list grows with them.

@@ -9,8 +9,22 @@ Part of the MXM collection: every instrument, effect and tool lives in its own r
 [github.com/mxm-audio](https://github.com/mxm-audio), built on
 [mxm-kit](https://github.com/mxm-audio/mxm-kit).
 
-**Status:** pre-alpha, at the design stage: [the brief](docs/briefs/mxm-chaos-drums.md) comes
-before any code. Nothing is released and there is nothing to build yet.
+**Status:** pre-alpha. [The brief](docs/briefs/mxm-chaos-drums.md) is the design; the DSP is at
+its first spike, a kick, a snare and a clap on two linked cells, and there is no plugin yet.
+Nothing is released.
+
+## Hearing the spike
+
+Rust 1.87 or newer.
+
+```bash
+cargo run -p mxm-chaos-drums-dsp --example charge_grid --release
+cargo test
+```
+
+The example writes `target/charge-grid/`: for each model, at Temper 0 and at 80%, a WAV of gate
+length × velocity, a Supply sweep, repetition rates and the two linked cells, with a cue sheet
+beside it.
 
 ## Licence
 
