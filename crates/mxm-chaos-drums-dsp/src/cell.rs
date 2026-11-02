@@ -424,6 +424,11 @@ impl Cell {
         self.charge
     }
 
+    /// Whether a held note or a bus would fill it now: its Supply, routes applied, is above zero.
+    pub fn is_supplied(&self) -> bool {
+        self.eff.fill_rate > 0.0
+    }
+
     pub fn is_latched(&self) -> bool {
         self.latched
     }

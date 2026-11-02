@@ -547,6 +547,19 @@ impl Plugin for MxmChaosDrums {
                 self.notes.resolve(&group, &mut sample);
                 kit.apply_now(sample.as_slice());
             }
+            // The cells the editor asked to hear, struck now: a host may answer the editor's wake with
+            // a callback of no frames, and the request must not wait on one that never comes.
+            let audition = self.telemetry.take_audition();
+            for cell in (0..CELLS).filter(|cell| audition & (1 << cell) != 0) {
+                kit.apply_now(&[Event {
+                    offset: 0,
+                    kind: EventKind::Strike {
+                        cell,
+                        velocity: AUDITION_VELOCITY,
+                        gate: false,
+                    },
+                }]);
+            }
             // The settings stored above, applied as the next frame will, so the status is theirs.
             kit.settle_now();
             return if kit.is_at_rest() && !kit.lfo_may_feed() {
@@ -555,8 +568,7 @@ impl Plugin for MxmChaosDrums {
                 ProcessStatus::KeepAlive
             };
         }
-        // The cells the editor asked to hear, struck at the buffer's first sample as a note would be;
-        // a callback of no frames leaves them for the next.
+        // The cells the editor asked to hear, struck at the buffer's first sample as a note would be.
         let audition = if samples > 0 {
             self.telemetry.take_audition()
         } else {

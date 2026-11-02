@@ -36,7 +36,10 @@ still to come.
   finds a released note's tail.
 - **Gates.** A cell's gate stays open while its owner holds the note, and closes at its release,
   a choke, CC123 or a flood. A note-on released at its own sample strikes with no gate, though
-  ownership would hand it one; a touch let go at its own sample touches nothing. CC120 is panic.
+  ownership would hand it one; a touch let go at its own sample touches nothing. CC120 is panic, and
+  a sample's group that holds it is panic alone: its notes are dropped, as the drum machine's
+  (`panic_dominates_triggers_in_the_same_group`), since host order cannot say which came first and
+  silence is the safe reading. The DSP's own order (resets, then notes) is for the events it is given.
   Wheel and pressure are the kit's: the highest any channel holds. A pitch curve on a cell key
   tunes that cell until its next strike.
 - **No `powf` before the performance.** Every parameter that reaches a cell's state is a linear

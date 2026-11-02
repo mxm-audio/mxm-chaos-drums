@@ -353,30 +353,34 @@ impl Kit {
                 .all(|cell| cell.is_at_rest(self.now.buses))
     }
 
-    /// Whether an LFO route could feed a cell that rests now: an LFO on a bus a cell is set to, or on
-    /// Supply for a cell with a bus. The kit skips its own work while it rests, but a host told it may
-    /// sleep would never let the LFO get there, so the plugin keeps processing while this holds.
+    /// Whether an LFO could feed a cell that rests now. A cell is fed only while both its bus's level
+    /// and its Supply are above zero, so this holds when both can be — each now, or through an LFO
+    /// route of any amount, since an LFO swings both ways — and an LFO moves at least one of them.
+    /// The kit skips its own work while it rests, but a host told it may sleep would never let the
+    /// LFO get there, so the plugin keeps processing while this holds, and only then.
     #[must_use]
     pub fn lfo_may_feed(&self) -> bool {
         let lfo = |source: Source| matches!(source, Source::Lfo1 | Source::Lfo2 | Source::Lfo3);
-        let bus_moved = |target: KitTarget| {
+        let bus_moves = |target: KitTarget| {
             self.params
                 .routes
                 .iter()
-                .any(|route| lfo(route.source) && route.target == target)
+                .any(|route| lfo(route.source) && route.target == target && route.amount != 0.0)
         };
         self.cells.iter().any(|cell| {
             let p = cell.params();
-            let on_bus = match p.bus {
+            let (level, moves) = match p.bus {
                 Bus::Off => return false,
-                Bus::A => bus_moved(KitTarget::BusA),
-                Bus::B => bus_moved(KitTarget::BusB),
+                Bus::A => (self.now.buses[0], bus_moves(KitTarget::BusA)),
+                Bus::B => (self.now.buses[1], bus_moves(KitTarget::BusB)),
             };
+            let supply_moves = p.routes.iter().any(|route| {
+                lfo(route.source) && route.target == CellTarget::Supply && route.amount != 0.0
+            });
             !cell.is_latched()
-                && (on_bus
-                    || p.routes
-                        .iter()
-                        .any(|route| lfo(route.source) && route.target == CellTarget::Supply))
+                && (level > 0.0 || moves)
+                && (cell.is_supplied() || supply_moves)
+                && (moves || supply_moves)
         })
     }
 

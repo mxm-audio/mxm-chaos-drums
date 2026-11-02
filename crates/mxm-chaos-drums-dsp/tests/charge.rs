@@ -1157,14 +1157,58 @@ fn an_lfo_that_may_feed_a_resting_cell_keeps_the_kit_awake() {
         !Kit::new(RATE, wheel, on_bus).lfo_may_feed(),
         "the wheel moves only with an event"
     );
-    let mut supplied = on_bus;
-    supplied[0].routes[0] = Route {
-        source: Source::Lfo2,
-        target: CellTarget::Supply,
-        amount: 1.0,
+}
+
+#[test]
+fn an_lfo_keeps_a_kit_awake_only_where_it_can_feed_a_cell() {
+    let lfo_on = |target| KitParams {
+        routes: kit_route(Source::Lfo1, target, 1.0),
+        ..steady()
+    };
+    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
+    on_bus[0].bus = Bus::A;
+    let on_supply = |mut cells: [CellParams; CELLS], amount| {
+        cells[0].supply = 0.0;
+        cells[0].routes[0] = Route {
+            source: Source::Lfo2,
+            target: CellTarget::Supply,
+            amount,
+        };
+        cells
+    };
+    // Bus A up, Supply moved by an LFO: it can feed.
+    let bus_up = KitParams {
+        bus: [1.0, 0.0],
+        ..steady()
+    };
+    assert!(Kit::new(RATE, bus_up, on_supply(on_bus, 1.0)).lfo_may_feed());
+    // Supply moved, but nothing can raise Bus A from zero: it never feeds.
+    assert!(
+        !Kit::new(RATE, steady(), on_supply(on_bus, 1.0)).lfo_may_feed(),
+        "a bus that stays at zero"
+    );
+    // A route of no amount moves nothing.
+    assert!(
+        !Kit::new(RATE, bus_up, on_supply(on_bus, 0.0)).lfo_may_feed(),
+        "an amount of zero"
+    );
+    let silent = KitParams {
+        routes: kit_route(Source::Lfo1, KitTarget::BusA, 0.0),
+        ..steady()
     };
     assert!(
-        Kit::new(RATE, steady(), supplied).lfo_may_feed(),
-        "an LFO on Supply"
+        !Kit::new(RATE, silent, on_bus).lfo_may_feed(),
+        "a bus route of no amount"
+    );
+    // An LFO on the bus with Supply at zero and unrouted: it never feeds.
+    let mut dry = on_bus;
+    dry[0].supply = 0.0;
+    assert!(
+        !Kit::new(RATE, lfo_on(KitTarget::BusA), dry).lfo_may_feed(),
+        "no supply"
+    );
+    assert!(
+        Kit::new(RATE, lfo_on(KitTarget::BusA), on_bus).lfo_may_feed(),
+        "an LFO on Bus A, Supply up"
     );
 }
