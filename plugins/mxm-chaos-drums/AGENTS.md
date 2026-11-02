@@ -60,7 +60,8 @@ still to come.
   allocates nothing (one sample's events are a fixed array). At rest it runs none of the core, and it
   reports `Normal` only when no LFO can wake it (`Kit::lfo_may_feed`): a host told it may sleep
   would never let the LFO get there. Otherwise `KeepAlive`. A callback of no frames applies its
-  events, a play start and the editor's auditions (one sample) at once, so its status is theirs.
+  events at once, so its status is theirs: the play start's reset, the editor's auditions and the
+  notes at timing 0 are one sample (`Notes::opening`), as a framed callback's first sample is.
 
 - **The editor.** The grid's squares select a cell and strike it at velocity 100 (a click, or
   OPEN), as the drum machine's slot rows do; a model shows only the controls it reads, under its

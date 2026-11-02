@@ -367,6 +367,7 @@ impl Kit {
         let now = |source| sources.value(source, 0.0, 0.0);
         let p = &self.params;
         let pool = Affine::of(&p.routes, KitTarget::Pool, p.pool, now);
+        let square = p.lfo_shape.map(|shape| matches!(shape, LfoShape::Square));
         self.cells.iter().any(|cell| {
             let (target, base) = match cell.params().bus {
                 Bus::Off => return false,
@@ -374,7 +375,8 @@ impl Kit {
                 Bus::B => (KitTarget::BusB, p.bus[1]),
             };
             let bus = Affine::of(&p.routes, target, base, now);
-            !cell.is_latched() && routes::lfo_can_lift_all(&[bus, cell.supply_form(&sources), pool])
+            !cell.is_latched()
+                && routes::lfo_can_lift_all(&[bus, cell.supply_form(&sources), pool], square)
         })
     }
 

@@ -260,6 +260,32 @@ impl Notes {
         }
     }
 
+    /// A buffer's first sample: a play start's reset, the cells the editor asked to hear, and the
+    /// host's notes at timing 0 (`group`, if any), as one sample whether or not the callback has
+    /// frames, so whatever is struck in it is struck together.
+    fn opening(
+        &mut self,
+        restart: bool,
+        audition: u32,
+        group: Option<&EventGroup>,
+    ) -> SampleEvents {
+        let mut sample = SampleEvents::new();
+        if restart {
+            sample.push(EventKind::TransportReset);
+        }
+        for cell in (0..CELLS).filter(|cell| audition & (1 << cell) != 0) {
+            sample.push(EventKind::Strike {
+                cell,
+                velocity: AUDITION_VELOCITY,
+                gate: false,
+            });
+        }
+        if let Some(group) = group {
+            self.resolve(group, &mut sample);
+        }
+        sample
+    }
+
     /// One sample's group, resolved into the kit's events.
     fn resolve(&mut self, events: &EventGroup, out: &mut SampleEvents) {
         // A flood keeps only what no host order can change: a choke anywhere in it is panic;
@@ -526,13 +552,19 @@ impl Plugin for MxmChaosDrums {
         // A callback of no frames still carries notes: each sample's group is resolved and applied
         // now, so it takes effect where the next frame starts, never dropped.
         if samples == 0 {
-            // A start seen here resets now, before this callback's notes, which then play on it.
-            if restart {
-                kit.apply_now(&[Event {
-                    offset: 0,
-                    kind: EventKind::TransportReset,
-                }]);
+            // A start seen here resets now, and the cells the editor asked to hear are struck now (a
+            // host may answer the editor's wake with a callback of no frames): with the notes at
+            // timing 0, the first sample a framed callback would build, applied as one.
+            let mut group = EventGroup::new();
+            let mut any = false;
+            while let Some(event) = next_event.filter(|event| event.timing() == 0) {
+                group.collect(event);
+                any = true;
+                next_event = context.next_event();
             }
+            let audition = self.telemetry.take_audition();
+            let sample = self.notes.opening(restart, audition, any.then_some(&group));
+            kit.apply_now(sample.as_slice());
             while let Some(first) = next_event {
                 let timing = first.timing();
                 let mut group = EventGroup::new();
@@ -547,20 +579,6 @@ impl Plugin for MxmChaosDrums {
                 self.notes.resolve(&group, &mut sample);
                 kit.apply_now(sample.as_slice());
             }
-            // The cells the editor asked to hear, struck now: a host may answer the editor's wake with
-            // a callback of no frames, and the request must not wait on one that never comes.
-            // All of them at one sample, as a framed callback strikes them: struck together, none chokes
-            // another.
-            let audition = self.telemetry.take_audition();
-            let mut struck = SampleEvents::new();
-            for cell in (0..CELLS).filter(|cell| audition & (1 << cell) != 0) {
-                struck.push(EventKind::Strike {
-                    cell,
-                    velocity: AUDITION_VELOCITY,
-                    gate: false,
-                });
-            }
-            kit.apply_now(struck.as_slice());
             // The settings stored above, applied as the next frame will, so the status is theirs.
             kit.settle_now();
             return if kit.is_at_rest() && !kit.lfo_may_feed() {
@@ -570,26 +588,9 @@ impl Plugin for MxmChaosDrums {
             };
         }
         // The cells the editor asked to hear, struck at the buffer's first sample as a note would be.
-        let audition = if samples > 0 {
-            self.telemetry.take_audition()
-        } else {
-            0
-        };
+        let audition = self.telemetry.take_audition();
         let mut start = 0;
         while start < samples {
-            let mut sample = SampleEvents::new();
-            if start == 0 && restart {
-                sample.push(EventKind::TransportReset);
-            }
-            if start == 0 {
-                for cell in (0..CELLS).filter(|cell| audition & (1 << cell) != 0) {
-                    sample.push(EventKind::Strike {
-                        cell,
-                        velocity: AUDITION_VELOCITY,
-                        gate: false,
-                    });
-                }
-            }
             let mut group = EventGroup::new();
             let mut any = false;
             while let Some(event) = next_event {
@@ -600,9 +601,15 @@ impl Plugin for MxmChaosDrums {
                 any = true;
                 next_event = context.next_event();
             }
-            if any {
-                self.notes.resolve(&group, &mut sample);
-            }
+            let sample = if start == 0 {
+                self.notes.opening(restart, audition, any.then_some(&group))
+            } else {
+                let mut sample = SampleEvents::new();
+                if any {
+                    self.notes.resolve(&group, &mut sample);
+                }
+                sample
+            };
             let end = next_event.map_or(samples, |event| {
                 (event.timing() as usize).clamp(start + 1, samples)
             });
@@ -737,6 +744,32 @@ mod notes {
             channel: Channel::Number(channel),
             key: Key::Number(key),
         }
+    }
+
+    #[test]
+    fn the_first_sample_holds_the_reset_the_auditions_and_the_notes_together() {
+        let mut notes = Notes::new();
+        let mut group = EventGroup::new();
+        group.collect(note(true, 0, 37, Some(1), 0.5));
+        let sample = notes.opening(true, 1 << 0, Some(&group));
+        let kinds: Vec<EventKind> = sample.as_slice().iter().map(|event| event.kind).collect();
+        assert_eq!(kinds.len(), 3, "{kinds:?}");
+        assert_eq!(kinds[0], EventKind::TransportReset);
+        assert!(
+            matches!(
+                kinds[1],
+                EventKind::Strike {
+                    cell: 0,
+                    gate: false,
+                    ..
+                }
+            ),
+            "{kinds:?}"
+        );
+        assert!(
+            matches!(kinds[2], EventKind::Strike { cell: 1, .. }),
+            "{kinds:?}"
+        );
     }
 
     /// The kit's events for one sample's host events.

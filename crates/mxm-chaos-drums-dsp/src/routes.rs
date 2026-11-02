@@ -227,11 +227,12 @@ impl Affine {
     }
 }
 
-/// Whether some LFO values, each anywhere in [-1, 1], put every form above zero together, while an
-/// LFO moves at least one of them. Exact when one LFO moves them all: each form is then above zero on
-/// an interval of its value, and the intervals meet or they do not. With several LFOs it is a bound,
-/// each form on its own, so it may say yes where they never agree, and never says no where they do.
-pub(crate) fn lfo_can_lift_all(forms: &[Affine]) -> bool {
+/// Whether some LFO values put every form above zero together, while an LFO moves at least one of
+/// them. A square LFO takes only -1 and 1; every other shape sweeps or draws across [-1, 1]. Exact
+/// when one LFO moves them all: each form is then above zero on an interval of its value, and the
+/// intervals meet where it can be, or they do not. With several LFOs it is a bound, each form on its
+/// own, so it may say yes where they never agree, and never says no where they do.
+pub(crate) fn lfo_can_lift_all(forms: &[Affine], square: [bool; 3]) -> bool {
     let moving = |k: usize| forms.iter().any(|form| form.lfo[k] != 0.0);
     let mut used = (0..3).filter(|&k| moving(k));
     let Some(k) = used.next() else {
@@ -241,6 +242,11 @@ pub(crate) fn lfo_can_lift_all(forms: &[Affine]) -> bool {
         return forms
             .iter()
             .all(|form| form.fixed + form.lfo.iter().map(|a| a.abs()).sum::<f32>() > 0.0);
+    }
+    if square[k] {
+        return [-1.0, 1.0]
+            .into_iter()
+            .any(|x| forms.iter().all(|form| form.fixed + form.lfo[k] * x > 0.0));
     }
     let (mut low, mut high) = (f32::NEG_INFINITY, f32::INFINITY);
     for form in forms {

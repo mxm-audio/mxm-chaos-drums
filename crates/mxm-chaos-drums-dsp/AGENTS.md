@@ -48,7 +48,9 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   on) and the skip changes no sample. Leak is never infinite, so every unfed cell gets there. A pool
   of no capacity grants nothing, so no bus feeds through it. `Kit::lfo_may_feed` says whether an LFO
   could still wake a resting cell: some LFO values lift its bus, its Supply and the pool's capacity
-  above zero together (routes summed as they sum; exact for one LFO, a bound for several).
+  above zero together (routes summed as they sum; a square takes only ±1). It is exact for one LFO
+  and a bound for several: their joint values depend on phase offsets their history set and on synced
+  rate ratios, and the bound errs only towards staying awake, never towards losing a sound.
 - **Reproducible.** Everything advances per sample. Events at one sample apply in a fixed order —
   resets (a transport reset, then a panic), then releases and chokes, then strikes with the group
   chokes they make, then expression — each reduced so their order in the slice cannot matter (the

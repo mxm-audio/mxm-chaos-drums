@@ -1286,3 +1286,30 @@ fn a_pool_of_no_capacity_feeds_nothing_until_an_lfo_raises_it() {
         "an LFO can raise the pool"
     );
 }
+
+#[test]
+fn a_square_lfo_wakes_only_where_one_of_its_two_values_feeds() {
+    let mut opposed = cells(&[(0, ModelId::RAW_RING)]);
+    opposed[0].bus = Bus::A;
+    opposed[0].supply = 0.5;
+    opposed[0].routes[0] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Supply,
+        amount: -1.0,
+    };
+    let with = |shape| KitParams {
+        bus: [0.5, 0.0],
+        lfo_shape: [
+            shape,
+            mxm_chaos_drums_dsp::LfoShape::Triangle,
+            mxm_chaos_drums_dsp::LfoShape::Sine,
+        ],
+        routes: kit_route(Source::Lfo1, KitTarget::BusA, 1.0),
+        ..steady()
+    };
+    // At +1 Supply is zero, at -1 Bus A is: a square never feeds, a sweep does near zero.
+    let square = Kit::new(RATE, with(mxm_chaos_drums_dsp::LfoShape::Square), opposed);
+    assert!(!square.lfo_may_feed(), "a square never feeds");
+    let sweep = Kit::new(RATE, with(mxm_chaos_drums_dsp::LfoShape::Triangle), opposed);
+    assert!(sweep.lfo_may_feed(), "a triangle crosses where both feed");
+}
