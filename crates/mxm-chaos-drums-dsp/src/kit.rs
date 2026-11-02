@@ -208,10 +208,21 @@ pub struct Kit {
     routers: [DestinationRouter; CELLS],
     /// The charge moved across each edge since the last [`Kit::take_flows`], first cell to second.
     flows: [f32; EDGES],
+    /// This sample's kit settings, its routes applied.
+    now: Now,
     /// Each cell's Level and Pan, and Master, as the mix follows them, and how fast.
     mixer: [[f32; 2]; CELLS],
     master: f32,
     smoothing: f32,
+}
+
+/// The kit's settings for one sample, its routes applied.
+#[derive(Clone, Copy, Debug, Default)]
+struct Now {
+    temper: f32,
+    flow: f32,
+    coupling: f32,
+    buses: [f32; 2],
 }
 
 /// How fast the mix follows Level, Pan and Master: a one-pole of this time constant.
@@ -252,6 +263,7 @@ impl Kit {
             pressure: 0.0,
             routers: cells.map(|cell| DestinationRouter::new(destination(cell.output), transition)),
             flows: [0.0; EDGES],
+            now: Now::default(),
             mixer: cells.map(|cell| [cell.level.max(0.0), cell.pan.clamp(-1.0, 1.0)]),
             master: params.master.max(0.0),
             smoothing: (1.0 / (MIX_FOLLOW_S * sample_rate)).min(1.0),
@@ -268,14 +280,10 @@ impl Kit {
         &self.params
     }
 
-    /// New kit settings. A new Seed applies at the next reset.
+    /// New kit settings. A new Seed applies at the next reset or transport reset. The pool takes its
+    /// new capacity and refill at the next sample, with the routes applied (`settle`).
     pub fn set_params(&mut self, params: KitParams) {
         self.params = params;
-        self.pool.set(
-            params.pool,
-            curves::recharge_ms(params.recharge),
-            self.sample_rate,
-        );
     }
 
     #[must_use]
@@ -299,6 +307,7 @@ impl Kit {
             cell.reset(self.params.seed);
             router.reset(destination(cell.params().output));
         }
+        self.now = Now::default();
         self.pool.fill();
         self.lfos.iter_mut().for_each(Lfo::reset);
         self.wheel = 0.0;
@@ -338,7 +347,7 @@ impl Kit {
             && self
                 .cells
                 .iter()
-                .all(|cell| cell.is_at_rest(self.params.bus))
+                .all(|cell| cell.is_at_rest(self.now.buses))
     }
 
     /// Render `out.len()` frames, applying `events` at their offsets.
@@ -397,25 +406,60 @@ impl Kit {
             lfo.advance(rate, self.sample_rate);
         }
 
+        // The kit's and the cells' settings with this sample's routes applied, before the rest check:
+        // a route can be what feeds a resting cell (an LFO on a bus, or on Supply).
+        self.settle(&sources);
         if !any && self.is_at_rest() {
             return [0.0; CELLS];
         }
-        self.tick(&sources)
+        self.tick()
+    }
+
+    /// Apply this sample's routes: the kit's effective settings, the pool's capacity and refill, and
+    /// every cell's. Each is a function of the parameters and the sources alone, and the pool takes a
+    /// setting only when it differs, so settling twice is settling once.
+    fn settle(&mut self, sources: &Sources) {
+        let mods = if routes::any_in_use(&self.params.routes) {
+            routes::kit_mods(&self.params.routes, sources)
+        } else {
+            KitMods::default()
+        };
+        let p = &self.params;
+        self.now = Now {
+            temper: (p.temper + mods.temper).clamp(0.0, 1.0),
+            flow: (p.flow + mods.flow).clamp(0.0, 1.0),
+            coupling: (p.coupling + mods.coupling).clamp(0.0, 1.0),
+            buses: [
+                (p.bus[0] + mods.bus[0]).clamp(0.0, 1.0),
+                (p.bus[1] + mods.bus[1]).clamp(0.0, 1.0),
+            ],
+        };
+        let recharge = (p.recharge + mods.recharge_octaves / RECHARGE_OCTAVES).clamp(0.0, 1.0);
+        let pool = (p.pool + mods.pool).clamp(0.0, 1.0);
+        self.pool
+            .configure(pool, curves::recharge_ms(recharge), self.sample_rate);
+        for cell in &mut self.cells {
+            cell.prepare(sources);
+        }
     }
 
     /// One sample's events, in their fixed order: resets, releases and chokes, strikes and the
     /// group chokes they make, then expression.
     fn apply(&mut self, sample: &Sample) {
+        // A transport reset is the performance from rest: every cell, the pool, the LFOs, the wheel
+        // and the pressure, and every stream from the kit's current Seed.
         if sample.restart {
             for cell in &mut self.cells {
-                cell.restart();
+                cell.restart(self.params.seed);
             }
             self.pool.fill();
             self.lfos.iter_mut().for_each(Lfo::reset);
+            self.wheel = 0.0;
+            self.pressure = 0.0;
         }
         if sample.panic {
             for cell in &mut self.cells {
-                cell.panic();
+                cell.panic(self.params.seed);
             }
         }
         for (index, cell) in self.cells.iter_mut().enumerate() {
@@ -467,32 +511,13 @@ impl Kit {
 
     /// One sample of the whole kit. Every cell reads the previous sample's charges and sounds, and
     /// the pool grants every demand the same share, so no cell's index decides anything.
-    fn tick(&mut self, sources: &Sources) -> [f32; CELLS] {
-        let mods = if routes::any_in_use(&self.params.routes) {
-            routes::kit_mods(&self.params.routes, sources)
-        } else {
-            KitMods::default()
-        };
-        let p = &self.params;
-        let temper = (p.temper + mods.temper).clamp(0.0, 1.0);
-        let flow = (p.flow + mods.flow).clamp(0.0, 1.0);
-        let coupling = (p.coupling + mods.coupling).clamp(0.0, 1.0);
-        let buses = [
-            (p.bus[0] + mods.bus[0]).clamp(0.0, 1.0),
-            (p.bus[1] + mods.bus[1]).clamp(0.0, 1.0),
-        ];
-        if mods.pool != 0.0 || mods.recharge_octaves != 0.0 {
-            let recharge = (p.recharge + mods.recharge_octaves / RECHARGE_OCTAVES).clamp(0.0, 1.0);
-            self.pool.set(
-                (p.pool + mods.pool).clamp(0.0, 1.0),
-                curves::recharge_ms(recharge),
-                self.sample_rate,
-            );
-        }
-
-        for cell in &mut self.cells {
-            cell.prepare(sources);
-        }
+    fn tick(&mut self) -> [f32; CELLS] {
+        let Now {
+            temper,
+            flow,
+            coupling,
+            buses,
+        } = self.now;
         let mut demands = [0.0; CELLS];
         for (demand, cell) in demands.iter_mut().zip(&self.cells) {
             *demand = cell.demand(buses);

@@ -4,8 +4,8 @@
 
 use mxm_chaos_drums_dsp::fmath;
 use mxm_chaos_drums_dsp::{
-    AVAILABLE_MODELS, Bus, CELLS, CellParams, DECLICK_S, Event, EventKind, Kind, Kit, KitParams,
-    ModelId, OutputFrame, neighbours,
+    AVAILABLE_MODELS, Bus, CELLS, CellParams, CellTarget, DECLICK_S, Event, EventKind, Kind, Kit,
+    KitParams, KitTarget, ModelId, OutputFrame, Route, Source, neighbours,
 };
 use mxm_rng::Xorshift32;
 
@@ -663,4 +663,183 @@ fn exp2_and_sin_are_exact_where_they_must_be_and_close_between() {
     }
     assert_eq!(fmath::sin_turns(0.0), 0.0);
     assert!((fmath::sin_turns(0.25) - 1.0).abs() < 2e-7);
+}
+
+/// [`render`], with the kit's settings applied again before every block, as the plugin does.
+fn render_resetting(
+    kit: &mut Kit,
+    events: &[(usize, EventKind)],
+    len: usize,
+    block: usize,
+) -> Vec<[f32; CELLS]> {
+    let params = *kit.params();
+    let mut out = vec![[0.0; CELLS]; len];
+    let mut next = 0;
+    for (start, chunk) in (0..len).step_by(block).zip(out.chunks_mut(block)) {
+        kit.set_params(params);
+        let mut here = Vec::new();
+        while next < events.len() && events[next].0 < start + chunk.len() {
+            here.push(Event {
+                offset: events[next].0 - start,
+                kind: events[next].1,
+            });
+            next += 1;
+        }
+        kit.process_raw(&here, chunk);
+    }
+    out
+}
+
+fn kit_route(
+    source: Source,
+    target: KitTarget,
+    amount: f32,
+) -> [Route<KitTarget>; mxm_chaos_drums_dsp::ROUTES] {
+    let mut routes = [Route::default(); mxm_chaos_drums_dsp::ROUTES];
+    routes[0] = Route {
+        source,
+        target,
+        amount,
+    };
+    routes
+}
+
+#[test]
+fn a_modulated_pool_renders_the_same_at_any_block_size_with_settings_applied_every_block() {
+    let mut held = cells(&[(0, ModelId::RAW_RING), (1, ModelId::WIRED_SNARE)]);
+    for cell in &mut held {
+        cell.supply = 1.0;
+    }
+    let params = KitParams {
+        pool: 0.1,
+        lfo_rate_hz: [9.0, 1.3, 4.0],
+        routes: kit_route(Source::Lfo1, KitTarget::Pool, 0.8),
+        ..wild()
+    };
+    let events = [strike(0, 0, 1.0), strike(5, 1, 1.0)];
+    let reference = bits(&render_resetting(
+        &mut Kit::new(RATE, params, held),
+        &events,
+        48_000,
+        1,
+    ));
+    for block in [7, 64, 4096] {
+        let again = bits(&render_resetting(
+            &mut Kit::new(RATE, params, held),
+            &events,
+            48_000,
+            block,
+        ));
+        assert!(again == reference, "block {block}");
+    }
+}
+
+#[test]
+fn a_route_onto_a_bus_or_onto_supply_wakes_a_resting_cell() {
+    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
+    on_bus[0].bus = Bus::A;
+    on_bus[0].supply = 0.8;
+    let by_bus = KitParams {
+        routes: kit_route(Source::Lfo1, KitTarget::BusA, 1.0),
+        ..steady()
+    };
+    let out = render(&mut Kit::new(RATE, by_bus, on_bus), &[], 48_000, 256);
+    assert!(peak(&out, 0) > 0.01, "an LFO on Bus A fed nothing");
+
+    let mut starved = on_bus;
+    starved[0].supply = 0.0;
+    starved[0].routes[0] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Supply,
+        amount: 1.0,
+    };
+    let bus_up = KitParams {
+        bus: [1.0, 0.0],
+        ..steady()
+    };
+    let out = render(&mut Kit::new(RATE, bus_up, starved), &[], 48_000, 256);
+    assert!(peak(&out, 0) > 0.01, "an LFO on Supply fed nothing");
+}
+
+#[test]
+fn after_a_transport_reset_the_wheel_held_before_it_is_gone() {
+    let mut kick = cells(&[(0, ModelId::DRAINING_KICK)]);
+    kick[0].routes[0] = Route {
+        source: Source::Wheel,
+        target: CellTarget::Pitch,
+        amount: 1.0,
+    };
+    let reset = 9_600;
+    let history = [
+        (0, EventKind::Wheel(1.0)),
+        strike(10, 0, 1.0),
+        (reset, EventKind::TransportReset),
+        strike(reset + 50, 0, 0.9),
+    ];
+    let played = render(
+        &mut Kit::new(RATE, steady(), kick),
+        &history,
+        reset + 24_000,
+        256,
+    );
+    let fresh = render(
+        &mut Kit::new(RATE, steady(), kick),
+        &[(0, EventKind::TransportReset), strike(50, 0, 0.9)],
+        24_000,
+        256,
+    );
+    let w = window();
+    assert!(bits(&played[reset + w..]) == bits(&fresh[w..]));
+}
+
+#[test]
+fn a_transport_reset_takes_the_seed_set_since() {
+    let snare = cells(&[(0, ModelId::WIRED_SNARE)]);
+    let hit = [(0, EventKind::TransportReset), strike(0, 0, 1.0)];
+    let mut kit = Kit::new(
+        RATE,
+        KitParams {
+            seed: 1,
+            ..steady()
+        },
+        snare,
+    );
+    render(&mut kit, &[strike(0, 0, 1.0)], 4_800, 256);
+    kit.set_params(KitParams {
+        seed: 2,
+        ..steady()
+    });
+    let reseeded = render(&mut kit, &hit, 9_600, 256);
+    let two = render(
+        &mut Kit::new(
+            RATE,
+            KitParams {
+                seed: 2,
+                ..steady()
+            },
+            snare,
+        ),
+        &hit,
+        9_600,
+        256,
+    );
+    let one = render(
+        &mut Kit::new(
+            RATE,
+            KitParams {
+                seed: 1,
+                ..steady()
+            },
+            snare,
+        ),
+        &hit,
+        9_600,
+        256,
+    );
+    let w = window();
+    assert!(
+        bits(&reseeded[w..]) == bits(&two[w..]),
+        "the reset took seed 1"
+    );
+    assert!(bits(&two[w..]) != bits(&one[w..]), "two seeds, one sound");
 }

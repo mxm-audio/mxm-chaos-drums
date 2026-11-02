@@ -12,6 +12,9 @@ pub(crate) struct Pool {
     capacity: f32,
     /// The share of the gap refilled each sample.
     recharge: f32,
+    /// The settings it was last given.
+    pool: f32,
+    recharge_ms: f32,
 }
 
 impl Pool {
@@ -20,6 +23,8 @@ impl Pool {
             level: 0.0,
             capacity: 0.0,
             recharge: 0.0,
+            pool: f32::NAN,
+            recharge_ms: f32::NAN,
         };
         it.set(pool, recharge_ms, sample_rate);
         it.level = it.capacity;
@@ -27,9 +32,19 @@ impl Pool {
     }
 
     pub fn set(&mut self, pool: f32, recharge_ms: f32, sample_rate: f32) {
+        self.pool = pool;
+        self.recharge_ms = recharge_ms;
         self.capacity = CAPACITY_FULL * pool.clamp(0.0, 1.0);
         self.level = self.level.min(self.capacity);
         self.recharge = (1000.0 / (recharge_ms.max(1.0) * sample_rate)).min(1.0);
+    }
+
+    /// [`Pool::set`], only when something changed: the same settings every sample are applied once,
+    /// so the level is never clamped, nor the refill recomputed, for nothing.
+    pub fn configure(&mut self, pool: f32, recharge_ms: f32, sample_rate: f32) {
+        if pool != self.pool || recharge_ms != self.recharge_ms {
+            self.set(pool, recharge_ms, sample_rate);
+        }
     }
 
     pub fn fill(&mut self) {

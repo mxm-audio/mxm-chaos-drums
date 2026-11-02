@@ -251,15 +251,16 @@ impl Cell {
 
     /// Exact rest and silence, every stream back to its seed from `kit_seed`, unlatched.
     pub fn reset(&mut self, kit_seed: u32) {
-        self.kit_seed = kit_seed;
-        self.restart();
+        self.restart(kit_seed);
         self.offset = 0.0;
         self.live = 0.0;
         self.resting = true;
     }
 
-    /// From rest at this sample, the old output bridged by the offset: a transport reset.
-    pub fn restart(&mut self) {
+    /// From rest at this sample, every stream from `kit_seed`, the old output bridged by the offset:
+    /// a transport reset.
+    pub fn restart(&mut self, kit_seed: u32) {
+        self.kit_seed = kit_seed;
         self.bridge();
         self.charge = 0.0;
         self.gate = false;
@@ -280,8 +281,8 @@ impl Cell {
     }
 
     /// Immediate exact silence, latched: a panic.
-    pub fn panic(&mut self) {
-        self.restart();
+    pub fn panic(&mut self, kit_seed: u32) {
+        self.restart(kit_seed);
         self.offset = 0.0;
         self.live = 0.0;
         self.latched = true;

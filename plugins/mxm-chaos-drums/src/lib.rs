@@ -349,9 +349,32 @@ pub struct MxmChaosDrums {
     frames: Vec<OutputFrame>,
     notes: Notes,
     multi_output: bool,
-    /// Whether the host's transport was playing at the last callback: a start resets the kit when
-    /// Reset on play is on.
+    play: PlayStart,
+}
+
+/// A start of the host's transport, kept until a callback has a sample to reset on: a start seen in a
+/// callback of no frames resets at the next one's first sample.
+#[derive(Debug, Default, Clone, Copy)]
+struct PlayStart {
+    /// Whether the transport was playing at the last callback.
     playing: bool,
+    /// A start with Reset on play on, waiting for a sample.
+    pending: bool,
+}
+
+impl PlayStart {
+    /// This callback's transport; whether its first sample is a transport reset.
+    fn take(&mut self, playing: bool, reset_on_play: bool, samples: usize) -> bool {
+        if playing && !self.playing && reset_on_play {
+            self.pending = true;
+        }
+        self.playing = playing;
+        let now = self.pending && samples > 0;
+        if now {
+            self.pending = false;
+        }
+        now
+    }
 }
 
 impl Default for MxmChaosDrums {
@@ -363,7 +386,7 @@ impl Default for MxmChaosDrums {
             frames: Vec::new(),
             notes: Notes::new(),
             multi_output: false,
-            playing: false,
+            play: PlayStart::default(),
         }
     }
 }
@@ -454,7 +477,7 @@ impl Plugin for MxmChaosDrums {
         let kit = self.params.kit(self.params.lfo_hz(None));
         self.kit = Some(Box::new(Kit::new(sample_rate, kit, self.cell_settings())));
         self.notes = Notes::new();
-        self.playing = false;
+        self.play = PlayStart::default();
         true
     }
 
@@ -476,8 +499,16 @@ impl Plugin for MxmChaosDrums {
         let transport = context.transport();
         let tempo = mxm_tempo::tempo(transport.tempo);
         self.telemetry.tempo.publish(tempo);
-        let restart = transport.playing && !self.playing && self.params.reset_on_play.value();
-        self.playing = transport.playing;
+        let restart = self.play.take(
+            transport.playing,
+            self.params.reset_on_play.value(),
+            buffer.samples(),
+        );
+        if restart {
+            // The performance from rest, the note owners and the expression the kit heard with it: a
+            // note held across the start neither owns its key nor feeds its cell.
+            self.notes = Notes::new();
+        }
         let cells = self.cell_settings();
         let Some(kit) = self.kit.as_mut() else {
             return ProcessStatus::Normal;
@@ -792,6 +823,25 @@ mod notes {
                     velocity: 0.5
                 }
             ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod play {
+    use super::PlayStart;
+
+    #[test]
+    fn a_start_in_a_callback_of_no_frames_resets_at_the_next_ones_first_sample() {
+        let mut play = PlayStart::default();
+        assert!(!play.take(true, true, 0));
+        assert!(play.take(true, true, 64));
+        assert!(!play.take(true, true, 64), "once");
+        let mut off = PlayStart::default();
+        assert!(!off.take(true, false, 64), "Reset on play off");
+        assert!(
+            !off.take(false, true, 64) && off.take(true, true, 64),
+            "a stop and a start"
         );
     }
 }
