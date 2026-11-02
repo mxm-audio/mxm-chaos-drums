@@ -1212,3 +1212,77 @@ fn an_lfo_keeps_a_kit_awake_only_where_it_can_feed_a_cell() {
         "an LFO on Bus A, Supply up"
     );
 }
+
+#[test]
+fn routes_that_cancel_or_never_agree_let_a_kit_sleep() {
+    let two = |a: Route<KitTarget>, b: Route<KitTarget>| {
+        let mut routes = [Route::default(); mxm_chaos_drums_dsp::ROUTES];
+        routes[0] = a;
+        routes[1] = b;
+        routes
+    };
+    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
+    on_bus[0].bus = Bus::A;
+    on_bus[0].supply = 0.8;
+    // Two LFO 1 routes on Bus A that cancel: Bus A never moves.
+    let lfo = |amount| Route {
+        source: Source::Lfo1,
+        target: KitTarget::BusA,
+        amount,
+    };
+    let cancel = KitParams {
+        routes: two(lfo(1.0), lfo(-1.0)),
+        ..steady()
+    };
+    assert!(
+        !Kit::new(RATE, cancel, on_bus).lfo_may_feed(),
+        "cancelling routes"
+    );
+    // LFO 1 raises Bus A while it takes Supply down from zero: never both above zero.
+    let mut opposed = on_bus;
+    opposed[0].supply = 0.0;
+    opposed[0].routes[0] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Supply,
+        amount: -1.0,
+    };
+    let raise = KitParams {
+        routes: two(lfo(1.0), Route::default()),
+        ..steady()
+    };
+    assert!(
+        !Kit::new(RATE, raise, opposed).lfo_may_feed(),
+        "opposed phases"
+    );
+    opposed[0].routes[0].amount = 1.0;
+    assert!(
+        Kit::new(RATE, raise, opposed).lfo_may_feed(),
+        "the same phase lifts both"
+    );
+}
+
+#[test]
+fn a_pool_of_no_capacity_feeds_nothing_until_an_lfo_raises_it() {
+    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
+    on_bus[0].bus = Bus::A;
+    on_bus[0].supply = 0.8;
+    let empty = KitParams {
+        pool: 0.0,
+        bus: [1.0, 0.0],
+        ..steady()
+    };
+    let mut kit = Kit::new(RATE, empty, on_bus);
+    render(&mut kit, &[], 256, 256);
+    assert!(
+        kit.is_at_rest() && !kit.lfo_may_feed(),
+        "a pool of nothing feeds nothing"
+    );
+    let raised = KitParams {
+        routes: kit_route(Source::Lfo1, KitTarget::Pool, 1.0),
+        ..empty
+    };
+    assert!(
+        Kit::new(RATE, raised, on_bus).lfo_may_feed(),
+        "an LFO can raise the pool"
+    );
+}

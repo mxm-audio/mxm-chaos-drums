@@ -424,9 +424,14 @@ impl Cell {
         self.charge
     }
 
-    /// Whether a held note or a bus would fill it now: its Supply, routes applied, is above zero.
-    pub fn is_supplied(&self) -> bool {
-        self.eff.fill_rate > 0.0
+    /// Its Supply as an affine function of the LFOs, its other sources as they are now.
+    pub fn supply_form(&self, sources: &Sources) -> routes::Affine {
+        routes::Affine::of(
+            &self.params.routes,
+            CellTarget::Supply,
+            self.params.supply,
+            |source| sources.value(source, self.velocity_source, self.random_source),
+        )
     }
 
     pub fn is_latched(&self) -> bool {

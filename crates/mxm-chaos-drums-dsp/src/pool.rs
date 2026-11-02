@@ -55,6 +55,10 @@ impl Pool {
         self.level
     }
 
+    pub fn has_capacity(&self) -> bool {
+        self.capacity > 0.0
+    }
+
     pub fn is_full(&self) -> bool {
         self.level == self.capacity
     }

@@ -9,7 +9,7 @@ use crate::cell::{Bus, Cell, CellParams, velocity_curve};
 use crate::curves::{self, RECHARGE_OCTAVES};
 use crate::fmath;
 use crate::pool::Pool;
-use crate::routes::{self, CellTarget, KitMods, KitTarget, ROUTES, Route, Source, Sources};
+use crate::routes::{self, Affine, KitMods, KitTarget, ROUTES, Route, Sources};
 
 /// The lowest sample rate a kit runs at, as the drum machine's.
 pub const MIN_SAMPLE_RATE: f32 = 1_000.0;
@@ -346,41 +346,35 @@ impl Kit {
     /// skipped; only the LFOs run on.
     #[must_use]
     pub fn is_at_rest(&self) -> bool {
-        self.pool.is_full()
-            && self
-                .cells
-                .iter()
-                .all(|cell| cell.is_at_rest(self.now.buses))
+        // A pool of no capacity grants nothing, so a bus feeds nothing through it.
+        let fed = if self.pool.has_capacity() {
+            self.now.buses
+        } else {
+            [0.0; 2]
+        };
+        self.pool.is_full() && self.cells.iter().all(|cell| cell.is_at_rest(fed))
     }
 
-    /// Whether an LFO could feed a cell that rests now. A cell is fed only while both its bus's level
-    /// and its Supply are above zero, so this holds when both can be — each now, or through an LFO
-    /// route of any amount, since an LFO swings both ways — and an LFO moves at least one of them.
-    /// The kit skips its own work while it rests, but a host told it may sleep would never let the
-    /// LFO get there, so the plugin keeps processing while this holds, and only then.
+    /// Whether an LFO could feed a cell that rests now. A cell is fed only while its bus's level, its
+    /// Supply and the Pool's capacity are all above zero, so this holds when some LFO values lift all
+    /// three together (`routes::lfo_can_lift_all`: exact for one LFO, a bound for several). The kit
+    /// skips its own work while it rests, but a host told it may sleep would never let the LFO get
+    /// there, so the plugin keeps processing while this holds; where the bound says yes and the LFOs
+    /// never agree, that costs a callback of silence.
     #[must_use]
     pub fn lfo_may_feed(&self) -> bool {
-        let lfo = |source: Source| matches!(source, Source::Lfo1 | Source::Lfo2 | Source::Lfo3);
-        let bus_moves = |target: KitTarget| {
-            self.params
-                .routes
-                .iter()
-                .any(|route| lfo(route.source) && route.target == target && route.amount != 0.0)
-        };
+        let sources = self.sources();
+        let now = |source| sources.value(source, 0.0, 0.0);
+        let p = &self.params;
+        let pool = Affine::of(&p.routes, KitTarget::Pool, p.pool, now);
         self.cells.iter().any(|cell| {
-            let p = cell.params();
-            let (level, moves) = match p.bus {
+            let (target, base) = match cell.params().bus {
                 Bus::Off => return false,
-                Bus::A => (self.now.buses[0], bus_moves(KitTarget::BusA)),
-                Bus::B => (self.now.buses[1], bus_moves(KitTarget::BusB)),
+                Bus::A => (KitTarget::BusA, p.bus[0]),
+                Bus::B => (KitTarget::BusB, p.bus[1]),
             };
-            let supply_moves = p.routes.iter().any(|route| {
-                lfo(route.source) && route.target == CellTarget::Supply && route.amount != 0.0
-            });
-            !cell.is_latched()
-                && (level > 0.0 || moves)
-                && (cell.is_supplied() || supply_moves)
-                && (moves || supply_moves)
+            let bus = Affine::of(&p.routes, target, base, now);
+            !cell.is_latched() && routes::lfo_can_lift_all(&[bus, cell.supply_form(&sources), pool])
         })
     }
 

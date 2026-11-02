@@ -57,8 +57,10 @@ still to come.
 - **Init** is the defaults: the brief's kit on the drum machine's role map, every route Off, Temper
   0. A role whose drum P4 has not built yet plays a raw engine standing in for it (`params::INIT`).
 - **Realtime.** The kit, its delay lines and the frame buffer are made in `activate`; `process`
-  allocates nothing (one sample's events are a fixed array). At rest it reports `Normal` and runs
-  none of the core; otherwise `KeepAlive`.
+  allocates nothing (one sample's events are a fixed array). At rest it runs none of the core, and it
+  reports `Normal` only when no LFO can wake it (`Kit::lfo_may_feed`): a host told it may sleep
+  would never let the LFO get there. Otherwise `KeepAlive`. A callback of no frames applies its
+  events, a play start and the editor's auditions (one sample) at once, so its status is theirs.
 
 - **The editor.** The grid's squares select a cell and strike it at velocity 100 (a click, or
   OPEN), as the drum machine's slot rows do; a model shows only the controls it reads, under its

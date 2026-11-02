@@ -45,7 +45,10 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
 - **Rest is a fixed point.** A cell with no charge, no gate, no touch and no offset clears its engines
   (reseeding their noise, so a hit from rest is always the same hit) and changes nothing until fed;
   the pool snaps to full once a step stops moving it. So a kit at rest is skipped (only the LFOs run
-  on) and the skip changes no sample. Leak is never infinite, so every unfed cell gets there.
+  on) and the skip changes no sample. Leak is never infinite, so every unfed cell gets there. A pool
+  of no capacity grants nothing, so no bus feeds through it. `Kit::lfo_may_feed` says whether an LFO
+  could still wake a resting cell: some LFO values lift its bus, its Supply and the pool's capacity
+  above zero together (routes summed as they sum; exact for one LFO, a bound for several).
 - **Reproducible.** Everything advances per sample. Events at one sample apply in a fixed order —
   resets (a transport reset, then a panic), then releases and chokes, then strikes with the group
   chokes they make, then expression — each reduced so their order in the slice cannot matter (the

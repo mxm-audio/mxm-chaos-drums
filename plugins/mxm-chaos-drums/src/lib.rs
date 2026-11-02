@@ -549,17 +549,18 @@ impl Plugin for MxmChaosDrums {
             }
             // The cells the editor asked to hear, struck now: a host may answer the editor's wake with
             // a callback of no frames, and the request must not wait on one that never comes.
+            // All of them at one sample, as a framed callback strikes them: struck together, none chokes
+            // another.
             let audition = self.telemetry.take_audition();
+            let mut struck = SampleEvents::new();
             for cell in (0..CELLS).filter(|cell| audition & (1 << cell) != 0) {
-                kit.apply_now(&[Event {
-                    offset: 0,
-                    kind: EventKind::Strike {
-                        cell,
-                        velocity: AUDITION_VELOCITY,
-                        gate: false,
-                    },
-                }]);
+                struck.push(EventKind::Strike {
+                    cell,
+                    velocity: AUDITION_VELOCITY,
+                    gate: false,
+                });
             }
+            kit.apply_now(struck.as_slice());
             // The settings stored above, applied as the next frame will, so the status is theirs.
             kit.settle_now();
             return if kit.is_at_rest() && !kit.lfo_may_feed() {

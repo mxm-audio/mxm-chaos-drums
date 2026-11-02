@@ -82,7 +82,7 @@ pub(crate) struct Sources {
 
 impl Sources {
     /// A source's value; `velocity` and `random` are the cell's, zero for the kit.
-    fn value(&self, source: Source, velocity: f32, random: f32) -> f32 {
+    pub(crate) fn value(&self, source: Source, velocity: f32, random: f32) -> f32 {
         match source {
             Source::Off => 0.0,
             Source::Lfo1 => self.lfo[0],
@@ -190,4 +190,70 @@ pub(crate) fn kit_mods(routes: &[Route<KitTarget>; ROUTES], sources: &Sources) -
         }
     }
     mods
+}
+
+/// One target's value as an affine function of the three LFOs: what its parameter and the other
+/// sources make now, and each LFO's net amount on it, every route on it summed as the routes sum.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct Affine {
+    pub fixed: f32,
+    pub lfo: [f32; 3],
+}
+
+impl Affine {
+    /// `target`'s form under `routes`, for a target in control units (Supply, Pool, a bus): `base`
+    /// its parameter, `now` the other sources' values.
+    pub fn of<T: PartialEq + Copy>(
+        routes: &[Route<T>; ROUTES],
+        target: T,
+        base: f32,
+        now: impl Fn(Source) -> f32,
+    ) -> Self {
+        let mut form = Self {
+            fixed: base,
+            lfo: [0.0; 3],
+        };
+        for route in routes.iter().filter(|route| route.target == target) {
+            let amount = route.amount.clamp(-1.0, 1.0) * reach::CONTROL;
+            match route.source {
+                Source::Off => {}
+                Source::Lfo1 => form.lfo[0] += amount,
+                Source::Lfo2 => form.lfo[1] += amount,
+                Source::Lfo3 => form.lfo[2] += amount,
+                source => form.fixed += amount * now(source),
+            }
+        }
+        form
+    }
+}
+
+/// Whether some LFO values, each anywhere in [-1, 1], put every form above zero together, while an
+/// LFO moves at least one of them. Exact when one LFO moves them all: each form is then above zero on
+/// an interval of its value, and the intervals meet or they do not. With several LFOs it is a bound,
+/// each form on its own, so it may say yes where they never agree, and never says no where they do.
+pub(crate) fn lfo_can_lift_all(forms: &[Affine]) -> bool {
+    let moving = |k: usize| forms.iter().any(|form| form.lfo[k] != 0.0);
+    let mut used = (0..3).filter(|&k| moving(k));
+    let Some(k) = used.next() else {
+        return false;
+    };
+    if used.next().is_some() {
+        return forms
+            .iter()
+            .all(|form| form.fixed + form.lfo.iter().map(|a| a.abs()).sum::<f32>() > 0.0);
+    }
+    let (mut low, mut high) = (f32::NEG_INFINITY, f32::INFINITY);
+    for form in forms {
+        let a = form.lfo[k];
+        if a == 0.0 {
+            if form.fixed <= 0.0 {
+                return false;
+            }
+        } else if a > 0.0 {
+            low = low.max(-form.fixed / a);
+        } else {
+            high = high.min(-form.fixed / a);
+        }
+    }
+    low < high && low < 1.0 && high > -1.0
 }
