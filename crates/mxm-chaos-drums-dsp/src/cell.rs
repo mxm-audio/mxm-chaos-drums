@@ -5,6 +5,7 @@ use mxm_dsp::guard::flush;
 use mxm_modulation::standard;
 use mxm_rng::{SplitMix64, Xorshift32};
 
+use crate::curves::{self, LEAK_OCTAVES};
 use crate::engine::strand::LOWEST_HZ;
 use crate::fmath;
 use crate::model::ModelId;
@@ -13,8 +14,6 @@ use crate::voice::{Drive, Lines, Voice};
 
 /// Below this a cell's charge is exactly zero: about −90 dB, so every unfed cell comes to rest.
 pub const CHARGE_FLOOR: f32 = 3e-5;
-/// The Leak range, in milliseconds. Leak never reaches zero, so rest is always reached.
-pub const LEAK_MS: (f32, f32) = (20.0, 30_000.0);
 /// The declick window: a transition's jump decays to exact zero within it.
 pub const DECLICK_S: f32 = 0.005;
 /// Supply just above zero: a held note at full velocity fills an empty cell's time constant in
@@ -60,8 +59,8 @@ pub struct CellParams {
     pub supply: f32,
     /// How fast sounding spends charge, 0…1.
     pub hunger: f32,
-    /// The time to drain at rest, in milliseconds, within [`LEAK_MS`].
-    pub leak_ms: f32,
+    /// The time to drain at rest, 0…1 along [`curves::leak_ms`]: 20 ms to 30 s, never infinite.
+    pub leak: f32,
     /// The model's threshold moved, −1…+1.
     pub threshold: f32,
     /// The cell's share in Flow and Coupling, 0…1.
@@ -94,7 +93,7 @@ impl CellParams {
             strike: 0.6,
             supply: 0.3,
             hunger: 0.5,
-            leak_ms: Voice::default_leak_ms(model),
+            leak: Voice::default_leak(model),
             threshold: 0.0,
             link: 1.0,
             touch: 0.5,
@@ -353,13 +352,8 @@ impl Cell {
             0.0
         };
         self.eff.hunger_rate = HUNGER_FULL * (p.hunger + mods.hunger).clamp(0.0, 1.0);
-        let leak_ms = p.leak_ms.clamp(LEAK_MS.0, LEAK_MS.1);
-        let leak_ms = if mods.leak_octaves == 0.0 {
-            leak_ms
-        } else {
-            (leak_ms * fmath::exp2(mods.leak_octaves)).clamp(LEAK_MS.0, LEAK_MS.1)
-        };
-        self.eff.leak_rate = 1000.0 / leak_ms;
+        let leak = (p.leak + mods.leak_octaves / LEAK_OCTAVES).clamp(0.0, 1.0);
+        self.eff.leak_rate = 1000.0 / curves::leak_ms(leak);
         self.eff.threshold = (p.threshold + mods.threshold).clamp(-1.0, 1.0);
         self.eff.link = (p.link + mods.link).clamp(0.0, 1.0);
         self.eff.touch = (p.touch + mods.touch).clamp(0.0, 1.0);

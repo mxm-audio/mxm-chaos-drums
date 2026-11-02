@@ -117,16 +117,17 @@ technique or paper it comes from.
 - `docs/briefs/mxm-chaos-drums.md`: the design system §14 brief, the parameter surface, the Init
   kit and the model catalogue. **Written first; the owner approves it before any code** (P0).
 - Root owns `Cargo.toml`, `Cargo.lock`, `LICENSE`, `NOTICE.md`, `TRADEMARKS.md`, `README.md`,
-  `CONTRIBUTING.md`, `.gitignore` and `.github/`. `bundler.toml` and `xtask/` arrive with the plugin
-  (P3). Each folder with an `AGENTS.md` owns its contents; the index is below.
+  `CONTRIBUTING.md`, `.gitignore`, `.cargo/`, `.github/`, `bundler.toml` and `xtask/`. Each folder
+  with an `AGENTS.md` owns its contents; the index is below.
 
-**Dependencies follow mxm-kit's `main`, and `Cargo.lock` pins the exact commit**, as in every MXM
-repository.
+**Dependencies follow each repository's `main`, and `Cargo.lock` pins the exact commit**, as in
+every MXM repository: the kit from mxm-kit's `main`, nice-plug and egui-baseview from their MXM forks
+(`[patch.crates-io]`).
 
 **The phases**, each landed and pushed on its own, each leaving a working state: P0 this repository
 and the brief (approved 2026-11-02); P1 a DSP spike, which the owner heard as good starting points
 (2026-11-02: "I think I need an interface to explore to test it further, so lets halt my tests until
-the first version is up"); **P2 the DSP crate** (landed 2026-11-02); P3 the plugin; then P5 the
+the first version is up"); P2 the DSP crate and **P3 the plugin** (landed 2026-11-02); then P5 the
 editor before P4 the rest of the catalogue, so the owner explores it through the interface; P6 the
 fifty factory kits and the release gates.
 
@@ -172,8 +173,9 @@ breaks another is a broken change. CI builds and tests on all three when started
 |---|---|---|
 | `crates/mxm-chaos-drums-dsp` | **1.87** | Framework-free; its runtime dependencies, `mxm-drum-engine`, `mxm-dsp`, `mxm-modulation`, `mxm-part-routing` and `mxm-rng`, are kit crates at this floor. Declared, not yet verified on 1.87 |
 
-The plugin will be **1.95**, because its editor pulls in egui. The DSP crate never inherits its
-floor.
+| `plugins/mxm-chaos-drums` | **1.95** | It pulls in egui through mxm-drum-shell and mxm-params, and its editor will; depends on the DSP crate, which stays at 1.87 |
+
+The DSP crate never inherits the plugin's floor.
 
 ## Licensing
 
@@ -192,15 +194,18 @@ even when the implementation is original.
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test
+cargo xtask bundle mxm-chaos-drums --release      # -> target/bundled/, installed for this user
+clap-validator validate "target/bundled/mxm-chaos-drums.clap"
 ```
 
-CI runs the same on Windows, macOS and Linux, only when started by hand. Before a push, run them on
-Windows; Linux and macOS are checked later, together (the workspace's rule).
+CI runs the first three on Windows, macOS and Linux, and bundles, only when started by hand. Before
+a push, run them on Windows; Linux and macOS are checked later, together (the workspace's rule).
 
 # Child DOX Index
 
 | Doc | Scope |
 |---|---|
+| [`plugins/AGENTS.md`](plugins/AGENTS.md) | The collection's plugin conventions as this repository keeps them, and the plugin's own `AGENTS.md` |
 | [`crates/mxm-chaos-drums-dsp/AGENTS.md`](crates/mxm-chaos-drums-dsp/AGENTS.md) | The sound as plain Rust: charge and its law, the pool and buses, the five engines, the models, sixteen cells on the torus, touch, the choke latch, the declick, routes, outputs and the one-shot |
 
 `docs/` is owned here.

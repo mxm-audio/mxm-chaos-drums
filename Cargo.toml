@@ -2,6 +2,8 @@
 resolver = "3"
 members = [
     "crates/mxm-chaos-drums-dsp",
+    "plugins/mxm-chaos-drums",
+    "xtask",
 ]
 
 [workspace.package]
@@ -16,12 +18,32 @@ repository = "https://github.com/mxm-audio/mxm-chaos-drums"
 # Pinned exactly, as in every MXM repository; Cargo.lock is committed. Own crates by path, the
 # kit's from mxm-kit's `main`.
 mxm-audio-file = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-chaos-drums-dsp = { path = "crates/mxm-chaos-drums-dsp" }
 mxm-drum-engine = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-drum-shell = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-dsp = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-modulation = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-params = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-part-routing = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-plugin-test = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-preset = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-rng = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-tempo = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-xtask = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+nice-plug = { version = "=0.4.2", default-features = false, features = ["editor", "assert_process_allocs"] }
 
 [profile.release]
 lto = "thin"
 strip = "symbols"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = "none"
+
+# nice-plug and egui-baseview as published, plus the patches in each fork's PATCHES.md, as every
+# MXM repository that builds a plugin patches them.
+[patch.crates-io]
+nice-plug = { git = "https://github.com/mxm-audio/nice-plug", branch = "main" }
+egui-baseview = { git = "https://github.com/mxm-audio/egui-baseview", branch = "main" }
+nice-plug-egui = { git = "https://github.com/mxm-audio/nice-plug-egui", branch = "main" }

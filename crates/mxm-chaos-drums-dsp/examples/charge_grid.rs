@@ -129,7 +129,7 @@ fn render(name: &str, model: ModelId, partner: ModelId, temper: f32, folder: &Pa
         take.cues,
         "{name}, Temper {percent}%. Defaults: Strike 60%, Supply 30%, Hunger 50%, Leak {} ms.\n\
          A-C: the cell alone (Link 0). D: linked to its partner (cell 2).\n",
-        alone.leak_ms
+        mxm_chaos_drums_dsp::curves::leak_ms(alone.leak).round()
     );
 
     for velocity in [40u8, 80, 127] {

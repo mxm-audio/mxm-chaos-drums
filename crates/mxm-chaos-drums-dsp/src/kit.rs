@@ -6,9 +6,13 @@ use mxm_dsp::guard::finite_or;
 use mxm_part_routing::{Destination, DestinationRouter};
 
 use crate::cell::{Cell, CellParams, velocity_curve};
+use crate::curves::{self, RECHARGE_OCTAVES};
 use crate::fmath;
 use crate::pool::Pool;
 use crate::routes::{self, KitMods, KitTarget, ROUTES, Route, Sources};
+
+/// The lowest sample rate a kit runs at, as the drum machine's.
+pub const MIN_SAMPLE_RATE: f32 = 1_000.0;
 
 /// Sixteen cells, one a key, as the drum engine's sixteen slots.
 pub const CELLS: usize = SLOT_COUNT;
@@ -60,8 +64,8 @@ pub struct KitParams {
     pub coupling: f32,
     /// The shared supply's capacity, 0…1.
     pub pool: f32,
-    /// The time the pool takes to refill, in milliseconds.
-    pub recharge_ms: f32,
+    /// The time the pool takes to refill, 0…1 along [`curves::recharge_ms`]: 10 ms to 10 s.
+    pub recharge: f32,
     /// Bus A's and Bus B's levels, 0…1.
     pub bus: [f32; 2],
     /// Chooses every seeded stream. Applied at the next reset.
@@ -82,7 +86,8 @@ impl Default for KitParams {
             flow: 0.5,
             coupling: 0.5,
             pool: 1.0,
-            recharge_ms: 500.0,
+            // About 510 ms.
+            recharge: 0.57,
             bus: [0.0; 2],
             seed: 1,
             dynamics: 0.0,
@@ -203,13 +208,30 @@ pub struct Kit {
     routers: [DestinationRouter; CELLS],
     /// The charge moved across each edge since the last [`Kit::take_flows`], first cell to second.
     flows: [f32; EDGES],
+    /// Each cell's Level and Pan, and Master, as the mix follows them, and how fast.
+    mixer: [[f32; 2]; CELLS],
+    master: f32,
+    smoothing: f32,
+}
+
+/// How fast the mix follows Level, Pan and Master: a one-pole of this time constant.
+const MIX_FOLLOW_S: f32 = 0.005;
+
+/// One step of a one-pole toward `target`, landing on it exactly once close.
+fn follow(current: f32, target: f32, alpha: f32) -> f32 {
+    let next = current + (target - current) * alpha;
+    if (target - next).abs() < 1e-6 {
+        target
+    } else {
+        next
+    }
 }
 
 impl Kit {
     /// A kit at rest. Allocates the cells' delay lines: call when activating, never in `process`.
     #[must_use]
     pub fn new(sample_rate: f32, params: KitParams, cells: [CellParams; CELLS]) -> Self {
-        let sample_rate = finite_or(sample_rate, 48_000.0).max(8_000.0);
+        let sample_rate = finite_or(sample_rate, 48_000.0).max(MIN_SAMPLE_RATE);
         let mut index = 0;
         let transition = (OUTPUT_TRANSFER_SECONDS * sample_rate) as u32;
         Self {
@@ -220,12 +242,19 @@ impl Kit {
                 index += 1;
                 Cell::new(cell, sample_rate, params.seed, index - 1)
             }),
-            pool: Pool::new(params.pool, params.recharge_ms, sample_rate),
+            pool: Pool::new(
+                params.pool,
+                curves::recharge_ms(params.recharge),
+                sample_rate,
+            ),
             lfos: LFO_SEEDS.map(Lfo::new),
             wheel: 0.0,
             pressure: 0.0,
             routers: cells.map(|cell| DestinationRouter::new(destination(cell.output), transition)),
             flows: [0.0; EDGES],
+            mixer: cells.map(|cell| [cell.level.max(0.0), cell.pan.clamp(-1.0, 1.0)]),
+            master: params.master.max(0.0),
+            smoothing: (1.0 / (MIX_FOLLOW_S * sample_rate)).min(1.0),
         }
     }
 
@@ -242,8 +271,11 @@ impl Kit {
     /// New kit settings. A new Seed applies at the next reset.
     pub fn set_params(&mut self, params: KitParams) {
         self.params = params;
-        self.pool
-            .set(params.pool, params.recharge_ms, self.sample_rate);
+        self.pool.set(
+            params.pool,
+            curves::recharge_ms(params.recharge),
+            self.sample_rate,
+        );
     }
 
     #[must_use]
@@ -272,6 +304,10 @@ impl Kit {
         self.wheel = 0.0;
         self.pressure = 0.0;
         self.flows = [0.0; EDGES];
+        for (mixer, cell) in self.mixer.iter_mut().zip(&self.cells) {
+            *mixer = [cell.level(), cell.pan()];
+        }
+        self.master = self.params.master.max(0.0);
     }
 
     #[must_use]
@@ -446,10 +482,10 @@ impl Kit {
             (p.bus[1] + mods.bus[1]).clamp(0.0, 1.0),
         ];
         if mods.pool != 0.0 || mods.recharge_octaves != 0.0 {
-            let recharge = p.recharge_ms * fmath::exp2(mods.recharge_octaves);
+            let recharge = (p.recharge + mods.recharge_octaves / RECHARGE_OCTAVES).clamp(0.0, 1.0);
             self.pool.set(
                 (p.pool + mods.pool).clamp(0.0, 1.0),
-                recharge,
+                curves::recharge_ms(recharge),
                 self.sample_rate,
             );
         }
@@ -497,19 +533,33 @@ impl Kit {
         out
     }
 
-    /// Level, Mute and Solo, Pan, the cell's output, and Master.
+    /// Level, Mute and Solo, Pan, the cell's output, and Master. Level, Pan and Master follow their
+    /// settings over a few milliseconds, so automating them never zippers; they act after the
+    /// performance, which nothing reads back.
     fn mix(&mut self, raw: &[f32; CELLS]) -> OutputFrame {
         let mut frame = OutputFrame::default();
         let soloing = self
             .cells
             .iter()
             .any(|cell| cell.params().solo && !cell.params().mute);
-        let master = self.params.master.max(0.0);
-        for ((cell, router), &sample) in self.cells.iter().zip(&mut self.routers).zip(raw) {
+        let alpha = self.smoothing;
+        self.master = follow(self.master, self.params.master.max(0.0), alpha);
+        let master = self.master;
+        for (index, ((cell, router), &sample)) in self
+            .cells
+            .iter()
+            .zip(&mut self.routers)
+            .zip(raw)
+            .enumerate()
+        {
             let p = cell.params();
             let audible = !p.mute && (!soloing || p.solo);
+            let [level, pan] = &mut self.mixer[index];
+            *level = follow(*level, cell.level(), alpha);
+            *pan = follow(*pan, cell.pan(), alpha);
+            let pan = *pan;
             let signal = if audible {
-                sample * cell.level() * master
+                sample * *level * master
             } else {
                 0.0
             };
@@ -521,7 +571,7 @@ impl Kit {
                 match route.destination {
                     Destination::Main => {
                         // Equal power, as the drum machine: left cos, right sin of (pan + 1)·π/4.
-                        let turns = 0.125 * (cell.pan() + 1.0);
+                        let turns = 0.125 * (pan + 1.0);
                         frame.main[0] += routed * fmath::cos_turns(turns);
                         frame.main[1] += routed * fmath::sin_turns(turns);
                     }

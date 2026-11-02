@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "_comment": [
+    "Master and two of the kit's LFOs fit existing collection roles, as the drum machine's do.",
+    "Temper and the per-cell controls wait for roles the control map does not have yet; no new",
+    "role is added in this instrument's first version. Parameters use permanent ids."
+  ],
+  "instruments": [
+    {
+      "clap_id": "dk.mxm.mxm-chaos-drums",
+      "name": "mxm-chaos-drums",
+      "params": {
+        "voice.output": "master",
+        "lfo1.rate": "lfo1_rate",
+        "lfo1.shape": "lfo1_shape",
+        "lfo2.rate": "lfo2_rate",
+        "lfo2.shape": "lfo2_shape"
+      }
+    }
+  ]
+}

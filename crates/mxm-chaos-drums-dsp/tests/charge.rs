@@ -170,14 +170,14 @@ fn any_block_size_and_any_same_sample_order_renders_the_same_samples() {
 fn every_model_stays_finite_and_under_the_declared_peak_whatever_drives_it() {
     let mut rng = Xorshift32::new(7);
     let models: Vec<ModelId> = AVAILABLE_MODELS.iter().map(|spec| spec.id).collect();
-    for rate in [44_100.0, 48_000.0, 96_000.0, 192_000.0] {
+    for rate in [1_000.0, 44_100.0, 48_000.0, 96_000.0, 192_000.0] {
         let random_cell = |rng: &mut Xorshift32| {
             let mut cell = CellParams::new(models[rng.next_u32() as usize % models.len()]);
             cell.coarse = (rng.bipolar_f32() * 24.0) as i8;
             cell.strike = rng.unit_f32();
             cell.supply = rng.unit_f32();
             cell.hunger = rng.unit_f32();
-            cell.leak_ms = 20.0 + rng.unit_f32() * 30_000.0;
+            cell.leak = rng.unit_f32();
             cell.threshold = rng.bipolar_f32();
             cell.touch = 1.0;
             cell.bus = if rng.unit_f32() < 0.5 { Bus::A } else { Bus::B };

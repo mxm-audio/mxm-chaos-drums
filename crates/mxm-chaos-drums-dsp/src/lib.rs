@@ -26,6 +26,7 @@
 //! The design is the repository's `docs/briefs/mxm-chaos-drums.md`.
 
 pub mod cell;
+pub mod curves;
 pub mod engine;
 pub mod fmath;
 pub mod kit;
@@ -34,8 +35,10 @@ mod pool;
 pub mod routes;
 mod voice;
 
-pub use cell::{Bus, CHARGE_FLOOR, CellParams, DECLICK_S, LEAK_MS, velocity_curve};
-pub use kit::{CELLS, EDGES, Event, EventKind, Kit, KitParams, SIDE, edge, neighbours};
+pub use cell::{Bus, CHARGE_FLOOR, CellParams, DECLICK_S, velocity_curve};
+pub use kit::{
+    CELLS, EDGES, Event, EventKind, Kit, KitParams, MIN_SAMPLE_RATE, SIDE, edge, neighbours,
+};
 pub use model::{AVAILABLE_MODELS, ControlSpec, Kind, ModelId, ModelSpec, available};
 pub use mxm_drum_engine::{LfoShape, OutputFrame};
 pub use routes::{CONTROLS, CellTarget, KitTarget, ROUTES, Route, Source};

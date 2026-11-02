@@ -322,13 +322,15 @@ impl Voice {
         }
     }
 
-    /// The Leak a cell takes with this model, in milliseconds.
-    pub fn default_leak_ms(model: ModelId) -> f32 {
+    /// The Leak a cell takes with this model, as an amount (`curves::leak_ms`): exact constants, so
+    /// a default is the same on every platform. 0.47 is about 600 ms, 0.4 about 370, 0.5 about 775
+    /// and 0.42 about 430.
+    pub fn default_leak(model: ModelId) -> f32 {
         match model {
-            ModelId::DRAINING_KICK => 700.0,
-            ModelId::WIRED_SNARE => 450.0,
-            ModelId::RAW_FOLD | ModelId::RAW_LOOP => 900.0,
-            _ => 500.0,
+            ModelId::DRAINING_KICK => 0.47,
+            ModelId::WIRED_SNARE => 0.4,
+            ModelId::RAW_FOLD | ModelId::RAW_LOOP => 0.5,
+            _ => 0.42,
         }
     }
 
