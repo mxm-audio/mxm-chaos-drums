@@ -49,12 +49,10 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   Pan, Master and each output take their settings at once, which nothing sounding can hear.
   `Kit::is_at_rest`, the status a host may sleep on, also needs the pool full: its level is what the
   next note draws on. Leak is never infinite, so every unfed cell gets there. A pool
-  of no capacity grants nothing, so no bus feeds through it. `Kit::lfo_may_feed` says whether an LFO
-  could still wake a resting cell: some LFO values lift its bus, its Supply and the pool's capacity
-  above zero together (routes summed as they sum; a square takes only ±1). It is a bound that errs
-  only towards staying awake, never towards losing a sound: exact for one LFO but for an interval
-  finer than the steps of its values, and taken form by form for several, whose joint values depend
-  on phase offsets their history set and on synced rate ratios.
+  of no capacity grants nothing, so no bus feeds through it. A kit at rest is still not a fixed
+  point while an LFO reaches its performance (`Kit::lfo_reaches_performance`: a route with a net
+  amount, on any target): the LFO's phase is state a later strike reads, so a host must not freeze
+  it by sleeping. The kit only reports this; the plugin acts on it.
 - **Reproducible.** Everything advances per sample. Events at one sample apply in a fixed order —
   resets (a transport reset, then a panic), then releases and chokes, then strikes with the group
   chokes they make, then expression — each reduced so their order in the slice cannot matter (the

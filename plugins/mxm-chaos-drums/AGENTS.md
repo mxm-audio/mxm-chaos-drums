@@ -58,8 +58,9 @@ still to come.
   0. A role whose drum P4 has not built yet plays a raw engine standing in for it (`params::INIT`).
 - **Realtime.** The kit, its delay lines and the frame buffer are made in `activate`; `process`
   allocates nothing (one sample's events are a fixed array). At rest it runs none of the core, and it
-  reports `Normal` only when no LFO can wake it (`Kit::lfo_may_feed`): a host told it may sleep
-  would never let the LFO get there. Otherwise `KeepAlive`. A callback of no frames applies its
+  reports `Normal` only when no LFO reaches the performance (`Kit::lfo_reaches_performance`): a
+  sleeping host freezes the LFOs, and a later strike would then play otherwise than in a host that
+  kept calling, so a bounce would differ from what was heard. Otherwise `KeepAlive`. A callback of no frames applies its
   events at once, so its status is theirs: the play start's reset, the editor's auditions and the
   notes at timing 0 are one sample (`Notes::opening`), as a framed callback's first sample is.
 

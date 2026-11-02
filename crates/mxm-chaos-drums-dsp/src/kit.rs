@@ -5,11 +5,11 @@ use mxm_drum_engine::{LFO_SEEDS, Lfo, LfoShape, OUTPUT_TRANSFER_SECONDS, OutputF
 use mxm_dsp::guard::finite_or;
 use mxm_part_routing::{Destination, DestinationRouter};
 
-use crate::cell::{Bus, Cell, CellParams, velocity_curve};
+use crate::cell::{Cell, CellParams, velocity_curve};
 use crate::curves::{self, RECHARGE_OCTAVES};
 use crate::fmath;
 use crate::pool::Pool;
-use crate::routes::{self, Affine, KitMods, KitTarget, ROUTES, Route, Sources};
+use crate::routes::{self, CellTarget, KitMods, KitTarget, ROUTES, Route, Sources};
 
 /// The lowest sample rate a kit runs at, as the drum machine's.
 pub const MIN_SAMPLE_RATE: f32 = 1_000.0;
@@ -363,29 +363,18 @@ impl Kit {
         self.cells.iter().all(|cell| cell.is_at_rest(fed))
     }
 
-    /// Whether an LFO could feed a cell that rests now. A cell is fed only while its bus's level, its
-    /// Supply and the Pool's capacity are all above zero, so this holds when some LFO values lift all
-    /// three together (`routes::lfo_can_lift_all`, a bound that errs only towards awake). The kit
-    /// skips its own work while it rests, but a host told it may sleep would never let the LFO get
-    /// there, so the plugin keeps processing while this holds; where the bound says yes and the LFOs
-    /// never agree, that costs a callback of silence.
+    /// Whether an LFO reaches the performance: a route carries one onto a target with a net amount.
+    /// Its phase is then state a later strike reads (its pitch, its strike, a bus, the pool), and a
+    /// host that slept would freeze it where one that kept calling would not, so the same events
+    /// would play differently. The plugin keeps processing while this holds; the kit still skips its
+    /// core while its cells rest.
     #[must_use]
-    pub fn lfo_may_feed(&self) -> bool {
-        let sources = self.sources();
-        let now = |source| sources.value(source, 0.0, 0.0);
-        let p = &self.params;
-        let pool = Affine::of(&p.routes, KitTarget::Pool, p.pool, now);
-        let square = p.lfo_shape.map(|shape| matches!(shape, LfoShape::Square));
-        self.cells.iter().any(|cell| {
-            let (target, base) = match cell.params().bus {
-                Bus::Off => return false,
-                Bus::A => (KitTarget::BusA, p.bus[0]),
-                Bus::B => (KitTarget::BusB, p.bus[1]),
-            };
-            let bus = Affine::of(&p.routes, target, base, now);
-            !cell.is_latched()
-                && routes::lfo_can_lift_all(&[bus, cell.supply_form(&sources), pool], square)
-        })
+    pub fn lfo_reaches_performance(&self) -> bool {
+        routes::lfo_reaches(&self.params.routes, KitTarget::Off)
+            || self
+                .cells
+                .iter()
+                .any(|cell| routes::lfo_reaches(&cell.params().routes, CellTarget::Off))
     }
 
     /// Render `out.len()` frames, applying `events` at their offsets.
@@ -460,6 +449,11 @@ impl Kit {
     pub fn settle_now(&mut self) {
         let sources = self.sources();
         self.settle(&sources);
+        // As a framed sample whose cells rest would, so a host that sleeps after it leaves nothing
+        // half-way.
+        if self.cells_rest() {
+            self.settle_mix();
+        }
     }
 
     /// This sample's sources: the LFOs where they stand, the wheel and the pressure.

@@ -1133,136 +1133,63 @@ fn a_fresh_kit_is_a_reset_one() {
 }
 
 #[test]
-fn an_lfo_that_may_feed_a_resting_cell_keeps_the_kit_awake() {
-    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
-    on_bus[0].bus = Bus::A;
-    let quiet = Kit::new(RATE, steady(), on_bus);
+fn a_kit_may_sleep_only_while_no_lfo_reaches_its_performance() {
+    let kick = cells(&[(0, ModelId::DRAINING_KICK)]);
+    let quiet = Kit::new(RATE, steady(), kick);
+    assert!(quiet.is_at_rest() && !quiet.lfo_reaches_performance());
+    // An LFO on a cell's target or on the kit's is phase a later strike reads.
+    let mut pitch = kick;
+    pitch[0].routes[0] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Pitch,
+        amount: 0.5,
+    };
     assert!(
-        quiet.is_at_rest() && !quiet.lfo_may_feed(),
-        "nothing moves Bus A"
+        Kit::new(RATE, steady(), pitch).lfo_reaches_performance(),
+        "an LFO on Pitch"
     );
-    let lfo = KitParams {
-        routes: kit_route(Source::Lfo1, KitTarget::BusA, 1.0),
+    let temper = KitParams {
+        routes: kit_route(Source::Lfo2, KitTarget::Temper, 1.0),
         ..steady()
     };
     assert!(
-        Kit::new(RATE, lfo, on_bus).lfo_may_feed(),
-        "an LFO on Bus A"
+        Kit::new(RATE, temper, kick).lfo_reaches_performance(),
+        "an LFO on Temper"
+    );
+    // Routes of no amount, routes that cancel, and the wheel reach nothing.
+    let none = KitParams {
+        routes: kit_route(Source::Lfo1, KitTarget::BusA, 0.0),
+        ..steady()
+    };
+    assert!(
+        !Kit::new(RATE, none, kick).lfo_reaches_performance(),
+        "no amount"
+    );
+    let mut cancel = KitParams {
+        routes: kit_route(Source::Lfo1, KitTarget::BusA, 1.0),
+        ..steady()
+    };
+    cancel.routes[1] = Route {
+        source: Source::Lfo1,
+        target: KitTarget::BusA,
+        amount: -1.0,
+    };
+    assert!(
+        !Kit::new(RATE, cancel, kick).lfo_reaches_performance(),
+        "routes that cancel"
     );
     let wheel = KitParams {
         routes: kit_route(Source::Wheel, KitTarget::BusA, 1.0),
         ..steady()
     };
     assert!(
-        !Kit::new(RATE, wheel, on_bus).lfo_may_feed(),
-        "the wheel moves only with an event"
+        !Kit::new(RATE, wheel, kick).lfo_reaches_performance(),
+        "the wheel moves with an event"
     );
 }
 
 #[test]
-fn an_lfo_keeps_a_kit_awake_only_where_it_can_feed_a_cell() {
-    let lfo_on = |target| KitParams {
-        routes: kit_route(Source::Lfo1, target, 1.0),
-        ..steady()
-    };
-    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
-    on_bus[0].bus = Bus::A;
-    let on_supply = |mut cells: [CellParams; CELLS], amount| {
-        cells[0].supply = 0.0;
-        cells[0].routes[0] = Route {
-            source: Source::Lfo2,
-            target: CellTarget::Supply,
-            amount,
-        };
-        cells
-    };
-    // Bus A up, Supply moved by an LFO: it can feed.
-    let bus_up = KitParams {
-        bus: [1.0, 0.0],
-        ..steady()
-    };
-    assert!(Kit::new(RATE, bus_up, on_supply(on_bus, 1.0)).lfo_may_feed());
-    // Supply moved, but nothing can raise Bus A from zero: it never feeds.
-    assert!(
-        !Kit::new(RATE, steady(), on_supply(on_bus, 1.0)).lfo_may_feed(),
-        "a bus that stays at zero"
-    );
-    // A route of no amount moves nothing.
-    assert!(
-        !Kit::new(RATE, bus_up, on_supply(on_bus, 0.0)).lfo_may_feed(),
-        "an amount of zero"
-    );
-    let silent = KitParams {
-        routes: kit_route(Source::Lfo1, KitTarget::BusA, 0.0),
-        ..steady()
-    };
-    assert!(
-        !Kit::new(RATE, silent, on_bus).lfo_may_feed(),
-        "a bus route of no amount"
-    );
-    // An LFO on the bus with Supply at zero and unrouted: it never feeds.
-    let mut dry = on_bus;
-    dry[0].supply = 0.0;
-    assert!(
-        !Kit::new(RATE, lfo_on(KitTarget::BusA), dry).lfo_may_feed(),
-        "no supply"
-    );
-    assert!(
-        Kit::new(RATE, lfo_on(KitTarget::BusA), on_bus).lfo_may_feed(),
-        "an LFO on Bus A, Supply up"
-    );
-}
-
-#[test]
-fn routes_that_cancel_or_never_agree_let_a_kit_sleep() {
-    let two = |a: Route<KitTarget>, b: Route<KitTarget>| {
-        let mut routes = [Route::default(); mxm_chaos_drums_dsp::ROUTES];
-        routes[0] = a;
-        routes[1] = b;
-        routes
-    };
-    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
-    on_bus[0].bus = Bus::A;
-    on_bus[0].supply = 0.8;
-    // Two LFO 1 routes on Bus A that cancel: Bus A never moves.
-    let lfo = |amount| Route {
-        source: Source::Lfo1,
-        target: KitTarget::BusA,
-        amount,
-    };
-    let cancel = KitParams {
-        routes: two(lfo(1.0), lfo(-1.0)),
-        ..steady()
-    };
-    assert!(
-        !Kit::new(RATE, cancel, on_bus).lfo_may_feed(),
-        "cancelling routes"
-    );
-    // LFO 1 raises Bus A while it takes Supply down from zero: never both above zero.
-    let mut opposed = on_bus;
-    opposed[0].supply = 0.0;
-    opposed[0].routes[0] = Route {
-        source: Source::Lfo1,
-        target: CellTarget::Supply,
-        amount: -1.0,
-    };
-    let raise = KitParams {
-        routes: two(lfo(1.0), Route::default()),
-        ..steady()
-    };
-    assert!(
-        !Kit::new(RATE, raise, opposed).lfo_may_feed(),
-        "opposed phases"
-    );
-    opposed[0].routes[0].amount = 1.0;
-    assert!(
-        Kit::new(RATE, raise, opposed).lfo_may_feed(),
-        "the same phase lifts both"
-    );
-}
-
-#[test]
-fn a_pool_of_no_capacity_feeds_nothing_until_an_lfo_raises_it() {
+fn a_pool_of_no_capacity_feeds_nothing() {
     let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
     on_bus[0].bus = Bus::A;
     on_bus[0].supply = 0.8;
@@ -1273,45 +1200,33 @@ fn a_pool_of_no_capacity_feeds_nothing_until_an_lfo_raises_it() {
     };
     let mut kit = Kit::new(RATE, empty, on_bus);
     render(&mut kit, &[], 256, 256);
-    assert!(
-        kit.is_at_rest() && !kit.lfo_may_feed(),
-        "a pool of nothing feeds nothing"
-    );
-    let raised = KitParams {
-        routes: kit_route(Source::Lfo1, KitTarget::Pool, 1.0),
-        ..empty
-    };
-    assert!(
-        Kit::new(RATE, raised, on_bus).lfo_may_feed(),
-        "an LFO can raise the pool"
-    );
+    assert!(kit.is_at_rest(), "a pool of nothing feeds nothing");
 }
 
 #[test]
-fn a_square_lfo_wakes_only_where_one_of_its_two_values_feeds() {
-    let mut opposed = cells(&[(0, ModelId::RAW_RING)]);
-    opposed[0].bus = Bus::A;
-    opposed[0].supply = 0.5;
-    opposed[0].routes[0] = Route {
-        source: Source::Lfo1,
-        target: CellTarget::Supply,
-        amount: -1.0,
-    };
-    let with = |shape| KitParams {
-        bus: [0.5, 0.0],
-        lfo_shape: [
-            shape,
-            mxm_chaos_drums_dsp::LfoShape::Triangle,
-            mxm_chaos_drums_dsp::LfoShape::Sine,
-        ],
-        routes: kit_route(Source::Lfo1, KitTarget::BusA, 1.0),
+fn settling_now_with_every_cell_at_rest_settles_the_mixer() {
+    let kick = cells(&[(2, ModelId::DRAINING_KICK)]);
+    let mut kit = Kit::new(RATE, steady(), kick);
+    kit.set_params(KitParams {
+        master: 0.0,
         ..steady()
-    };
-    // At +1 Supply is zero, at -1 Bus A is: a square never feeds, a sweep does near zero.
-    let square = Kit::new(RATE, with(mxm_chaos_drums_dsp::LfoShape::Square), opposed);
-    assert!(!square.lfo_may_feed(), "a square never feeds");
-    let sweep = Kit::new(RATE, with(mxm_chaos_drums_dsp::LfoShape::Triangle), opposed);
-    assert!(sweep.lfo_may_feed(), "a triangle crosses where both feed");
+    });
+    kit.settle_now();
+    let mut frames = vec![OutputFrame::default(); 4_800];
+    let hit = [Event {
+        offset: 0,
+        kind: EventKind::Strike {
+            cell: 2,
+            velocity: 1.0,
+            gate: false,
+        },
+    }];
+    kit.process(&hit, &mut frames);
+    assert!(
+        frames
+            .iter()
+            .all(|frame| frame.main == [0.0; 2] && frame.individual == [0.0; CELLS])
+    );
 }
 
 #[test]

@@ -424,16 +424,6 @@ impl Cell {
         self.charge
     }
 
-    /// Its Supply as an affine function of the LFOs, its other sources as they are now.
-    pub fn supply_form(&self, sources: &Sources) -> routes::Affine {
-        routes::Affine::of(
-            &self.params.routes,
-            CellTarget::Supply,
-            self.params.supply,
-            |source| sources.value(source, self.velocity_source, self.random_source),
-        )
-    }
-
     pub fn is_latched(&self) -> bool {
         self.latched
     }

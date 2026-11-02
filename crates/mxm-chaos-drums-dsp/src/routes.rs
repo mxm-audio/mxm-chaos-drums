@@ -82,7 +82,7 @@ pub(crate) struct Sources {
 
 impl Sources {
     /// A source's value; `velocity` and `random` are the cell's, zero for the kit.
-    pub(crate) fn value(&self, source: Source, velocity: f32, random: f32) -> f32 {
+    fn value(&self, source: Source, velocity: f32, random: f32) -> f32 {
         match source {
             Source::Off => 0.0,
             Source::Lfo1 => self.lfo[0],
@@ -192,76 +192,24 @@ pub(crate) fn kit_mods(routes: &[Route<KitTarget>; ROUTES], sources: &Sources) -
     mods
 }
 
-/// One target's value as an affine function of the three LFOs: what its parameter and the other
-/// sources make now, and each LFO's net amount on it, every route on it summed as the routes sum.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(crate) struct Affine {
-    pub fixed: f32,
-    pub lfo: [f32; 3],
-}
-
-impl Affine {
-    /// `target`'s form under `routes`, for a target in control units (Supply, Pool, a bus): `base`
-    /// its parameter, `now` the other sources' values.
-    pub fn of<T: PartialEq + Copy>(
-        routes: &[Route<T>; ROUTES],
-        target: T,
-        base: f32,
-        now: impl Fn(Source) -> f32,
-    ) -> Self {
-        let mut form = Self {
-            fixed: base,
-            lfo: [0.0; 3],
-        };
-        for route in routes.iter().filter(|route| route.target == target) {
-            let amount = route.amount.clamp(-1.0, 1.0) * reach::CONTROL;
-            match route.source {
-                Source::Off => {}
-                Source::Lfo1 => form.lfo[0] += amount,
-                Source::Lfo2 => form.lfo[1] += amount,
-                Source::Lfo3 => form.lfo[2] += amount,
-                source => form.fixed += amount * now(source),
-            }
-        }
-        form
-    }
-}
-
-/// Whether some LFO values put every form above zero together, while an LFO moves at least one of
-/// them: a bound that may say yes where they never do, and never says no where they can. A square
-/// LFO takes only -1 and 1 and is tested at both. Every other shape sweeps or draws across [-1, 1] in
-/// the steps of its f32 values, read here as the whole interval: with one LFO moving them, each form
-/// is above zero on an interval of its value and the intervals meet or they do not, so the answer is
-/// exact but for an intersection finer than those steps. With several LFOs each form is taken on its
-/// own, since their joint values depend on phases not known here.
-pub(crate) fn lfo_can_lift_all(forms: &[Affine], square: [bool; 3]) -> bool {
-    let moving = |k: usize| forms.iter().any(|form| form.lfo[k] != 0.0);
-    let mut used = (0..3).filter(|&k| moving(k));
-    let Some(k) = used.next() else {
-        return false;
+/// Whether an LFO reaches a target through `routes` with a net amount: routes that cancel reach
+/// nothing, and neither does a route to `off`.
+pub(crate) fn lfo_reaches<T: PartialEq + Copy>(routes: &[Route<T>; ROUTES], off: T) -> bool {
+    let lfo = |source| match source {
+        Source::Lfo1 => Some(0),
+        Source::Lfo2 => Some(1),
+        Source::Lfo3 => Some(2),
+        _ => None,
     };
-    if used.next().is_some() {
-        return forms
+    routes.iter().any(|route| {
+        let Some(k) = lfo(route.source) else {
+            return false;
+        };
+        let net: f32 = routes
             .iter()
-            .all(|form| form.fixed + form.lfo.iter().map(|a| a.abs()).sum::<f32>() > 0.0);
-    }
-    if square[k] {
-        return [-1.0, 1.0]
-            .into_iter()
-            .any(|x| forms.iter().all(|form| form.fixed + form.lfo[k] * x > 0.0));
-    }
-    let (mut low, mut high) = (f32::NEG_INFINITY, f32::INFINITY);
-    for form in forms {
-        let a = form.lfo[k];
-        if a == 0.0 {
-            if form.fixed <= 0.0 {
-                return false;
-            }
-        } else if a > 0.0 {
-            low = low.max(-form.fixed / a);
-        } else {
-            high = high.min(-form.fixed / a);
-        }
-    }
-    low < high && low < 1.0 && high > -1.0
+            .filter(|other| other.target == route.target && lfo(other.source) == Some(k))
+            .map(|other| other.amount.clamp(-1.0, 1.0))
+            .sum();
+        route.target != off && net != 0.0
+    })
 }
