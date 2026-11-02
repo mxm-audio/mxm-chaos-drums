@@ -28,7 +28,7 @@ use crate::telemetry::Telemetry;
 
 /// The opening size: the quarter-4K budget, hugged. Measured by `the_opening_size_is_the_budget_hugged`,
 /// which fails with the size it should be.
-const REFERENCE: (u32, u32) = (1820, 912);
+const REFERENCE: (u32, u32) = (1820, 968);
 /// The smallest window advertised: the widest card with the workspace's gutters, or the app bar.
 const MINIMUM: (u32, u32) = (444, 320);
 /// The keyboard cursor's card for the app bar's Master, outside the paging keys.
@@ -85,6 +85,10 @@ const BUSES: [&str; 3] = ["Off", "A", "B"];
 const OUTPUTS: [&str; 17] = [
     "L+R", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
 ];
+/// The kit-wide output row's choices, and its cursor key.
+const ALL_CELLS: [&str; 2] = ["L+R", "Own outputs"];
+const ALL_CELLS_ID: &str = "outputs_all";
+
 const CHOKE_GROUPS: [&str; 17] = [
     "Off", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
 ];
@@ -315,6 +319,7 @@ enum Leaf {
     Mute,
     Solo,
     Output,
+    AllCells,
     ChokeGroup,
 }
 
@@ -555,6 +560,14 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                     ),
                 ),
                 pad(SPACE_3, selector_leaf(Leaf::Output, "Output", &OUTPUTS)),
+                leaf(
+                    Leaf::AllCells,
+                    Kind::Segmented {
+                        label: "All cells".to_owned(),
+                        options: ALL_CELLS.map(str::to_owned).to_vec(),
+                        beside: None,
+                    },
+                ),
                 selector_leaf(Leaf::ChokeGroup, "Choke group", &CHOKE_GROUPS),
             ])
         }
@@ -913,6 +926,7 @@ fn paint(ui: &mut Ui, tokens: &Tokens, leaf: &Leaf, rect: egui::Rect, live: &mut
             "Where this cell plays: the main stereo output, or an output of its own.",
             setter,
         ),
+        Leaf::AllCells => all_cells(ui, tokens, params, setter),
         Leaf::ChokeGroup => binding::selector(
             ui,
             tokens,
@@ -942,6 +956,52 @@ fn caption(ui: &mut Ui, tokens: &Tokens, text: &str) {
 /// What the cell's model is made of, in the player's words.
 fn notes(p: &crate::params::CellParams) -> &'static str {
     available(p.model_id()).map_or("No model: this cell is silent.", |spec| spec.notes)
+}
+
+/// Every cell's Output at once: all on the main pair, or each on its own output, as one balanced edit
+/// of the sixteen settings, as the drum machine's All slots row. Neither is lit when the cells go to
+/// different places.
+fn all_cells(ui: &mut Ui, tokens: &Tokens, params: &MxmChaosDrumsParams, setter: &ParamSetter<'_>) {
+    let outputs = params.cells.iter().map(|cell| cell.output.value());
+    let current = if outputs.clone().all(|output| output == 0) {
+        0
+    } else if outputs.zip(1..).all(|(output, own)| output == own) {
+        1
+    } else {
+        2
+    };
+    let mut selected = current;
+    let changed = mxm_ui::navigation::at(ui, ALL_CELLS_ID, |ui| {
+        mxm_ui::control::segmented(
+            ui,
+            tokens,
+            "All cells",
+            &ALL_CELLS,
+            &mut selected,
+            None,
+            None,
+            &[
+                "Every cell plays through the main stereo output.",
+                "Each cell plays through its own output, for mixing them separately.",
+            ],
+        )
+    });
+    if changed && selected != current {
+        let own = selected == 1;
+        let edits: Vec<(&dyn ErasedParam, f32)> = params
+            .cells
+            .iter()
+            .zip(1..)
+            .map(|(cell, number)| {
+                let param: &dyn ErasedParam = &cell.output;
+                (
+                    param,
+                    cell.output.preview_normalized(if own { number } else { 0 }),
+                )
+            })
+            .collect();
+        binding::set_together(setter, &edits);
+    }
 }
 
 /// The Model selector: the available models in ID order, mapped to their permanent IDs.
@@ -1304,6 +1364,7 @@ mod tests {
         let mut state = state(&params);
         let mut reachable: Vec<&str> = params.parameters().into_iter().map(|(id, _)| id).collect();
         reachable.extend(GRID_KEYS);
+        reachable.push(ALL_CELLS_ID);
         keyboard_checks::the_cursor_reaches_and_operates_from(
             reference(),
             &items_in(&params, 0),

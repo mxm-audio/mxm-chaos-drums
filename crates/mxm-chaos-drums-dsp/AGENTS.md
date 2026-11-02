@@ -47,8 +47,12 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   the pool snaps to full once a step stops moving it. So a kit at rest is skipped (only the LFOs run
   on) and the skip changes no sample. Leak is never infinite, so every unfed cell gets there.
 - **Reproducible.** Everything advances per sample. Events at one sample apply in a fixed order —
-  resets, then releases and chokes, then strikes with the group chokes they make, then expression —
-  each reduced so their order in the slice cannot matter (the harder strike, the larger tuning).
+  resets (a transport reset, then a panic), then releases and chokes, then strikes with the group
+  chokes they make, then expression — each reduced so their order in the slice cannot matter (the
+  harder strike, the larger tuning). A hit's Velocity and Random are staged before its Strike and
+  controls are read; then every route is applied (`settle`) before the rest check. A reset fills the
+  pool after the routes at its own phase are applied, and a reset or a panic lets go of the wheel and
+  pressure. A host callback with no frames applies its events at once (`Kit::apply_now`).
   The cells read each other's previous sample and the pool grants every demand the same share, so no
   index decides anything. Every random stream is seeded from the kit's Seed, the cell and the
   stream's slot. After a transport reset the performance equals a render from rest once the window

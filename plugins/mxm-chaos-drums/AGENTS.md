@@ -59,7 +59,8 @@ still to come.
 
 - **The editor.** The grid's squares select a cell and strike it at velocity 100 (a click, or
   OPEN), as the drum machine's slot rows do; a model shows only the controls it reads, under its
-  own names. *Not yet as the brief has it:* a cell's routes are a card of their own rather than
+  own names; the Output card's All cells row writes every cell's Output in one gesture. *Not yet as
+  the brief has it:* a cell's routes are a card of their own rather than
   rows under the controls they move, and Mute and Solo sit on the Output card, the grid showing
   their marks.
 

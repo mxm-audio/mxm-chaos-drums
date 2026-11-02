@@ -203,6 +203,7 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
             control(2, "Body"),
             control(3, "Drop"),
             control(6, "Snap"),
+            control(7, "Drive"),
             control(9, "Damping"),
         ],
         notes: "A drum body whose swing spills into noisy wires: the harder it rings, the thicker the \
@@ -227,6 +228,7 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
         kind: Kind::Ring,
         controls: &[
             control(3, "Drop"),
+            control(6, "Snap"),
             control(7, "Drive"),
             control(9, "Damping"),
         ],

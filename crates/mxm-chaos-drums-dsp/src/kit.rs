@@ -307,11 +307,10 @@ impl Kit {
             cell.reset(self.params.seed);
             router.reset(destination(cell.params().output));
         }
-        self.now = Now::default();
-        self.pool.fill();
         self.lfos.iter_mut().for_each(Lfo::reset);
         self.wheel = 0.0;
         self.pressure = 0.0;
+        self.settle_and_fill();
         self.flows = [0.0; EDGES];
         for (mixer, cell) in self.mixer.iter_mut().zip(&self.cells) {
             *mixer = [cell.level(), cell.pan()];
@@ -383,36 +382,69 @@ impl Kit {
             }
             *next += 1;
         }
+        // Resets first, so what follows reads the reset's sources; then each hit with its own
+        // Velocity and Random and this sample's LFOs; then the kit's and the cells' settings with the
+        // routes applied, before the rest check, since a route can be what feeds a resting cell.
         if any {
-            self.apply(&sample);
+            self.apply_resets(&sample);
+            let sources = self.sources();
+            self.apply_notes(&sample, &sources);
         }
+        let sources = self.sources();
+        self.settle(&sources);
+        self.advance_lfos();
+        if !any && self.is_at_rest() {
+            return [0.0; CELLS];
+        }
+        self.tick()
+    }
 
+    /// Apply `events` now, before the next sample, whatever their offsets: a host callback with no
+    /// frames still carries notes, and they take effect where the next frame starts.
+    pub fn apply_now(&mut self, events: &[Event]) {
+        let mut sample = Sample::default();
+        for event in events {
+            sample.add(event.kind);
+        }
+        self.apply_resets(&sample);
+        let sources = self.sources();
+        self.apply_notes(&sample, &sources);
+    }
+
+    /// This sample's sources: the LFOs where they stand, the wheel and the pressure.
+    fn sources(&self) -> Sources {
         let mut sources = Sources {
             lfo: [0.0; 3],
             wheel: self.wheel,
             pressure: self.pressure,
         };
-        for ((lfo, value), (shape, rate)) in self
+        for ((lfo, value), shape) in self
             .lfos
-            .iter_mut()
+            .iter()
             .zip(&mut sources.lfo)
-            .zip(self.params.lfo_shape.iter().zip(self.params.lfo_rate_hz))
+            .zip(self.params.lfo_shape)
         {
             *value = match shape {
                 // The kit LFO's Sine calls the platform's `sin`: its phase, from RampUp, through ours.
                 LfoShape::Sine => fmath::sin_turns(0.5 * (lfo.value(LfoShape::RampUp) + 1.0)),
-                shape => lfo.value(*shape),
+                shape => lfo.value(shape),
             };
+        }
+        sources
+    }
+
+    fn advance_lfos(&mut self) {
+        for (lfo, rate) in self.lfos.iter_mut().zip(self.params.lfo_rate_hz) {
             lfo.advance(rate, self.sample_rate);
         }
+    }
 
-        // The kit's and the cells' settings with this sample's routes applied, before the rest check:
-        // a route can be what feeds a resting cell (an LFO on a bus, or on Supply).
+    /// The routes at the sources as they stand, then the pool full at the capacity they make: a
+    /// reset's pool is full whatever the LFOs had made of it before.
+    fn settle_and_fill(&mut self) {
+        let sources = self.sources();
         self.settle(&sources);
-        if !any && self.is_at_rest() {
-            return [0.0; CELLS];
-        }
-        self.tick()
+        self.pool.fill();
     }
 
     /// Apply this sample's routes: the kit's effective settings, the pool's capacity and refill, and
@@ -443,25 +475,33 @@ impl Kit {
         }
     }
 
-    /// One sample's events, in their fixed order: resets, releases and chokes, strikes and the
-    /// group chokes they make, then expression.
-    fn apply(&mut self, sample: &Sample) {
+    /// One sample's resets: a transport reset, then a panic.
+    fn apply_resets(&mut self, sample: &Sample) {
         // A transport reset is the performance from rest: every cell, the pool, the LFOs, the wheel
         // and the pressure, and every stream from the kit's current Seed.
         if sample.restart {
             for cell in &mut self.cells {
                 cell.restart(self.params.seed);
             }
-            self.pool.fill();
             self.lfos.iter_mut().for_each(Lfo::reset);
             self.wheel = 0.0;
             self.pressure = 0.0;
+            self.settle_and_fill();
         }
+        // Panic is silence and no expression: what no channel holds routes nothing.
         if sample.panic {
             for cell in &mut self.cells {
                 cell.panic(self.params.seed);
             }
+            self.wheel = 0.0;
+            self.pressure = 0.0;
         }
+    }
+
+    /// One sample's notes, in their fixed order: releases and chokes, strikes and the group chokes
+    /// they make, then expression. A hit's Velocity and Random are its own before its Strike and
+    /// controls are read, with `sources`, this sample's.
+    fn apply_notes(&mut self, sample: &Sample, sources: &Sources) {
         for (index, cell) in self.cells.iter_mut().enumerate() {
             if sample.all_off || sample.release[index] {
                 cell.release();
@@ -486,11 +526,9 @@ impl Kit {
             let group = cell.params().choke_group;
             let velocity = sample.strike[index];
             if velocity > 0.0 {
-                cell.strike(
-                    velocity,
-                    velocity_curve(velocity, dynamics),
-                    sample.gate[index],
-                );
+                cell.stage_hit(velocity);
+                cell.prepare(sources);
+                cell.strike(velocity_curve(velocity, dynamics), sample.gate[index]);
             } else if group > 0 && groups & (1 << group.min(31)) != 0 {
                 cell.choke();
             }

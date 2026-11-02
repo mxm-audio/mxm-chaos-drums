@@ -269,6 +269,8 @@ impl Notes {
             self.parts.panic();
             self.gates = [false; PARTS];
             self.tunings = [0.0; CELLS];
+            self.wheel = 0.0;
+            self.pressure = 0.0;
             out.push(EventKind::Panic);
             return;
         }
@@ -523,6 +525,29 @@ impl Plugin for MxmChaosDrums {
         let samples = buffer.samples().min(self.frames.len());
         let frames = &mut self.frames[..samples];
         let mut next_event = context.next_event();
+        // A callback of no frames still carries notes: each sample's group is resolved and applied
+        // now, so it takes effect where the next frame starts, never dropped.
+        if samples == 0 {
+            while let Some(first) = next_event {
+                let timing = first.timing();
+                let mut group = EventGroup::new();
+                while let Some(event) = next_event {
+                    if event.timing() != timing {
+                        break;
+                    }
+                    group.collect(event);
+                    next_event = context.next_event();
+                }
+                let mut sample = SampleEvents::new();
+                self.notes.resolve(&group, &mut sample);
+                kit.apply_now(sample.as_slice());
+            }
+            return if kit.is_at_rest() {
+                ProcessStatus::Normal
+            } else {
+                ProcessStatus::KeepAlive
+            };
+        }
         // The cells the editor asked to hear, struck at the buffer's first sample as a note would be;
         // a callback of no frames leaves them for the next.
         let audition = if samples > 0 {

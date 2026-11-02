@@ -843,3 +843,163 @@ fn a_transport_reset_takes_the_seed_set_since() {
     );
     assert!(bits(&two[w..]) != bits(&one[w..]), "two seeds, one sound");
 }
+
+#[test]
+fn both_resets_fill_a_modulated_pool_whatever_came_before() {
+    let mut held = cells(&[(0, ModelId::RAW_RING)]);
+    held[0].strike = 0.0;
+    held[0].supply = 1.0;
+    let params = KitParams {
+        pool: 0.3,
+        lfo_rate_hz: [3.0, 1.3, 4.0],
+        lfo_shape: [mxm_chaos_drums_dsp::LfoShape::Triangle; 3],
+        routes: kit_route(Source::Lfo1, KitTarget::Pool, 0.7),
+        ..steady()
+    };
+    let after = [strike(100, 0, 1.0)];
+    let fresh = render(&mut Kit::new(RATE, params, held), &after, 24_000, 256);
+
+    // A host reset after a history in which the LFO moved the pool.
+    let mut kit = Kit::new(RATE, params, held);
+    render(&mut kit, &[strike(0, 0, 1.0)], 7_000, 256);
+    kit.reset();
+    assert!(
+        bits(&render(&mut kit, &after, 24_000, 256)) == bits(&fresh),
+        "host reset"
+    );
+
+    // A transport reset after the same history.
+    let reset = 7_000;
+    let mut history = vec![strike(0, 0, 1.0), (reset, EventKind::TransportReset)];
+    history.extend(after.iter().map(|(at, kind)| (at + reset, *kind)));
+    let played = render(
+        &mut Kit::new(RATE, params, held),
+        &history,
+        reset + 24_000,
+        256,
+    );
+    let restarted = render(
+        &mut Kit::new(RATE, params, held),
+        &[(0, EventKind::TransportReset), after[0]],
+        24_000,
+        256,
+    );
+    let w = window();
+    assert!(
+        bits(&played[reset + w..]) == bits(&restarted[w..]),
+        "transport reset"
+    );
+}
+
+#[test]
+fn a_hit_reads_its_own_velocity_through_its_routes() {
+    let mut routed = cells(&[(0, ModelId::DRAINING_KICK)]);
+    routed[0].routes[0] = Route {
+        source: Source::Velocity,
+        target: CellTarget::Strike,
+        amount: 1.0,
+    };
+    // Velocity is `v − 1`, so a hit at 0.5 takes Strike down by half its range.
+    let mut fixed = cells(&[(0, ModelId::DRAINING_KICK)]);
+    fixed[0].strike = routed[0].strike - 0.5;
+    let hit = [strike(0, 0, 0.5)];
+    let a = render(&mut Kit::new(RATE, steady(), routed), &hit, 12_000, 256);
+    let b = render(&mut Kit::new(RATE, steady(), fixed), &hit, 12_000, 256);
+    assert!(
+        bits(&a) == bits(&b),
+        "the first hit used the previous hit's velocity"
+    );
+}
+
+#[test]
+fn a_panic_lets_go_of_the_wheel() {
+    let mut kick = cells(&[(0, ModelId::DRAINING_KICK)]);
+    kick[0].routes[0] = Route {
+        source: Source::Wheel,
+        target: CellTarget::Pitch,
+        amount: 1.0,
+    };
+    let panic = 2_000;
+    let after = [(panic, EventKind::Panic), strike(panic + 100, 0, 1.0)];
+    let mut history = vec![(0, EventKind::Wheel(1.0)), strike(10, 0, 1.0)];
+    history.extend(after);
+    let played = render(
+        &mut Kit::new(RATE, steady(), kick),
+        &history,
+        panic + 12_000,
+        256,
+    );
+    let fresh = render(
+        &mut Kit::new(RATE, steady(), kick),
+        &after,
+        panic + 12_000,
+        256,
+    );
+    assert!(bits(&played[panic..]) == bits(&fresh[panic..]));
+}
+
+#[test]
+fn events_applied_now_are_events_at_the_next_frame() {
+    let snare = cells(&[(0, ModelId::WIRED_SNARE), (1, ModelId::RAW_LOOP)]);
+    let kinds = [
+        EventKind::Strike {
+            cell: 0,
+            velocity: 0.8,
+            gate: true,
+        },
+        EventKind::Strike {
+            cell: 1,
+            velocity: 0.6,
+            gate: false,
+        },
+        EventKind::Wheel(0.5),
+    ];
+    let mut now = Kit::new(RATE, wild(), snare);
+    now.apply_now(&kinds.map(|kind| Event { offset: 0, kind }));
+    let a = render(&mut now, &[], 12_000, 256);
+    let b = render(
+        &mut Kit::new(RATE, wild(), snare),
+        &kinds.map(|kind| (0, kind)),
+        12_000,
+        256,
+    );
+    assert!(bits(&a) == bits(&b));
+}
+
+/// What one model plays for a held hit, with `controls`, at a Temper that reaches its thresholds.
+fn played_with(
+    model: ModelId,
+    controls: [f32; mxm_chaos_drums_dsp::CONTROLS],
+) -> Vec<[u32; CELLS]> {
+    let mut cell = cells(&[(0, model)]);
+    cell[0].supply = 1.0;
+    cell[0].controls = controls;
+    let params = KitParams {
+        temper: 0.6,
+        ..steady()
+    };
+    bits(&render(
+        &mut Kit::new(RATE, params, cell),
+        &[strike(0, 0, 1.0), release(19_200, 0)],
+        38_400,
+        256,
+    ))
+}
+
+#[test]
+fn every_model_shows_exactly_the_controls_it_reads() {
+    for spec in AVAILABLE_MODELS {
+        let reference = played_with(spec.id, [0.0; mxm_chaos_drums_dsp::CONTROLS]);
+        for number in 1..=mxm_chaos_drums_dsp::CONTROLS as u8 {
+            let mut controls = [0.0; mxm_chaos_drums_dsp::CONTROLS];
+            controls[usize::from(number) - 1] = 0.8;
+            let moved = played_with(spec.id, controls) != reference;
+            let shown = spec.controls.iter().any(|control| control.number == number);
+            assert_eq!(
+                moved, shown,
+                "{}: control {number} moves the sound: {moved}, shown: {shown}",
+                spec.label
+            );
+        }
+    }
+}

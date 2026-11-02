@@ -300,15 +300,21 @@ impl Cell {
         self.voice.clear(&mut self.lines);
     }
 
-    /// A hit at `velocity`, 0…1, already through the kit's curve; `gate` keeps it held.
-    pub fn strike(&mut self, velocity: f32, curved: f32, gate: bool) {
+    /// A hit's own sources, before its settings are read: the standard's Velocity for `velocity`,
+    /// 0…1, and one Random draw.
+    pub fn stage_hit(&mut self, velocity: f32) {
+        self.velocity_source = standard::velocity(velocity);
+        self.random_source = standard::random(self.random_rng.unit_f32());
+    }
+
+    /// A hit at `curved`, its velocity through the kit's curve, its sources staged and its settings
+    /// prepared; `gate` keeps it held.
+    pub fn strike(&mut self, curved: f32, gate: bool) {
         self.latched = false;
         self.charge = (self.charge + self.eff.strike * curved).min(1.0);
         self.voice
             .strike(curved, &self.eff.controls, self.sample_rate);
         self.velocity = curved;
-        self.velocity_source = standard::velocity(velocity);
-        self.random_source = standard::random(self.random_rng.unit_f32());
         self.tuning = 0.0;
         self.gate = gate;
         self.resting = false;
