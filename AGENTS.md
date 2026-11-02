@@ -127,9 +127,9 @@ every MXM repository: the kit from mxm-kit's `main`, nice-plug and egui-baseview
 **The phases**, each landed and pushed on its own, each leaving a working state: P0 this repository
 and the brief (approved 2026-11-02); P1 a DSP spike, which the owner heard as good starting points
 (2026-11-02: "I think I need an interface to explore to test it further, so lets halt my tests until
-the first version is up"); P2 the DSP crate and **P3 the plugin** (landed 2026-11-02); then P5 the
-editor before P4 the rest of the catalogue, so the owner explores it through the interface; P6 the
-fifty factory kits and the release gates.
+the first version is up"); P2 the DSP crate, P3 the plugin and **P5 the editor** (landed 2026-11-02: the first version the
+owner explores); then P4 the rest of the catalogue, played through the editor; P6 the fifty factory
+kits and the release gates.
 
 # Local Contracts
 

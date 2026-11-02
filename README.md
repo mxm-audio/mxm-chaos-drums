@@ -10,8 +10,8 @@ Part of the MXM collection: every instrument, effect and tool lives in its own r
 [mxm-kit](https://github.com/mxm-audio/mxm-kit).
 
 **Status:** pre-alpha. [The brief](docs/briefs/mxm-chaos-drums.md) is the design. The plugin
-plays sixteen cells with all five engines, a kick, a snare, a clap and the five raw models; the
-editor and the rest of the drums are next. Nothing is released.
+plays sixteen cells with all five engines, a kick, a snare, a clap and the five raw models, through
+its editor; the rest of the drums are next. Nothing is released.
 
 ## Building
 

@@ -829,3 +829,36 @@ mod tests {
         }
     }
 }
+
+/// Where each of a cell's parameters sits in [`cell_ids`] and [`CellParams::parameters`].
+pub mod at {
+    pub const MODEL: usize = 0;
+    pub const COARSE: usize = 1;
+    pub const FINE: usize = 2;
+    pub const STRIKE: usize = 15;
+    pub const SUPPLY: usize = 16;
+    pub const HUNGER: usize = 17;
+    pub const LEAK: usize = 18;
+    pub const THRESHOLD: usize = 19;
+    pub const LINK: usize = 20;
+    pub const TOUCH: usize = 21;
+    pub const BUS: usize = 22;
+    pub const LEVEL: usize = 23;
+    pub const PAN: usize = 24;
+    pub const MUTE: usize = 25;
+    pub const SOLO: usize = 26;
+    pub const CHOKE_GROUP: usize = 27;
+    pub const OUTPUT: usize = 28;
+
+    /// Control `k`, 1…12.
+    #[must_use]
+    pub const fn control(k: usize) -> usize {
+        2 + k
+    }
+
+    /// Route `r`'s (0-based) source, target and amount.
+    #[must_use]
+    pub const fn route(r: usize) -> [usize; 3] {
+        [29 + 3 * r, 30 + 3 * r, 31 + 3 * r]
+    }
+}

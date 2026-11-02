@@ -9,5 +9,5 @@ The CLAP and VST3 of mxm-chaos-drums: sixteen cells on keys 36–51, their touch
   transport starts, so a bounce is what was heard.
 - Main stereo plus sixteen mono outputs, or stereo only.
 
-There is no editor yet; a host's generic parameter panel shows everything. The design is
-[the brief](../../docs/briefs/mxm-chaos-drums.md).
+The editor leads with the grid: each square is a cell, filling with its charge; click one to hear
+it and edit it. The design is [the brief](../../docs/briefs/mxm-chaos-drums.md).

@@ -15,10 +15,12 @@ macro_rules! plugin_name {
 pub const NAME: &str = plugin_name!();
 pub const CLAP_ID: &str = concat!("dk.mxm.", plugin_name!());
 
+pub mod editor;
 pub mod params;
 pub mod preset;
 pub mod routes;
 pub mod slot_names;
+pub mod telemetry;
 
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -32,6 +34,18 @@ use nice_plug::midi::{Channel, Key, VoiceID};
 use nice_plug::prelude::*;
 
 use params::MxmChaosDrumsParams;
+use telemetry::Telemetry;
+
+/// How hard a cell is struck when the editor asks to hear it: 100 of MIDI's 127, as the drum
+/// machine's audition.
+pub const AUDITION_VELOCITY: f32 = 100.0 / 127.0;
+
+/// The editor's one task: wake a host that has let the plugin sleep, so a cell asked to be heard
+/// sounds now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Task {
+    Wake,
+}
 
 /// The key cell 1 answers on; cell `n` on `FIRST_KEY + n`.
 pub(crate) const FIRST_KEY: u8 = 36;
@@ -329,6 +343,7 @@ impl Notes {
 
 pub struct MxmChaosDrums {
     params: Arc<MxmChaosDrumsParams>,
+    telemetry: Arc<Telemetry>,
     /// Made at activation, which knows the sample rate: the cells' delay lines are allocated then.
     kit: Option<Box<Kit>>,
     frames: Vec<OutputFrame>,
@@ -343,6 +358,7 @@ impl Default for MxmChaosDrums {
     fn default() -> Self {
         Self {
             params: Arc::new(MxmChaosDrumsParams::default()),
+            telemetry: Telemetry::shared(),
             kit: None,
             frames: Vec::new(),
             notes: Notes::new(),
@@ -398,9 +414,14 @@ impl Plugin for MxmChaosDrums {
     /// The performance is the same at any block size only if automation lands on its sample.
     const SAMPLE_ACCURATE_AUTOMATION: bool = true;
 
-    type Editor = ();
+    type Editor = editor::MxmChaosDrumsEditor;
     type SysExMessage = ();
-    type BackgroundTask = ();
+    type BackgroundTask = Task;
+
+    /// Nothing runs on nice-plug's shared background thread: the one task only wakes the host.
+    fn task_executor(&mut self) -> TaskExecutor<Self> {
+        Box::new(|_task| {})
+    }
 
     fn params(&self) -> Arc<dyn Params> {
         self.params.clone()
@@ -411,8 +432,9 @@ impl Plugin for MxmChaosDrums {
         mxm_drum_shell::slot_names::filter(&mut state.fields);
     }
 
-    fn editor(&mut self, _async_executor: AsyncExecutor<Self>) -> Option<Self::Editor> {
-        None
+    fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Self::Editor> {
+        let wake: editor::Wake = Arc::new(move || async_executor.execute_gui(Task::Wake));
+        editor::create(self.params.clone(), self.telemetry.clone(), wake)
     }
 
     fn activate(
@@ -427,6 +449,8 @@ impl Plugin for MxmChaosDrums {
         }
         self.multi_output = audio_io_layout.aux_output_ports.len() == CELLS;
         self.frames = vec![OutputFrame::default(); buffer_config.max_buffer_size as usize];
+        // A new activation starts with no tempo: the first callback reports one.
+        self.telemetry.tempo.publish(None);
         let kit = self.params.kit(self.params.lfo_hz(None));
         self.kit = Some(Box::new(Kit::new(sample_rate, kit, self.cell_settings())));
         self.notes = Notes::new();
@@ -439,6 +463,8 @@ impl Plugin for MxmChaosDrums {
             kit.reset();
         }
         self.notes = Notes::new();
+        // A cell the editor asked to hear before the reset is pending input, cleared with the rest.
+        let _ = self.telemetry.take_audition();
     }
 
     fn process(
@@ -449,6 +475,7 @@ impl Plugin for MxmChaosDrums {
     ) -> ProcessStatus {
         let transport = context.transport();
         let tempo = mxm_tempo::tempo(transport.tempo);
+        self.telemetry.tempo.publish(tempo);
         let restart = transport.playing && !self.playing && self.params.reset_on_play.value();
         self.playing = transport.playing;
         let cells = self.cell_settings();
@@ -465,11 +492,27 @@ impl Plugin for MxmChaosDrums {
         let samples = buffer.samples().min(self.frames.len());
         let frames = &mut self.frames[..samples];
         let mut next_event = context.next_event();
+        // The cells the editor asked to hear, struck at the buffer's first sample as a note would be;
+        // a callback of no frames leaves them for the next.
+        let audition = if samples > 0 {
+            self.telemetry.take_audition()
+        } else {
+            0
+        };
         let mut start = 0;
         while start < samples {
             let mut sample = SampleEvents::new();
             if start == 0 && restart {
                 sample.push(EventKind::TransportReset);
+            }
+            if start == 0 {
+                for cell in (0..CELLS).filter(|cell| audition & (1 << cell) != 0) {
+                    sample.push(EventKind::Strike {
+                        cell,
+                        velocity: AUDITION_VELOCITY,
+                        gate: false,
+                    });
+                }
             }
             let mut group = EventGroup::new();
             let mut any = false;
@@ -492,18 +535,26 @@ impl Plugin for MxmChaosDrums {
         }
 
         let output = buffer.as_slice();
+        let mut peak = 0.0f32;
         for (n, frame) in frames.iter().enumerate() {
             output[0][n] = frame.main[0];
             output[1][n] = frame.main[1];
+            peak = peak.max(frame.main[0].abs()).max(frame.main[1].abs());
         }
         if self.multi_output {
             for (cell, port) in aux.outputs.iter_mut().enumerate().take(CELLS) {
                 let channel = &mut port.as_slice()[0];
                 for (n, frame) in frames.iter().enumerate() {
                     channel[n] = frame.individual[cell];
+                    peak = peak.max(frame.individual[cell].abs());
                 }
             }
         }
+        self.telemetry.meter.publish(peak);
+        let charges = std::array::from_fn(|cell| kit.charge(cell));
+        let seconds = samples as f32 / kit.sample_rate();
+        self.telemetry
+            .publish(charges, kit.take_flows(), seconds, kit.pool_level());
 
         if kit.is_at_rest() {
             ProcessStatus::Normal

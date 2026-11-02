@@ -5,9 +5,9 @@ Parent: [`../AGENTS.md`](../AGENTS.md)
 # Purpose
 
 The nice-plug shell over `mxm-chaos-drums-dsp`: identity, the parameters, the host contract, note
-ownership, the outputs, presets and the cells' names. **P3** (2026-11-02); the editor is P5, and
-until it lands the plugin has none (`type Editor = ()`): a host's generic panel shows every
-parameter. Resample and Export (mxm-drum-shell's `capture` and `pack`) follow the editor.
+ownership, the outputs, presets, the cells' names and the editor. **P3 and P5** (2026-11-02): the
+first version the owner explores. Resample and Export (mxm-drum-shell's `capture` and `pack`) are
+still to come.
 
 # Ownership
 
@@ -18,6 +18,12 @@ parameter. Resample and Export (mxm-drum-shell's `capture` and `pack`) follow th
 - `src/routes.rs`: the route parameters, four a cell and four for the kit.
 - `src/preset.rs`: the `mxm_preset::Instrument` binding: Init, sparse routes, instance settings.
 - `src/slot_names.rs`: the cells' names (mxm-drum-shell's `DrumSlots`) and the host's note names.
+- `src/editor.rs`: the panel: the app bar, and ten cards — Cells (the 4×4 grid and the Pool), Kit,
+  LFOs, Routes, Kit routes, Model, Charge, Feeds, Controls, Output — each one tree, measured and
+  drawn through the collection's bindings; its tests hold the opening size, the paging, the
+  keyboard cursor and the tree checks for every card in every model.
+- `src/telemetry.rs`: what the audio thread tells the editor (each cell's charge, each edge's flow,
+  the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics.
 - `control-map.json`: Master and two LFOs on existing roles.
 
 # Local Contracts
@@ -51,6 +57,12 @@ parameter. Resample and Export (mxm-drum-shell's `capture` and `pack`) follow th
   allocates nothing (one sample's events are a fixed array). At rest it reports `Normal` and runs
   none of the core; otherwise `KeepAlive`.
 
+- **The editor.** The grid's squares select a cell and strike it at velocity 100 (a click, or
+  OPEN), as the drum machine's slot rows do; a model shows only the controls it reads, under its
+  own names. *Not yet as the brief has it:* a cell's routes are a card of their own rather than
+  rows under the controls they move, and Mute and Solo sit on the Output card, the grid showing
+  their marks.
+
 # Work Guidance
 
 - A change to what the instrument does starts in the brief, then the DSP, then here.
@@ -61,6 +73,7 @@ parameter. Resample and Export (mxm-drum-shell's `capture` and `pack`) follow th
 cargo test -p mxm-chaos-drums
 cargo xtask bundle mxm-chaos-drums --release
 clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 38 passed, 6 skipped (2026-11-02)
+MXM_FLOORS=1 cargo test -p mxm-chaos-drums --lib tree_checks -- --nocapture   # every card's floor
 ```
 
 # Child DOX Index

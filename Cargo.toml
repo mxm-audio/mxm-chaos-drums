@@ -17,18 +17,22 @@ repository = "https://github.com/mxm-audio/mxm-chaos-drums"
 [workspace.dependencies]
 # Pinned exactly, as in every MXM repository; Cargo.lock is committed. Own crates by path, the
 # kit's from mxm-kit's `main`.
+egui = "=0.36.1"
 mxm-audio-file = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-chaos-drums-dsp = { path = "crates/mxm-chaos-drums-dsp" }
 mxm-drum-engine = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-drum-shell = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-dsp = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-editor = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-modulation = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-params = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-part-routing = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-plugin-test = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-preset = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-rng = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-telemetry = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-tempo = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-ui = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-xtask = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 nice-plug = { version = "=0.4.2", default-features = false, features = ["editor", "assert_process_allocs"] }
 

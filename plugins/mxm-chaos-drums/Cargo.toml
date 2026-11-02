@@ -16,6 +16,10 @@ crate-type = ["cdylib", "lib"]
 # whenever the library exports one.
 nice-plug = { workspace = true, features = ["vst3"] }
 mxm-chaos-drums-dsp.workspace = true
+egui.workspace = true
+mxm-editor.workspace = true
+mxm-ui.workspace = true
+mxm-telemetry.workspace = true
 # The cells' names, made up from their models' kinds or typed (mxm-kit's `crates/mxm-drum-shell`).
 mxm-drum-shell.workspace = true
 mxm-params.workspace = true
