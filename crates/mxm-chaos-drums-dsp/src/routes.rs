@@ -228,10 +228,12 @@ impl Affine {
 }
 
 /// Whether some LFO values put every form above zero together, while an LFO moves at least one of
-/// them. A square LFO takes only -1 and 1; every other shape sweeps or draws across [-1, 1]. Exact
-/// when one LFO moves them all: each form is then above zero on an interval of its value, and the
-/// intervals meet where it can be, or they do not. With several LFOs it is a bound, each form on its
-/// own, so it may say yes where they never agree, and never says no where they do.
+/// them: a bound that may say yes where they never do, and never says no where they can. A square
+/// LFO takes only -1 and 1 and is tested at both. Every other shape sweeps or draws across [-1, 1] in
+/// the steps of its f32 values, read here as the whole interval: with one LFO moving them, each form
+/// is above zero on an interval of its value and the intervals meet or they do not, so the answer is
+/// exact but for an intersection finer than those steps. With several LFOs each form is taken on its
+/// own, since their joint values depend on phases not known here.
 pub(crate) fn lfo_can_lift_all(forms: &[Affine], square: [bool; 3]) -> bool {
     let moving = |k: usize| forms.iter().any(|form| form.lfo[k] != 0.0);
     let mut used = (0..3).filter(|&k| moving(k));

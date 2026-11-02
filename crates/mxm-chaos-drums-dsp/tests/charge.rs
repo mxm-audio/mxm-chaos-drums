@@ -1313,3 +1313,77 @@ fn a_square_lfo_wakes_only_where_one_of_its_two_values_feeds() {
     let sweep = Kit::new(RATE, with(mxm_chaos_drums_dsp::LfoShape::Triangle), opposed);
     assert!(sweep.lfo_may_feed(), "a triangle crosses where both feed");
 }
+
+#[test]
+fn resting_cells_skip_the_core_while_an_lfo_moves_the_pool() {
+    use mxm_chaos_drums_dsp::LfoShape;
+    let kick = cells(&[(0, ModelId::DRAINING_KICK)]);
+    let rising = KitParams {
+        // A slow recharge after a fast ramp, so the pool trails it by more than its full floor.
+        pool: 0.6,
+        recharge: 0.0,
+        lfo_rate_hz: [2.0, 1.3, 4.0],
+        lfo_shape: [LfoShape::RampUp, LfoShape::Triangle, LfoShape::Sine],
+        routes: kit_route(Source::Lfo1, KitTarget::Pool, 0.3),
+        ..steady()
+    };
+    let hit = (
+        0,
+        EventKind::Strike {
+            cell: 0,
+            velocity: 1.0,
+            gate: false,
+        },
+    );
+    let mut kit = Kit::new(RATE, rising, kick);
+    render(&mut kit, &[hit], 48_000, 256);
+    let mut seconds = 1;
+    while !kit.cells_rest() {
+        render(&mut kit, &[], 48_000, 256);
+        seconds += 1;
+        assert!(seconds < 15, "no rest within 15 s");
+    }
+    assert!(!kit.is_at_rest(), "the pool trails its rising capacity");
+    let level = kit.pool_level();
+    render(&mut kit, &[], 256, 256);
+    assert!(
+        kit.pool_level() != level,
+        "the pool runs on while the core is skipped"
+    );
+}
+
+#[test]
+fn while_every_cell_rests_the_mixer_sits_on_its_settings() {
+    let kick = cells(&[(2, ModelId::DRAINING_KICK)]);
+    let hit = [Event {
+        offset: 0,
+        kind: EventKind::Strike {
+            cell: 2,
+            velocity: 1.0,
+            gate: false,
+        },
+    }];
+    let mut frames = vec![OutputFrame::default(); 4_800];
+    // Master taken to zero while the kit is silent: one frame on, a hit is silent too.
+    let mut kit = Kit::new(RATE, steady(), kick);
+    kit.set_params(KitParams {
+        master: 0.0,
+        ..steady()
+    });
+    kit.process(&[], &mut frames[..1]);
+    kit.process(&hit, &mut frames);
+    assert!(
+        frames
+            .iter()
+            .all(|frame| frame.main == [0.0; 2] && frame.individual == [0.0; CELLS])
+    );
+    // A cell moved to its own output while the kit is silent: its hit leaves the main pair at once.
+    let mut kit = Kit::new(RATE, steady(), kick);
+    let mut moved = kick[2];
+    moved.output = 3;
+    kit.set_cell(2, moved);
+    kit.process(&[], &mut frames[..1]);
+    kit.process(&hit, &mut frames);
+    assert!(frames.iter().any(|frame| frame.individual[2] != 0.0));
+    assert!(frames.iter().all(|frame| frame.main == [0.0; 2]));
+}

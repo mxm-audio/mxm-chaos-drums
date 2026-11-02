@@ -342,22 +342,30 @@ impl Kit {
         core::mem::replace(&mut self.flows, [0.0; EDGES])
     }
 
-    /// Nothing sounding and nothing about to feed a cell: processing would change no cell, so it is
-    /// skipped; only the LFOs run on.
+    /// At rest and staying there: every cell rests and the pool is full, so nothing changes until an
+    /// event or an LFO feeds a cell, and a host may stop calling. The pool must be full because its
+    /// level is what the next note draws on.
     #[must_use]
     pub fn is_at_rest(&self) -> bool {
+        self.pool.is_full() && self.cells_rest()
+    }
+
+    /// Nothing sounding and nothing about to feed a cell, so the kit skips its core: a tick of
+    /// resting cells only recharges the pool, which still runs, and the mixer sits on its settings.
+    #[must_use]
+    pub fn cells_rest(&self) -> bool {
         // A pool of no capacity grants nothing, so a bus feeds nothing through it.
         let fed = if self.pool.has_capacity() {
             self.now.buses
         } else {
             [0.0; 2]
         };
-        self.pool.is_full() && self.cells.iter().all(|cell| cell.is_at_rest(fed))
+        self.cells.iter().all(|cell| cell.is_at_rest(fed))
     }
 
     /// Whether an LFO could feed a cell that rests now. A cell is fed only while its bus's level, its
     /// Supply and the Pool's capacity are all above zero, so this holds when some LFO values lift all
-    /// three together (`routes::lfo_can_lift_all`: exact for one LFO, a bound for several). The kit
+    /// three together (`routes::lfo_can_lift_all`, a bound that errs only towards awake). The kit
     /// skips its own work while it rests, but a host told it may sleep would never let the LFO get
     /// there, so the plugin keeps processing while this holds; where the bound says yes and the LFOs
     /// never agree, that costs a callback of silence.
@@ -424,7 +432,10 @@ impl Kit {
         let sources = self.sources();
         self.settle(&sources);
         self.advance_lfos();
-        if !any && self.is_at_rest() {
+        if !any && self.cells_rest() {
+            // Resting cells ask nothing of the pool and change nothing, so their tick is this.
+            self.pool.recharge();
+            self.settle_mix();
             return [0.0; CELLS];
         }
         self.tick()
@@ -634,6 +645,22 @@ impl Kit {
         }
         self.pool.recharge();
         out
+    }
+
+    /// While every cell rests nothing sounds through the mixer, so Level, Pan, Master and each output
+    /// take their settings at once, a step no one can hear: a host that sleeps leaves nothing half-way,
+    /// and a strike from rest meets its settings.
+    fn settle_mix(&mut self) {
+        self.master = self.params.master.max(0.0);
+        for ((cell, mixer), router) in self
+            .cells
+            .iter()
+            .zip(&mut self.mixer)
+            .zip(&mut self.routers)
+        {
+            *mixer = [cell.level(), cell.pan()];
+            router.reset(destination(cell.params().output));
+        }
     }
 
     /// Level, Mute and Solo, Pan, the cell's output, and Master. Level, Pan and Master follow their

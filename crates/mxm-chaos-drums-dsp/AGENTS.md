@@ -44,13 +44,17 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   zero, so the edges refuse and charge stays conserved.
 - **Rest is a fixed point.** A cell with no charge, no gate, no touch and no offset clears its engines
   (reseeding their noise, so a hit from rest is always the same hit) and changes nothing until fed;
-  the pool snaps to full once a step stops moving it. So a kit at rest is skipped (only the LFOs run
-  on) and the skip changes no sample. Leak is never infinite, so every unfed cell gets there. A pool
+  the pool snaps to full once a step stops moving it. So a kit whose cells all rest skips its core (the
+  LFOs, the routes and the pool's recharge run on) and the skip changes no sample; meanwhile Level,
+  Pan, Master and each output take their settings at once, which nothing sounding can hear.
+  `Kit::is_at_rest`, the status a host may sleep on, also needs the pool full: its level is what the
+  next note draws on. Leak is never infinite, so every unfed cell gets there. A pool
   of no capacity grants nothing, so no bus feeds through it. `Kit::lfo_may_feed` says whether an LFO
   could still wake a resting cell: some LFO values lift its bus, its Supply and the pool's capacity
-  above zero together (routes summed as they sum; a square takes only ±1). It is exact for one LFO
-  and a bound for several: their joint values depend on phase offsets their history set and on synced
-  rate ratios, and the bound errs only towards staying awake, never towards losing a sound.
+  above zero together (routes summed as they sum; a square takes only ±1). It is a bound that errs
+  only towards staying awake, never towards losing a sound: exact for one LFO but for an interval
+  finer than the steps of its values, and taken form by form for several, whose joint values depend
+  on phase offsets their history set and on synced rate ratios.
 - **Reproducible.** Everything advances per sample. Events at one sample apply in a fixed order —
   resets (a transport reset, then a panic), then releases and chokes, then strikes with the group
   chokes they make, then expression — each reduced so their order in the slice cannot matter (the
