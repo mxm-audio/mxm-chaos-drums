@@ -5,11 +5,11 @@ use mxm_drum_engine::{LFO_SEEDS, Lfo, LfoShape, OUTPUT_TRANSFER_SECONDS, OutputF
 use mxm_dsp::guard::finite_or;
 use mxm_part_routing::{Destination, DestinationRouter};
 
-use crate::cell::{Cell, CellParams, velocity_curve};
+use crate::cell::{Bus, Cell, CellParams, velocity_curve};
 use crate::curves::{self, RECHARGE_OCTAVES};
 use crate::fmath;
 use crate::pool::Pool;
-use crate::routes::{self, KitMods, KitTarget, ROUTES, Route, Sources};
+use crate::routes::{self, CellTarget, KitMods, KitTarget, ROUTES, Route, Source, Sources};
 
 /// The lowest sample rate a kit runs at, as the drum machine's.
 pub const MIN_SAMPLE_RATE: f32 = 1_000.0;
@@ -245,7 +245,7 @@ impl Kit {
         let sample_rate = finite_or(sample_rate, 48_000.0).max(MIN_SAMPLE_RATE);
         let mut index = 0;
         let transition = (OUTPUT_TRANSFER_SECONDS * sample_rate) as u32;
-        Self {
+        let mut kit = Self {
             sample_rate,
             dt: 1.0 / sample_rate,
             params,
@@ -267,7 +267,11 @@ impl Kit {
             mixer: cells.map(|cell| [cell.level.max(0.0), cell.pan.clamp(-1.0, 1.0)]),
             master: params.master.max(0.0),
             smoothing: (1.0 / (MIX_FOLLOW_S * sample_rate)).min(1.0),
-        }
+        };
+        // A fresh kit is a reset one: its routes settled at the LFOs' start, its pool full at the
+        // capacity they make, its mixer on the settings they make.
+        kit.reset();
+        kit
     }
 
     #[must_use]
@@ -347,6 +351,33 @@ impl Kit {
                 .cells
                 .iter()
                 .all(|cell| cell.is_at_rest(self.now.buses))
+    }
+
+    /// Whether an LFO route could feed a cell that rests now: an LFO on a bus a cell is set to, or on
+    /// Supply for a cell with a bus. The kit skips its own work while it rests, but a host told it may
+    /// sleep would never let the LFO get there, so the plugin keeps processing while this holds.
+    #[must_use]
+    pub fn lfo_may_feed(&self) -> bool {
+        let lfo = |source: Source| matches!(source, Source::Lfo1 | Source::Lfo2 | Source::Lfo3);
+        let bus_moved = |target: KitTarget| {
+            self.params
+                .routes
+                .iter()
+                .any(|route| lfo(route.source) && route.target == target)
+        };
+        self.cells.iter().any(|cell| {
+            let p = cell.params();
+            let on_bus = match p.bus {
+                Bus::Off => return false,
+                Bus::A => bus_moved(KitTarget::BusA),
+                Bus::B => bus_moved(KitTarget::BusB),
+            };
+            !cell.is_latched()
+                && (on_bus
+                    || p.routes
+                        .iter()
+                        .any(|route| lfo(route.source) && route.target == CellTarget::Supply))
+        })
     }
 
     /// Render `out.len()` frames, applying `events` at their offsets.

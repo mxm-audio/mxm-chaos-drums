@@ -1101,3 +1101,70 @@ fn a_transport_reset_applied_now_is_one_at_the_next_frame() {
     let b = render(&mut later, &kinds.map(|kind| (0, kind)), 12_000, 256);
     assert!(bits(&a) == bits(&b));
 }
+
+#[test]
+fn a_fresh_kit_is_a_reset_one() {
+    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
+    on_bus[0].bus = Bus::A;
+    on_bus[0].supply = 0.8;
+    let fed = KitParams {
+        bus: [1.0, 0.0],
+        ..steady()
+    };
+    assert!(
+        !Kit::new(RATE, fed, on_bus).is_at_rest(),
+        "a fresh kit with Bus A up rests"
+    );
+
+    let mut held = cells(&[(0, ModelId::RAW_RING)]);
+    held[0].strike = 0.0;
+    held[0].supply = 1.0;
+    let raised = KitParams {
+        pool: 0.2,
+        lfo_shape: [mxm_chaos_drums_dsp::LfoShape::RampDown; 3],
+        routes: kit_route(Source::Lfo1, KitTarget::Pool, 1.0),
+        ..steady()
+    };
+    let hit = [strike(0, 0, 1.0)];
+    let fresh = render(&mut Kit::new(RATE, raised, held), &hit, 24_000, 256);
+    let mut reset = Kit::new(RATE, raised, held);
+    reset.reset();
+    assert!(bits(&fresh) == bits(&render(&mut reset, &hit, 24_000, 256)));
+}
+
+#[test]
+fn an_lfo_that_may_feed_a_resting_cell_keeps_the_kit_awake() {
+    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
+    on_bus[0].bus = Bus::A;
+    let quiet = Kit::new(RATE, steady(), on_bus);
+    assert!(
+        quiet.is_at_rest() && !quiet.lfo_may_feed(),
+        "nothing moves Bus A"
+    );
+    let lfo = KitParams {
+        routes: kit_route(Source::Lfo1, KitTarget::BusA, 1.0),
+        ..steady()
+    };
+    assert!(
+        Kit::new(RATE, lfo, on_bus).lfo_may_feed(),
+        "an LFO on Bus A"
+    );
+    let wheel = KitParams {
+        routes: kit_route(Source::Wheel, KitTarget::BusA, 1.0),
+        ..steady()
+    };
+    assert!(
+        !Kit::new(RATE, wheel, on_bus).lfo_may_feed(),
+        "the wheel moves only with an event"
+    );
+    let mut supplied = on_bus;
+    supplied[0].routes[0] = Route {
+        source: Source::Lfo2,
+        target: CellTarget::Supply,
+        amount: 1.0,
+    };
+    assert!(
+        Kit::new(RATE, steady(), supplied).lfo_may_feed(),
+        "an LFO on Supply"
+    );
+}

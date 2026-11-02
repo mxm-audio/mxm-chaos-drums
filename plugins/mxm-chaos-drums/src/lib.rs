@@ -549,7 +549,7 @@ impl Plugin for MxmChaosDrums {
             }
             // The settings stored above, applied as the next frame will, so the status is theirs.
             kit.settle_now();
-            return if kit.is_at_rest() {
+            return if kit.is_at_rest() && !kit.lfo_may_feed() {
                 ProcessStatus::Normal
             } else {
                 ProcessStatus::KeepAlive
@@ -619,7 +619,7 @@ impl Plugin for MxmChaosDrums {
         self.telemetry
             .publish(charges, kit.take_flows(), seconds, kit.pool_level());
 
-        if kit.is_at_rest() {
+        if kit.is_at_rest() && !kit.lfo_may_feed() {
             ProcessStatus::Normal
         } else {
             ProcessStatus::KeepAlive
