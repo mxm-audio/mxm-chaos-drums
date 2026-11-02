@@ -124,10 +124,11 @@ technique or paper it comes from.
 repository.
 
 **The phases**, each landed and pushed on its own, each leaving a working state: P0 this repository
-and the brief (done 2026-11-02, approved); **P1 a DSP spike** (charge, the pool, three engines, a
-kick, a snare and a clap on two linked cells) for the owner to hear, landed 2026-11-02 and waiting
-for that listening; P2 the DSP crate; P3 the plugin; P4 the rest of the catalogue; P5 the editor; P6
-the fifty factory kits and the release gates.
+and the brief (approved 2026-11-02); P1 a DSP spike, which the owner heard as good starting points
+(2026-11-02: "I think I need an interface to explore to test it further, so lets halt my tests until
+the first version is up"); **P2 the DSP crate** (landed 2026-11-02); P3 the plugin; then P5 the
+editor before P4 the rest of the catalogue, so the owner explores it through the interface; P6 the
+fifty factory kits and the release gates.
 
 # Local Contracts
 
@@ -169,7 +170,7 @@ breaks another is a broken change. CI builds and tests on all three when started
 
 | Crate | MSRV | Why |
 |---|---|---|
-| `crates/mxm-chaos-drums-dsp` | **1.87** | Framework-free; its two runtime dependencies, `mxm-dsp` and `mxm-rng`, are kit crates at this floor. Declared, not yet verified on 1.87 |
+| `crates/mxm-chaos-drums-dsp` | **1.87** | Framework-free; its runtime dependencies, `mxm-drum-engine`, `mxm-dsp`, `mxm-modulation`, `mxm-part-routing` and `mxm-rng`, are kit crates at this floor. Declared, not yet verified on 1.87 |
 
 The plugin will be **1.95**, because its editor pulls in egui. The DSP crate never inherits its
 floor.
@@ -200,6 +201,6 @@ Windows; Linux and macOS are checked later, together (the workspace's rule).
 
 | Doc | Scope |
 |---|---|
-| [`crates/mxm-chaos-drums-dsp/AGENTS.md`](crates/mxm-chaos-drums-dsp/AGENTS.md) | The sound as plain Rust: charge and its law, the pool, the engines, the models and the linked kit; P1's spike and its listening grids |
+| [`crates/mxm-chaos-drums-dsp/AGENTS.md`](crates/mxm-chaos-drums-dsp/AGENTS.md) | The sound as plain Rust: charge and its law, the pool and buses, the five engines, the models, sixteen cells on the torus, touch, the choke latch, the declick, routes, outputs and the one-shot |
 
 `docs/` is owned here.

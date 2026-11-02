@@ -3,7 +3,7 @@ name = "mxm-chaos-drums-dsp"
 description = "Framework-free DSP for mxm-chaos-drums: charge, the pool, the engines and the models"
 version.workspace = true
 edition.workspace = true
-# Both runtime dependencies are framework-free kit crates at this floor. No GUI or plugin-framework
+# Every runtime dependency is a framework-free kit crate at this floor. No GUI or plugin-framework
 # types here, ever.
 rust-version = "1.87"
 license.workspace = true
@@ -11,7 +11,10 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+mxm-drum-engine.workspace = true
 mxm-dsp.workspace = true
+mxm-modulation.workspace = true
+mxm-part-routing.workspace = true
 mxm-rng.workspace = true
 
 [dev-dependencies]

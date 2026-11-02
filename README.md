@@ -9,11 +9,11 @@ Part of the MXM collection: every instrument, effect and tool lives in its own r
 [github.com/mxm-audio](https://github.com/mxm-audio), built on
 [mxm-kit](https://github.com/mxm-audio/mxm-kit).
 
-**Status:** pre-alpha. [The brief](docs/briefs/mxm-chaos-drums.md) is the design; the DSP is at
-its first spike, a kick, a snare and a clap on two linked cells, and there is no plugin yet.
-Nothing is released.
+**Status:** pre-alpha. [The brief](docs/briefs/mxm-chaos-drums.md) is the design. The DSP runs
+sixteen cells on the grid with all five engines, a kick, a snare, a clap and the five raw models;
+there is no plugin yet. Nothing is released.
 
-## Hearing the spike
+## Hearing the DSP
 
 Rust 1.87 or newer.
 

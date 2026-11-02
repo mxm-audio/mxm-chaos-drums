@@ -32,6 +32,39 @@ pub fn exp2(x: f32) -> f32 {
     fraction * scale
 }
 
+/// `1/k!` for the odd `k` = 3…11, signed: the Taylor series of `sin`.
+const SIN_TAYLOR: [f32; 5] = [
+    -1.0 / 6.0,
+    1.0 / 120.0,
+    -1.0 / 5040.0,
+    1.0 / 362_880.0,
+    -1.0 / 39_916_800.0,
+];
+
+/// `sin(2π t)`, for `t` in turns: reduced to a quarter turn by symmetry, then a degree-11 Taylor
+/// polynomial, within 1e-7 absolute. For phases, so `t` is best near `[0, 1)`.
+#[must_use]
+pub fn sin_turns(t: f32) -> f32 {
+    let t = t - (t + 0.5).floor();
+    let t = if t > 0.25 {
+        0.5 - t
+    } else if t < -0.25 {
+        -0.5 - t
+    } else {
+        t
+    };
+    let x = core::f32::consts::TAU * t;
+    let x2 = x * x;
+    let c = SIN_TAYLOR;
+    x * (1.0 + x2 * (c[0] + x2 * (c[1] + x2 * (c[2] + x2 * (c[3] + x2 * c[4])))))
+}
+
+/// `cos(2π t)`, for `t` in turns.
+#[must_use]
+pub fn cos_turns(t: f32) -> f32 {
+    sin_turns(t + 0.25)
+}
+
 /// The frequency ratio of `semitones`, `2^(semitones / 12)`.
 #[must_use]
 pub fn semitones(semitones: f32) -> f32 {

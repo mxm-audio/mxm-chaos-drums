@@ -12,6 +12,11 @@ impl ModelId {
     pub const DRAINING_KICK: Self = Self(1);
     pub const WIRED_SNARE: Self = Self(2);
     pub const SPARK_CLAP: Self = Self(11);
+    pub const RAW_RING: Self = Self(21);
+    pub const RAW_SPARK: Self = Self(22);
+    pub const RAW_FOLD: Self = Self(23);
+    pub const RAW_LOOP: Self = Self(24);
+    pub const RAW_DUST: Self = Self(25);
 
     #[must_use]
     pub const fn new(raw: u8) -> Self {
@@ -151,30 +156,121 @@ impl Kind {
     }
 }
 
+/// A general control a model reads: its number (1…12) and the name the model shows it under.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ControlSpec {
+    pub number: u8,
+    pub name: &'static str,
+}
+
+const fn control(number: u8, name: &'static str) -> ControlSpec {
+    ControlSpec { number, name }
+}
+
 /// One model the selector offers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ModelSpec {
     pub id: ModelId,
     pub label: &'static str,
     pub kind: Kind,
+    /// The general controls it reads, in panel order; every other one is an exact no-op on it.
+    pub controls: &'static [ControlSpec],
+    /// What the drum is made of and how it answers charge, in the player's words.
+    pub notes: &'static str,
 }
 
-/// The models that render, in ID order. P1 has the kick, the snare and the clap.
+/// The models that render, in ID order.
 pub const AVAILABLE_MODELS: &[ModelSpec] = &[
     ModelSpec {
         id: ModelId::DRAINING_KICK,
         label: "Draining kick",
         kind: Kind::Kick,
+        controls: &[
+            control(3, "Drop"),
+            control(6, "Snap"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "A ringing body whose pitch falls as its charge drains. Fill it past its threshold and \
+                it stops dying and starts to sing.",
     },
     ModelSpec {
         id: ModelId::WIRED_SNARE,
         label: "Wired snare",
         kind: Kind::Snare,
+        controls: &[
+            control(1, "Tone"),
+            control(2, "Body"),
+            control(3, "Drop"),
+            control(6, "Snap"),
+            control(9, "Damping"),
+        ],
+        notes: "A drum body whose swing spills into noisy wires: the harder it rings, the thicker the \
+                wires.",
     },
     ModelSpec {
         id: ModelId::SPARK_CLAP,
         label: "Spark clap",
         kind: Kind::Clap,
+        controls: &[
+            control(1, "Tone"),
+            control(5, "Grain"),
+            control(6, "Snap"),
+            control(8, "Spacing"),
+        ],
+        notes: "Sparks fire while the charge is high, each opening a burst of noise; as it drains they \
+                slow and stop.",
+    },
+    ModelSpec {
+        id: ModelId::RAW_RING,
+        label: "Raw ring",
+        kind: Kind::Ring,
+        controls: &[
+            control(3, "Drop"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "One self-oscillating ring: a thud when starved, a drone when full, its pitch drifting \
+                with the charge.",
+    },
+    ModelSpec {
+        id: ModelId::RAW_SPARK,
+        label: "Raw spark",
+        kind: Kind::Spark,
+        controls: &[control(1, "Tone"), control(5, "Grain"), control(6, "Snap")],
+        notes: "A spiking cell: silent, then isolated ticks, then crackle as it fills, off any beat.",
+    },
+    ModelSpec {
+        id: ModelId::RAW_FOLD,
+        label: "Raw fold",
+        kind: Kind::Fold,
+        controls: &[control(4, "Spread"), control(7, "Drive")],
+        notes: "A tone kicked by a clock: it locks onto steps as the charge rises and breaks into noise \
+                when full.",
+    },
+    ModelSpec {
+        id: ModelId::RAW_LOOP,
+        label: "Raw loop",
+        kind: Kind::Loop,
+        controls: &[
+            control(4, "Spread"),
+            control(6, "Snap"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "A plucked loop that dies on its own; fill it and it howls, held by its own loss. Spread \
+                makes it metal.",
+    },
+    ModelSpec {
+        id: ModelId::RAW_DUST,
+        label: "Raw dust",
+        kind: Kind::Dust,
+        controls: &[
+            control(1, "Tone"),
+            control(4, "Spread"),
+            control(5, "Grain"),
+        ],
+        notes: "Noise whose density is the charge: sparse grit when low, dense hiss when full.",
     },
 ];
 

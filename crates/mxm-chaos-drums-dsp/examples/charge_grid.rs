@@ -62,14 +62,16 @@ impl Take {
         let mut events: Vec<(usize, EventKind)> = Vec::new();
         for n in notes {
             let velocity = f32::from(n.velocity) / 127.0;
+            let cell = n.cell;
             events.push((
                 n.at,
-                EventKind::NoteOn {
-                    cell: n.cell,
+                EventKind::Strike {
+                    cell,
                     velocity,
+                    gate: true,
                 },
             ));
-            events.push((n.at + n.gate, EventKind::NoteOff { cell: n.cell }));
+            events.push((n.at + n.gate, EventKind::Release { cell }));
         }
         events.sort_by_key(|(at, _)| *at);
         let last = events.last().map_or(0, |(at, _)| *at);
@@ -92,7 +94,7 @@ impl Take {
                 });
                 next += 1;
             }
-            kit.process(&block, &mut frames);
+            kit.process_raw(&block, &mut frames);
             for frame in &frames {
                 let y = MIX * frame.iter().sum::<f32>();
                 self.peak = self.peak.max(y.abs());
@@ -116,7 +118,11 @@ fn render(name: &str, model: ModelId, partner: ModelId, temper: f32, folder: &Pa
         temper,
         ..KitParams::default()
     };
-    let mut kit = Kit::new(RATE as f32, kit_params, [alone, CellParams::new(partner)]);
+    // Cells 1 and 2 are neighbours on the grid; the other fourteen are empty.
+    let mut cells = [CellParams::new(ModelId::NONE); CELLS];
+    cells[0] = alone;
+    cells[1] = CellParams::new(partner);
+    let mut kit = Kit::new(RATE as f32, kit_params, cells);
     let mut take = Take::default();
     let percent = (temper * 100.0).round() as u32;
     let _ = writeln!(

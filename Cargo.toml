@@ -16,7 +16,10 @@ repository = "https://github.com/mxm-audio/mxm-chaos-drums"
 # Pinned exactly, as in every MXM repository; Cargo.lock is committed. Own crates by path, the
 # kit's from mxm-kit's `main`.
 mxm-audio-file = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-drum-engine = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-dsp = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-modulation = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-part-routing = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-rng = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 
 [profile.release]

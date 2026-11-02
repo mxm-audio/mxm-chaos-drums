@@ -1,20 +1,56 @@
-//! The P1 crate's contracts: reproducible, bounded, the charge law, Temper 0's steadiness, rest,
-//! the pool, the catalogue and the platform rule.
+//! The crate's contracts: reproducible, bounded, the charge law, Temper 0's steadiness, the latch,
+//! choke groups, the buses, the transport reset, touch, outputs, rest, the pool, the catalogue and the
+//! platform rule.
 
 use mxm_chaos_drums_dsp::fmath;
 use mxm_chaos_drums_dsp::{
-    AVAILABLE_MODELS, CELLS, CellParams, Event, EventKind, Kind, Kit, KitParams, ModelId,
+    AVAILABLE_MODELS, Bus, CELLS, CellParams, DECLICK_S, Event, EventKind, Kind, Kit, KitParams,
+    ModelId, OutputFrame, neighbours,
 };
 use mxm_rng::Xorshift32;
 
 const RATE: f32 = 48_000.0;
 
-fn on(at: usize, cell: usize, velocity: f32) -> (usize, EventKind) {
-    (at, EventKind::NoteOn { cell, velocity })
+fn strike(at: usize, cell: usize, velocity: f32) -> (usize, EventKind) {
+    (
+        at,
+        EventKind::Strike {
+            cell,
+            velocity,
+            gate: true,
+        },
+    )
 }
 
-fn off(at: usize, cell: usize) -> (usize, EventKind) {
-    (at, EventKind::NoteOff { cell })
+fn release(at: usize, cell: usize) -> (usize, EventKind) {
+    (at, EventKind::Release { cell })
+}
+
+/// A kit with `models` at their cells and the rest empty.
+fn cells(models: &[(usize, ModelId)]) -> [CellParams; CELLS] {
+    let mut cells = [CellParams::new(ModelId::NONE); CELLS];
+    for &(cell, model) in models {
+        cells[cell] = CellParams::new(model);
+    }
+    cells
+}
+
+fn wild() -> KitParams {
+    KitParams {
+        temper: 1.0,
+        flow: 1.0,
+        coupling: 1.0,
+        ..KitParams::default()
+    }
+}
+
+fn steady() -> KitParams {
+    KitParams {
+        temper: 0.0,
+        flow: 1.0,
+        coupling: 1.0,
+        ..KitParams::default()
+    }
 }
 
 /// Render `len` samples in blocks of `block`, the events (in time order) at their samples.
@@ -35,106 +71,169 @@ fn render(
             });
             next += 1;
         }
-        kit.process(&here, chunk);
+        kit.process_raw(&here, chunk);
     }
     out
 }
 
-fn kit(temper: f32, cells: [CellParams; CELLS]) -> Kit {
-    Kit::new(
-        RATE,
-        KitParams {
-            temper,
-            flow: 1.0,
-            coupling: 1.0,
-            ..KitParams::default()
-        },
-        cells,
-    )
+fn sorted(mut events: Vec<(usize, EventKind)>) -> Vec<(usize, EventKind)> {
+    events.sort_by_key(|(at, _)| *at);
+    events
 }
 
 fn bits(frames: &[[f32; CELLS]]) -> Vec<[u32; CELLS]> {
     frames.iter().map(|frame| frame.map(f32::to_bits)).collect()
 }
 
-/// A wild, linked scene: hits on both cells, a held note, two events on one sample.
-fn scene() -> Vec<(usize, EventKind)> {
+fn peak(frames: &[[f32; CELLS]], cell: usize) -> f32 {
+    frames
+        .iter()
+        .fold(0.0f32, |peak, frame| peak.max(frame[cell].abs()))
+}
+
+fn window() -> usize {
+    (DECLICK_S * RATE) as usize + 1
+}
+
+/// Every model on the grid, neighbours trading hits, a touch and a bus, two events on one sample.
+fn scene() -> (KitParams, [CellParams; CELLS], Vec<(usize, EventKind)>) {
+    let models: Vec<(usize, ModelId)> = AVAILABLE_MODELS
+        .iter()
+        .enumerate()
+        .map(|(i, spec)| (i, spec.id))
+        .collect();
+    let mut cells = cells(&models);
+    cells[3].bus = Bus::A;
+    cells[4].choke_group = 1;
+    cells[5].choke_group = 1;
+    let params = KitParams {
+        bus: [0.4, 0.0],
+        ..wild()
+    };
     let mut events = vec![
-        on(0, 0, 1.0),
-        off(40, 0),
-        on(9_000, 1, 0.8),
-        off(30_000, 1),
-        on(12_345, 0, 0.6),
-        off(12_400, 0),
-        on(20_000, 0, 0.9),
-        on(20_000, 1, 0.5),
-        off(20_000, 0),
-        off(60_000, 0),
+        strike(0, 0, 1.0),
+        release(40, 0),
+        strike(900, 1, 0.8),
+        (
+            1_000,
+            EventKind::TouchOn {
+                cell: 2,
+                velocity: 0.7,
+            },
+        ),
+        strike(9_000, 4, 0.9),
+        strike(12_345, 5, 0.6),
+        release(30_000, 1),
+        (20_000, EventKind::TouchOff { cell: 2 }),
+        strike(20_000, 6, 0.9),
+        strike(20_000, 7, 0.5),
+        release(20_000, 6),
+        (25_000, EventKind::Choke { cell: 7 }),
+        release(60_000, 6),
     ];
-    events.sort_by_key(|(at, _)| *at);
-    events
+    events = sorted(events);
+    (params, cells, events)
 }
 
 #[test]
 fn any_block_size_and_any_same_sample_order_renders_the_same_samples() {
-    let cells = [
-        CellParams::new(ModelId::DRAINING_KICK),
-        CellParams::new(ModelId::WIRED_SNARE),
-    ];
-    let reference = bits(&render(&mut kit(0.8, cells), &scene(), 96_000, 4096));
+    let (params, cells, events) = scene();
+    let reference = bits(&render(
+        &mut Kit::new(RATE, params, cells),
+        &events,
+        72_000,
+        4096,
+    ));
     for block in [1, 7, 64, 512] {
-        assert!(
-            bits(&render(&mut kit(0.8, cells), &scene(), 96_000, block)) == reference,
-            "block {block}"
-        );
+        let again = bits(&render(
+            &mut Kit::new(RATE, params, cells),
+            &events,
+            72_000,
+            block,
+        ));
+        assert!(again == reference, "block {block}");
     }
-    // The events at sample 20 000 in the opposite order.
-    let mut shuffled = scene();
+    let mut shuffled = events.clone();
     let at = shuffled.iter().position(|(t, _)| *t == 20_000).unwrap();
-    shuffled[at..at + 3].reverse();
-    assert!(bits(&render(&mut kit(0.8, cells), &shuffled, 96_000, 256)) == reference);
+    shuffled[at..at + 4].reverse();
+    assert!(
+        bits(&render(
+            &mut Kit::new(RATE, params, cells),
+            &shuffled,
+            72_000,
+            256
+        )) == reference
+    );
 }
 
 #[test]
-fn every_model_stays_finite_and_within_its_charge_whatever_drives_it() {
+fn every_model_stays_finite_and_under_the_declared_peak_whatever_drives_it() {
     let mut rng = Xorshift32::new(7);
     let models: Vec<ModelId> = AVAILABLE_MODELS.iter().map(|spec| spec.id).collect();
     for rate in [44_100.0, 48_000.0, 96_000.0, 192_000.0] {
-        for &a in &models {
-            for &b in &models {
-                let mut random_cell = |model| CellParams {
-                    model,
-                    coarse: (rng.bipolar_f32() * 24.0) as i8,
-                    strike: rng.unit_f32(),
-                    supply: rng.unit_f32(),
-                    hunger: rng.unit_f32(),
-                    leak_ms: 20.0 + rng.unit_f32() * 30_000.0,
-                    threshold: rng.bipolar_f32(),
-                    link: 1.0,
-                };
-                let cells = [random_cell(a), random_cell(b)];
-                let params = KitParams {
-                    temper: 1.0,
-                    flow: 1.0,
-                    coupling: 1.0,
-                    pool: rng.unit_f32(),
-                    ..KitParams::default()
-                };
-                let mut kit = Kit::new(rate, params, cells);
-                let second = rate as usize;
-                let mut events = vec![on(0, 0, 1.0), on(0, 1, 1.0)];
-                for k in 1..20 {
-                    events.push(on(k * second / 10, k % 2, rng.unit_f32().max(0.01)));
+        let random_cell = |rng: &mut Xorshift32| {
+            let mut cell = CellParams::new(models[rng.next_u32() as usize % models.len()]);
+            cell.coarse = (rng.bipolar_f32() * 24.0) as i8;
+            cell.strike = rng.unit_f32();
+            cell.supply = rng.unit_f32();
+            cell.hunger = rng.unit_f32();
+            cell.leak_ms = 20.0 + rng.unit_f32() * 30_000.0;
+            cell.threshold = rng.bipolar_f32();
+            cell.touch = 1.0;
+            cell.bus = if rng.unit_f32() < 0.5 { Bus::A } else { Bus::B };
+            for control in &mut cell.controls {
+                *control = rng.bipolar_f32();
+            }
+            cell
+        };
+        let cells: [CellParams; CELLS] = core::array::from_fn(|_| random_cell(&mut rng));
+        let params = KitParams {
+            bus: [1.0, 1.0],
+            pool: rng.unit_f32(),
+            ..wild()
+        };
+        let mut kit = Kit::new(rate, params, cells);
+        let second = rate as usize;
+        let mut events = Vec::new();
+        for cell in 0..CELLS {
+            events.push(strike(cell, cell, 1.0));
+            events.push((
+                cell + 1,
+                EventKind::TouchOn {
+                    cell,
+                    velocity: 1.0,
+                },
+            ));
+        }
+        events.push((0, EventKind::Pressure(1.0)));
+        for k in 1..40 {
+            let cell = rng.next_u32() as usize % CELLS;
+            events.push(strike(k * second / 20, cell, rng.unit_f32().max(0.01)));
+            if k % 7 == 0 {
+                events.push((
+                    k * second / 20 + 3,
+                    EventKind::Choke {
+                        cell: (cell + 5) % CELLS,
+                    },
+                ));
+            }
+        }
+        let events = sorted(events);
+        // Half a second at a time, every cell's model and controls drawn again in between.
+        for half in 0..4 {
+            let start = half * second / 2;
+            let here: Vec<_> = events
+                .iter()
+                .filter(|(at, _)| (start..start + second / 2).contains(at))
+                .map(|(at, kind)| (at - start, *kind))
+                .collect();
+            for frame in render(&mut kit, &here, second / 2, 1) {
+                for y in frame {
+                    assert!(y.is_finite() && y.abs() <= 2.0, "at {rate}: {y}");
                 }
-                events.sort_by_key(|(at, _)| *at);
-                for frame in render(&mut kit, &events, 2 * second, 1) {
-                    for y in frame {
-                        assert!(
-                            y.is_finite() && y.abs() <= 1.0,
-                            "{a:?}/{b:?} at {rate}: {y}"
-                        );
-                    }
-                }
+            }
+            for cell in 0..CELLS {
+                kit.set_cell(cell, random_cell(&mut rng));
             }
         }
     }
@@ -142,21 +241,26 @@ fn every_model_stays_finite_and_within_its_charge_whatever_drives_it() {
 
 #[test]
 fn no_charge_is_exact_silence() {
-    let silent = CellParams {
-        strike: 0.0,
-        supply: 0.0,
-        ..CellParams::new(ModelId::WIRED_SNARE)
-    };
-    let mut kit = kit(1.0, [silent, silent]);
-    let out = render(&mut kit, &[on(0, 0, 1.0), on(10, 1, 1.0)], 10_000, 64);
+    let mut silent = cells(&[(0, ModelId::WIRED_SNARE), (1, ModelId::RAW_LOOP)]);
+    for cell in &mut silent {
+        cell.strike = 0.0;
+        cell.supply = 0.0;
+    }
+    let mut kit = Kit::new(RATE, wild(), silent);
+    let out = render(
+        &mut kit,
+        &[strike(0, 0, 1.0), strike(10, 1, 1.0)],
+        10_000,
+        64,
+    );
     assert!(out.iter().all(|frame| *frame == [0.0; CELLS]));
 
     let mut kit = Kit::new(
         RATE,
         KitParams::default(),
-        [CellParams::new(ModelId::DRAINING_KICK); CELLS],
+        cells(&[(0, ModelId::DRAINING_KICK)]),
     );
-    render(&mut kit, &[on(0, 0, 1.0)], 4_000, 64);
+    render(&mut kit, &[strike(0, 0, 1.0)], 4_000, 64);
     kit.reset();
     assert!(kit.is_at_rest());
     assert!(
@@ -166,26 +270,29 @@ fn no_charge_is_exact_silence() {
     );
 }
 
-/// The last sample above −60 dB.
-fn last_audible(out: &[[f32; CELLS]]) -> usize {
+/// The last sample of `cell` above −60 dB.
+fn last_audible(out: &[[f32; CELLS]], cell: usize) -> usize {
     out.iter()
-        .rposition(|frame| frame[0].abs() > 1e-3)
+        .rposition(|frame| frame[cell].abs() > 1e-3)
         .unwrap_or(0)
 }
 
 #[test]
 fn a_longer_note_sounds_longer_and_faster_hits_stack() {
-    let kick = CellParams::new(ModelId::DRAINING_KICK);
+    let kick = cells(&[(0, ModelId::DRAINING_KICK)]);
     let lengths: Vec<usize> = [1, 4_800, 14_400, 38_400]
         .iter()
         .map(|&gate| {
-            let mut kit = kit(0.0, [kick; CELLS]);
-            last_audible(&render(
-                &mut kit,
-                &[on(0, 0, 1.0), off(gate, 0)],
-                200_000,
-                256,
-            ))
+            let mut kit = Kit::new(RATE, steady(), kick);
+            last_audible(
+                &render(
+                    &mut kit,
+                    &[strike(0, 0, 1.0), release(gate, 0)],
+                    200_000,
+                    256,
+                ),
+                0,
+            )
         })
         .collect();
     assert!(
@@ -194,66 +301,222 @@ fn a_longer_note_sounds_longer_and_faster_hits_stack() {
     );
 
     let peak_at = |every: usize| {
-        let mut kit = kit(0.0, [kick; CELLS]);
-        let mut events = Vec::new();
-        for k in 0..8 {
-            events.push(on(k * every, 0, 0.8));
-            events.push(off(k * every + 960, 0));
-        }
-        let out = render(&mut kit, &events, 8 * every + 20_000, 256);
-        out.iter()
-            .fold(0.0f32, |peak, frame| peak.max(frame[0].abs()))
+        let mut kit = Kit::new(RATE, steady(), kick);
+        let events = sorted(
+            (0..8)
+                .flat_map(|k| [strike(k * every, 0, 0.8), release(k * every + 960, 0)])
+                .collect(),
+        );
+        peak(&render(&mut kit, &events, 8 * every + 20_000, 256), 0)
     };
     let (slow, fast) = (peak_at(12_000), peak_at(2_880));
     assert!(fast > slow, "fast {fast}, slow {slow}");
 }
 
 #[test]
-fn at_temper_0_a_hit_from_rest_repeats_exactly_and_leaves_its_neighbour_silent() {
-    let cells = [
-        CellParams::new(ModelId::WIRED_SNARE),
-        CellParams::new(ModelId::SPARK_CLAP),
-    ];
-    let mut kit = kit(0.0, cells);
-    let first = render(&mut kit, &[on(0, 0, 0.9), off(500, 0)], 24_000, 256);
+fn at_temper_0_a_hit_from_rest_repeats_exactly_and_leaves_every_other_cell_silent() {
+    let mut kit = Kit::new(
+        RATE,
+        steady(),
+        cells(&[
+            (0, ModelId::WIRED_SNARE),
+            (1, ModelId::RAW_LOOP),
+            (4, ModelId::SPARK_CLAP),
+        ]),
+    );
+    let first = render(&mut kit, &[strike(0, 0, 0.9), release(500, 0)], 24_000, 256);
     let mut waited = 0;
     while !kit.is_at_rest() {
         render(&mut kit, &[], 4_800, 256);
         waited += 1;
         assert!(waited < 100, "no rest within 10 s");
     }
-    let second = render(&mut kit, &[on(0, 0, 0.9), off(500, 0)], 24_000, 256);
+    let second = render(&mut kit, &[strike(0, 0, 0.9), release(500, 0)], 24_000, 256);
     assert!(bits(&first) == bits(&second));
     assert!(first.iter().any(|frame| frame[0] != 0.0));
+    assert!((1..CELLS).all(|cell| first.iter().all(|frame| frame[cell] == 0.0)));
+}
+
+#[test]
+fn a_choked_cell_stays_silent_beside_loud_coupled_neighbours_until_it_is_played() {
+    let mut cells = cells(&[
+        (0, ModelId::RAW_RING),
+        (1, ModelId::RAW_RING),
+        (4, ModelId::RAW_RING),
+    ]);
+    for cell in &mut cells {
+        cell.supply = 1.0;
+        cell.bus = Bus::A;
+    }
+    let params = KitParams {
+        bus: [1.0, 0.0],
+        ..wild()
+    };
+    let mut kit = Kit::new(RATE, params, cells);
+    let events = [
+        strike(0, 0, 1.0),
+        strike(0, 1, 1.0),
+        strike(0, 4, 1.0),
+        (4_800, EventKind::Choke { cell: 0 }),
+    ];
+    let out = render(&mut kit, &events, 48_000, 256);
     assert!(
-        first.iter().all(|frame| frame[1] == 0.0),
-        "linked at full Flow and Coupling, Temper 0"
+        out[4_800 + window()..].iter().all(|frame| frame[0] == 0.0),
+        "choked cell 1 sounded"
     );
+    assert!(
+        peak(&out[24_000..], 1) > 0.01 && peak(&out[24_000..], 4) > 0.01,
+        "its neighbours should sound on"
+    );
+    assert!(kit.is_latched(0));
+    let after = render(&mut kit, &[strike(0, 0, 1.0)], 4_800, 256);
+    assert!(peak(&after, 0) > 0.01 && !kit.is_latched(0));
+}
+
+#[test]
+fn a_strike_chokes_its_group_but_never_a_cell_struck_with_it() {
+    let mut cells = cells(&[(10, ModelId::WIRED_SNARE), (11, ModelId::RAW_RING)]);
+    cells[10].choke_group = 1;
+    cells[11].choke_group = 1;
+    let mut kit = Kit::new(RATE, steady(), cells);
+    let out = render(
+        &mut kit,
+        &[strike(0, 11, 1.0), strike(2_400, 10, 0.8)],
+        24_000,
+        256,
+    );
+    assert!(peak(&out[..2_400], 11) > 0.01);
+    assert!(
+        out[2_400 + window()..].iter().all(|frame| frame[11] == 0.0),
+        "the open cell rang on"
+    );
+
+    let mut kit = Kit::new(RATE, steady(), cells);
+    let both = render(
+        &mut kit,
+        &[strike(0, 10, 1.0), strike(0, 11, 1.0)],
+        4_800,
+        256,
+    );
+    assert!(peak(&both[window()..], 10) > 0.01 && peak(&both[window()..], 11) > 0.01);
+}
+
+#[test]
+fn a_bus_drones_with_no_note_and_a_panic_holds_it_silent_until_played() {
+    let mut cells = cells(&[(0, ModelId::RAW_RING)]);
+    cells[0].bus = Bus::B;
+    cells[0].supply = 0.8;
+    let mut kit = Kit::new(
+        RATE,
+        KitParams {
+            bus: [0.0, 1.0],
+            ..steady()
+        },
+        cells,
+    );
+    let drone = render(&mut kit, &[], 48_000, 256);
+    assert!(peak(&drone[24_000..], 0) > 0.05, "no drone");
+    let after = render(&mut kit, &[(0, EventKind::Panic)], 48_000, 256);
+    assert!(
+        after.iter().all(|frame| frame[0] == 0.0),
+        "the bus brought it back"
+    );
+    let played = render(&mut kit, &[strike(0, 0, 1.0), release(10, 0)], 48_000, 256);
+    assert!(peak(&played[24_000..], 0) > 0.05);
+}
+
+#[test]
+fn after_a_transport_reset_the_performance_is_a_render_from_rest() {
+    let (params, cells, events) = scene();
+    let reset = 30_000;
+    let later = [
+        strike(reset + 100, 0, 0.7),
+        strike(reset + 5_000, 4, 1.0),
+        release(reset + 9_000, 0),
+    ];
+    let mut through = events
+        .into_iter()
+        .filter(|(at, _)| *at < reset)
+        .collect::<Vec<_>>();
+    through.push((reset, EventKind::TransportReset));
+    through.extend(later);
+    let played = render(
+        &mut Kit::new(RATE, params, cells),
+        &sorted(through),
+        reset + 24_000,
+        256,
+    );
+    let shifted: Vec<_> = later.iter().map(|(at, kind)| (at - reset, *kind)).collect();
+    let fresh = render(&mut Kit::new(RATE, params, cells), &shifted, 24_000, 256);
+    let w = window();
+    assert!(bits(&played[reset + w..]) == bits(&fresh[w..]));
+}
+
+#[test]
+fn a_held_touch_sustains_its_cell() {
+    let run = |touch: bool| {
+        let mut cells = cells(&[(0, ModelId::RAW_RING)]);
+        cells[0].touch = 1.0;
+        let mut kit = Kit::new(RATE, steady(), cells);
+        let mut events = vec![strike(0, 0, 0.8), release(10, 0)];
+        if touch {
+            events.push((
+                20,
+                EventKind::TouchOn {
+                    cell: 0,
+                    velocity: 1.0,
+                },
+            ));
+        }
+        let out = render(&mut kit, &events, 48_000, 256);
+        out[24_000..]
+            .iter()
+            .map(|frame| frame[0] * frame[0])
+            .sum::<f32>()
+    };
+    let (alone, touched) = (run(false), run(true));
+    assert!(touched > 2.0 * alone, "touched {touched}, alone {alone}");
+}
+
+#[test]
+fn a_cell_on_its_own_output_leaves_the_main_pair() {
+    let mut cells = cells(&[(2, ModelId::DRAINING_KICK)]);
+    cells[2].output = 3;
+    let mut kit = Kit::new(RATE, steady(), cells);
+    let mut frames = vec![OutputFrame::default(); 4_800];
+    kit.process(
+        &[Event {
+            offset: 0,
+            kind: EventKind::Strike {
+                cell: 2,
+                velocity: 1.0,
+                gate: false,
+            },
+        }],
+        &mut frames,
+    );
+    assert!(frames.iter().any(|frame| frame.individual[2] != 0.0));
+    assert!(frames.iter().all(|frame| frame.main == [0.0; 2]));
 }
 
 #[test]
 fn an_unfed_kit_comes_to_rest_and_rest_changes_nothing() {
-    let cells = [
-        CellParams::new(ModelId::DRAINING_KICK),
-        CellParams::new(ModelId::WIRED_SNARE),
-    ];
-    let mut kit = kit(0.8, cells);
-    render(
-        &mut kit,
-        &[
-            on(0, 0, 1.0),
-            on(100, 1, 1.0),
-            off(24_000, 0),
-            off(24_000, 1),
-        ],
-        48_000,
-        256,
-    );
+    let (params, cells, _) = scene();
+    let params = KitParams {
+        bus: [0.0; 2],
+        ..params
+    };
+    let mut kit = Kit::new(RATE, params, cells);
+    let all: Vec<_> = (0..CELLS)
+        .map(|cell| strike(cell * 10, cell, 1.0))
+        .chain((0..CELLS).map(|cell| release(24_000, cell)))
+        .collect();
+    render(&mut kit, &sorted(all), 48_000, 256);
     let mut seconds = 1;
     while !kit.is_at_rest() {
         render(&mut kit, &[], 48_000, 256);
         seconds += 1;
-        assert!(seconds < 30, "no rest within 30 s");
+        assert!(seconds < 60, "no rest within 60 s");
     }
     assert!(
         render(&mut kit, &[], 48_000, 256)
@@ -264,23 +527,23 @@ fn an_unfed_kit_comes_to_rest_and_rest_changes_nothing() {
 }
 
 #[test]
-fn holding_both_notes_gives_each_less() {
-    let cell = CellParams {
-        strike: 0.0,
-        supply: 1.0,
-        ..CellParams::new(ModelId::DRAINING_KICK)
-    };
+fn holding_more_notes_gives_each_less() {
+    let mut held = cells(&[(0, ModelId::DRAINING_KICK), (5, ModelId::DRAINING_KICK)]);
+    for cell in &mut held {
+        cell.strike = 0.0;
+        cell.supply = 1.0;
+    }
     let tight = KitParams {
         pool: 0.02,
         ..KitParams::default()
     };
     let charge_after = |events: &[(usize, EventKind)]| {
-        let mut kit = Kit::new(RATE, tight, [cell; CELLS]);
+        let mut kit = Kit::new(RATE, tight, held);
         render(&mut kit, events, 1_440, 64);
         kit.charge(0)
     };
-    let alone = charge_after(&[on(0, 0, 1.0)]);
-    let shared = charge_after(&[on(0, 0, 1.0), on(0, 1, 1.0)]);
+    let alone = charge_after(&[strike(0, 0, 1.0)]);
+    let shared = charge_after(&[strike(0, 0, 1.0), strike(0, 5, 1.0)]);
     assert!(
         shared < alone && shared > 0.0,
         "alone {alone}, shared {shared}"
@@ -288,7 +551,13 @@ fn holding_both_notes_gives_each_less() {
 }
 
 #[test]
-fn every_model_has_the_kind_its_label_names_and_ids_ascend() {
+fn the_grid_wraps_round() {
+    assert_eq!(neighbours(0), [12, 4, 3, 1]);
+    assert_eq!(neighbours(15), [11, 3, 14, 12]);
+}
+
+#[test]
+fn every_model_has_the_kind_its_label_names_and_its_own_controls() {
     for spec in AVAILABLE_MODELS {
         let label = spec.label.to_lowercase();
         let named = Kind::ALL
@@ -297,6 +566,18 @@ fn every_model_has_the_kind_its_label_names_and_ids_ascend() {
             .max_by_key(|kind| kind.words().len())
             .copied();
         assert_eq!(named, Some(spec.kind), "{}", spec.label);
+        let numbers: Vec<u8> = spec.controls.iter().map(|control| control.number).collect();
+        assert!(
+            numbers.iter().all(|n| (1..=12).contains(n)),
+            "{}",
+            spec.label
+        );
+        assert!(
+            numbers.windows(2).all(|pair| pair[0] < pair[1]),
+            "{}",
+            spec.label
+        );
+        assert!(!spec.notes.is_empty());
     }
     let ids: Vec<u8> = AVAILABLE_MODELS.iter().map(|spec| spec.id.raw()).collect();
     assert!(
@@ -307,9 +588,9 @@ fn every_model_has_the_kind_its_label_names_and_ids_ascend() {
 
 #[test]
 fn the_core_never_calls_the_platforms_maths_library() {
-    const BANNED: [&str; 16] = [
+    const BANNED: [&str; 18] = [
         ".sin(", ".cos(", ".tan(", ".tanh(", ".sinh(", ".cosh(", ".asin(", ".acos(", ".atan",
-        ".exp(", ".exp2(", ".exp_m1(", ".ln", ".log", ".powf(", ".powi(",
+        ".exp(", ".exp2(", ".exp_m1(", ".ln", ".log", ".powf(", ".powi(", ".cbrt(", ".hypot(",
     ];
     let mut checked = 0;
     let mut stack = vec![std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src")];
@@ -325,7 +606,7 @@ fn the_core_never_calls_the_platforms_maths_library() {
         let text = std::fs::read_to_string(&path).unwrap();
         for (number, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap();
-            for banned in BANNED.iter().chain(&[".cbrt(", ".hypot("]) {
+            for banned in BANNED {
                 assert!(
                     !code.contains(banned),
                     "{}:{}: {banned}",
@@ -336,30 +617,50 @@ fn the_core_never_calls_the_platforms_maths_library() {
         }
         checked += 1;
     }
-    assert!(checked >= 8, "only {checked} files scanned");
+    assert!(checked >= 12, "only {checked} files scanned");
+}
+
+/// The series of `e^x`, summed far enough to be exact in f32.
+fn exp_series(x: f64) -> f64 {
+    let (mut term, mut sum) = (1.0f64, 1.0f64);
+    for k in 1..40 {
+        term *= x / f64::from(k);
+        sum += term;
+    }
+    sum
 }
 
 #[test]
-fn exp2_is_exact_on_integers_and_within_3e_6_between() {
+fn exp2_and_sin_are_exact_where_they_must_be_and_close_between() {
     let mut power = 1.0f32;
     for n in 0..=20 {
         assert_eq!(fmath::exp2(n as f32), power, "2^{n}");
         assert_eq!(fmath::exp2(-(n as f32)), 1.0 / power, "2^-{n}");
         power *= 2.0;
     }
-    // Between the integers, against the f64 series, summed far enough to be exact in f32.
     let mut x = -10.0f64;
     while x < 10.0 {
         let whole = x.floor();
-        let f = (x - whole) * core::f64::consts::LN_2;
-        let (mut term, mut sum) = (1.0f64, 1.0f64);
-        for k in 1..30 {
-            term *= f / f64::from(k);
-            sum += term;
-        }
-        let reference = sum * 2f64.powi(whole as i32);
+        let reference = exp_series((x - whole) * core::f64::consts::LN_2) * 2f64.powi(whole as i32);
         let relative = ((f64::from(fmath::exp2(x as f32)) - reference) / reference).abs();
         assert!(relative < 3e-6, "2^{x}: {relative}");
         x += 0.013;
     }
+    // sin by its series in f64, against the quarter-turn polynomial.
+    let mut t = 0.0f64;
+    while t < 1.0 {
+        let angle = core::f64::consts::TAU * (t - (t + 0.5).floor());
+        let (mut term, mut sum) = (angle, angle);
+        for k in 1..30 {
+            term *= -angle * angle / f64::from((2 * k) * (2 * k + 1));
+            sum += term;
+        }
+        assert!(
+            (f64::from(fmath::sin_turns(t as f32)) - sum).abs() < 2e-7,
+            "sin at {t}"
+        );
+        t += 0.0007;
+    }
+    assert_eq!(fmath::sin_turns(0.0), 0.0);
+    assert!((fmath::sin_turns(0.25) - 1.0).abs() < 2e-7);
 }
