@@ -203,6 +203,8 @@ pub struct Kit {
     cells: [Cell; CELLS],
     pool: Pool,
     lfos: [Lfo; 3],
+    /// Which LFOs a route carries with a net amount: only they advance.
+    reach: [bool; 3],
     wheel: f32,
     pressure: f32,
     routers: [DestinationRouter; CELLS],
@@ -259,6 +261,7 @@ impl Kit {
                 sample_rate,
             ),
             lfos: lfos(params.seed),
+            reach: [false; 3],
             wheel: 0.0,
             pressure: 0.0,
             routers: cells.map(|cell| DestinationRouter::new(destination(cell.output), transition)),
@@ -268,6 +271,7 @@ impl Kit {
             master: params.master.max(0.0),
             smoothing: (1.0 / (MIX_FOLLOW_S * sample_rate)).min(1.0),
         };
+        kit.reach = kit.lfo_reach();
         // A fresh kit is a reset one: its routes settled at the LFOs' start, its pool full at the
         // capacity they make, its mixer on the settings they make.
         kit.reset();
@@ -288,6 +292,7 @@ impl Kit {
     /// new capacity and refill at the next sample, with the routes applied (`settle`).
     pub fn set_params(&mut self, params: KitParams) {
         self.params = params;
+        self.reach = self.lfo_reach();
     }
 
     #[must_use]
@@ -302,6 +307,19 @@ impl Kit {
             self.routers[cell].request(destination(params.output));
         }
         self.cells[cell].set_params(params);
+        self.reach = self.lfo_reach();
+    }
+
+    /// Which LFOs reach the performance, from the settings as they stand.
+    fn lfo_reach(&self) -> [bool; 3] {
+        let mut reach = routes::lfo_reach(&self.params.routes, KitTarget::Off);
+        for cell in &self.cells {
+            let cell_reach = routes::lfo_reach(&cell.params().routes, CellTarget::Off);
+            for (lfo, cell) in reach.iter_mut().zip(cell_reach) {
+                *lfo |= cell;
+            }
+        }
+        reach
     }
 
     /// Exact silence and rest: every charge empty, every engine cleared, the pool full, the LFOs at
@@ -370,11 +388,7 @@ impl Kit {
     /// core while its cells rest.
     #[must_use]
     pub fn lfo_reaches_performance(&self) -> bool {
-        routes::lfo_reaches(&self.params.routes, KitTarget::Off)
-            || self
-                .cells
-                .iter()
-                .any(|cell| routes::lfo_reaches(&cell.params().routes, CellTarget::Off))
+        self.reach.contains(&true)
     }
 
     /// Render `out.len()` frames, applying `events` at their offsets.
@@ -401,6 +415,7 @@ impl Kit {
                 .windows(2)
                 .all(|pair| pair[0].offset <= pair[1].offset)
         );
+        let resting = self.cells_rest();
         let mut sample = Sample::default();
         let mut any = false;
         while *next < events.len() && events[*next].offset <= n {
@@ -420,11 +435,13 @@ impl Kit {
         }
         let sources = self.sources();
         self.settle(&sources);
+        if resting {
+            self.settle_mix();
+        }
         self.advance_lfos();
         if !any && self.cells_rest() {
             // Resting cells ask nothing of the pool and change nothing, so their tick is this.
             self.pool.recharge();
-            self.settle_mix();
             return [0.0; CELLS];
         }
         self.tick()
@@ -433,6 +450,9 @@ impl Kit {
     /// Apply `events` now, before the next sample, whatever their offsets: a host callback with no
     /// frames still carries notes, and they take effect where the next frame starts.
     pub fn apply_now(&mut self, events: &[Event]) {
+        // Whether the next sample's events find every cell at rest, asked before they apply, as
+        // the sample would ask it.
+        let resting = self.cells_rest();
         let mut sample = Sample::default();
         for event in events {
             sample.add(event.kind);
@@ -441,6 +461,9 @@ impl Kit {
         let sources = self.sources();
         self.apply_notes(&sample, &sources);
         self.settle_now();
+        if resting {
+            self.settle_mix();
+        }
     }
 
     /// Apply the routes as the next sample will, without advancing time: after settings or events
@@ -449,11 +472,6 @@ impl Kit {
     pub fn settle_now(&mut self) {
         let sources = self.sources();
         self.settle(&sources);
-        // As a framed sample whose cells rest would, so a host that sleeps after it leaves nothing
-        // half-way.
-        if self.cells_rest() {
-            self.settle_mix();
-        }
     }
 
     /// This sample's sources: the LFOs where they stand, the wheel and the pressure.
@@ -479,8 +497,17 @@ impl Kit {
     }
 
     fn advance_lfos(&mut self) {
-        for (lfo, rate) in self.lfos.iter_mut().zip(self.params.lfo_rate_hz) {
-            lfo.advance(rate, self.sample_rate);
+        // An LFO that reaches nothing stands still, so no host's sleep can move a phase anyone
+        // reads: a route that starts carrying it finds it where it stood.
+        for ((lfo, rate), moves) in self
+            .lfos
+            .iter_mut()
+            .zip(self.params.lfo_rate_hz)
+            .zip(self.reach)
+        {
+            if moves {
+                lfo.advance(rate, self.sample_rate);
+            }
         }
     }
 
@@ -641,9 +668,10 @@ impl Kit {
         out
     }
 
-    /// While every cell rests nothing sounds through the mixer, so Level, Pan, Master and each output
-    /// take their settings at once, a step no one can hear: a host that sleeps leaves nothing half-way,
-    /// and a strike from rest meets its settings.
+    /// A sample whose events find every cell at rest begins with Level, Pan, Master and each output on
+    /// their settings: nothing has sounded through them since the cells came to rest, so the step is
+    /// one no one can hear. It is the timeline's rule, not a callback's, so how many silent samples a
+    /// host renders, where its blocks end and whether it sleeps cannot change the mix.
     fn settle_mix(&mut self) {
         self.master = self.params.master.max(0.0);
         for ((cell, mixer), router) in self

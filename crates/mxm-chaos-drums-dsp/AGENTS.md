@@ -45,14 +45,17 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
 - **Rest is a fixed point.** A cell with no charge, no gate, no touch and no offset clears its engines
   (reseeding their noise, so a hit from rest is always the same hit) and changes nothing until fed;
   the pool snaps to full once a step stops moving it. So a kit whose cells all rest skips its core (the
-  LFOs, the routes and the pool's recharge run on) and the skip changes no sample; meanwhile Level,
-  Pan, Master and each output take their settings at once, which nothing sounding can hear.
+  LFOs, the routes and the pool's recharge run on) and the skip changes no sample. A sample whose
+  events find every cell at rest begins with Level, Pan, Master and each output on their settings,
+  a step nothing sounding can hear, and a rule of the timeline, so no block boundary or host sleep
+  changes the mix.
   `Kit::is_at_rest`, the status a host may sleep on, also needs the pool full: its level is what the
   next note draws on. Leak is never infinite, so every unfed cell gets there. A pool
   of no capacity grants nothing, so no bus feeds through it. A kit at rest is still not a fixed
   point while an LFO reaches its performance (`Kit::lfo_reaches_performance`: a route with a net
   amount, on any target): the LFO's phase is state a later strike reads, so a host must not freeze
-  it by sleeping. The kit only reports this; the plugin acts on it.
+  it by sleeping. An LFO that reaches nothing stands still, so a phase only moves while it can be
+  read: a route that starts carrying one finds it where it stood, in every host.
 - **Reproducible.** Everything advances per sample. Events at one sample apply in a fixed order —
   resets (a transport reset, then a panic), then releases and chokes, then strikes with the group
   chokes they make, then expression — each reduced so their order in the slice cannot matter (the

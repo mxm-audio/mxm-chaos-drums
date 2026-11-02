@@ -273,15 +273,20 @@ impl Notes {
         if restart {
             sample.push(EventKind::TransportReset);
         }
-        for cell in (0..CELLS).filter(|cell| audition & (1 << cell) != 0) {
+        if let Some(group) = group {
+            self.resolve(group, &mut sample);
+        }
+        // A sample that panics is panic alone, the editor's auditions with its notes.
+        let panicked = sample
+            .as_slice()
+            .iter()
+            .any(|event| event.kind == EventKind::Panic);
+        for cell in (0..CELLS).filter(|cell| !panicked && audition & (1 << cell) != 0) {
             sample.push(EventKind::Strike {
                 cell,
                 velocity: AUDITION_VELOCITY,
                 gate: false,
             });
-        }
-        if let Some(group) = group {
-            self.resolve(group, &mut sample);
         }
         sample
     }
@@ -754,22 +759,28 @@ mod notes {
         let sample = notes.opening(true, 1 << 0, Some(&group));
         let kinds: Vec<EventKind> = sample.as_slice().iter().map(|event| event.kind).collect();
         assert_eq!(kinds.len(), 3, "{kinds:?}");
-        assert_eq!(kinds[0], EventKind::TransportReset);
-        assert!(
-            matches!(
-                kinds[1],
-                EventKind::Strike {
-                    cell: 0,
-                    gate: false,
-                    ..
-                }
-            ),
-            "{kinds:?}"
-        );
-        assert!(
-            matches!(kinds[2], EventKind::Strike { cell: 1, .. }),
-            "{kinds:?}"
-        );
+        assert!(kinds.contains(&EventKind::TransportReset), "{kinds:?}");
+        let struck = |cell| {
+            kinds
+                .iter()
+                .any(|kind| matches!(kind, EventKind::Strike { cell: c, .. } if *c == cell))
+        };
+        assert!(struck(0) && struck(1), "{kinds:?}");
+    }
+
+    #[test]
+    fn a_first_sample_that_panics_drops_the_auditions_too() {
+        let mut notes = Notes::new();
+        let mut group = EventGroup::new();
+        group.collect(NoteEvent::MidiCC {
+            timing: 0,
+            channel: 0,
+            cc: control_change::ALL_SOUND_OFF,
+            value: 0.0,
+        });
+        let sample = notes.opening(false, 1 << 0, Some(&group));
+        let kinds: Vec<EventKind> = sample.as_slice().iter().map(|event| event.kind).collect();
+        assert_eq!(kinds, [EventKind::Panic]);
     }
 
     /// The kit's events for one sample's host events.

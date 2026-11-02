@@ -1204,28 +1204,68 @@ fn a_pool_of_no_capacity_feeds_nothing() {
 }
 
 #[test]
-fn settling_now_with_every_cell_at_rest_settles_the_mixer() {
+fn a_sample_that_begins_at_rest_begins_with_the_mixer_on_its_settings() {
     let kick = cells(&[(2, ModelId::DRAINING_KICK)]);
+    let hit = |gate| Event {
+        offset: 0,
+        kind: EventKind::Strike {
+            cell: 2,
+            velocity: 1.0,
+            gate,
+        },
+    };
+    let silent = |frames: &[OutputFrame]| {
+        frames
+            .iter()
+            .all(|frame| frame.main == [0.0; 2] && frame.individual == [0.0; CELLS])
+    };
+    let mut frames = vec![OutputFrame::default(); 4_800];
+    // The block ends on the very sample the tail comes to rest; the next block takes Master to zero
+    // and strikes at once.
+    let mut kit = Kit::new(RATE, steady(), kick);
+    kit.process(&[hit(false)], &mut frames[..1]);
+    let mut waited = 0;
+    while !kit.cells_rest() {
+        kit.process(&[], &mut frames[..1]);
+        waited += 1;
+        assert!(waited < 15 * 48_000, "no rest within 15 s");
+    }
+    kit.set_params(KitParams {
+        master: 0.0,
+        ..steady()
+    });
+    kit.process(&[hit(false)], &mut frames);
+    assert!(silent(&frames), "the tail's last block");
+    // The same through a callback of no frames: its events are the next sample's.
     let mut kit = Kit::new(RATE, steady(), kick);
     kit.set_params(KitParams {
         master: 0.0,
         ..steady()
     });
-    kit.settle_now();
-    let mut frames = vec![OutputFrame::default(); 4_800];
-    let hit = [Event {
-        offset: 0,
-        kind: EventKind::Strike {
-            cell: 2,
-            velocity: 1.0,
-            gate: false,
-        },
-    }];
-    kit.process(&hit, &mut frames);
+    kit.apply_now(&[hit(false)]);
+    kit.process(&[], &mut frames);
+    assert!(silent(&frames), "events applied now");
+}
+
+#[test]
+fn an_lfo_that_reaches_nothing_stands_still() {
+    let kick = cells(&[(0, ModelId::DRAINING_KICK)]);
+    let mut pitched = kick;
+    pitched[0].routes[0] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Pitch,
+        amount: 1.0,
+    };
+    let hit = [strike(0, 0, 1.0)];
+    // Silence with nothing routed, then a route and a hit: as if the silence had never been.
+    let mut waited = Kit::new(RATE, steady(), kick);
+    render(&mut waited, &[], 12_000, 256);
+    waited.set_cell(0, pitched[0]);
+    let mut fresh = Kit::new(RATE, steady(), kick);
+    fresh.set_cell(0, pitched[0]);
     assert!(
-        frames
-            .iter()
-            .all(|frame| frame.main == [0.0; 2] && frame.individual == [0.0; CELLS])
+        bits(&render(&mut waited, &hit, 24_000, 256))
+            == bits(&render(&mut fresh, &hit, 24_000, 256))
     );
 }
 

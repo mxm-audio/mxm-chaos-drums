@@ -192,24 +192,26 @@ pub(crate) fn kit_mods(routes: &[Route<KitTarget>; ROUTES], sources: &Sources) -
     mods
 }
 
-/// Whether an LFO reaches a target through `routes` with a net amount: routes that cancel reach
-/// nothing, and neither does a route to `off`.
-pub(crate) fn lfo_reaches<T: PartialEq + Copy>(routes: &[Route<T>; ROUTES], off: T) -> bool {
+/// Which LFOs reach a target through `routes` with a net amount: routes that cancel reach nothing,
+/// and neither does a route to `off`.
+pub(crate) fn lfo_reach<T: PartialEq + Copy>(routes: &[Route<T>; ROUTES], off: T) -> [bool; 3] {
     let lfo = |source| match source {
         Source::Lfo1 => Some(0),
         Source::Lfo2 => Some(1),
         Source::Lfo3 => Some(2),
         _ => None,
     };
-    routes.iter().any(|route| {
+    let mut reach = [false; 3];
+    for route in routes {
         let Some(k) = lfo(route.source) else {
-            return false;
+            continue;
         };
         let net: f32 = routes
             .iter()
             .filter(|other| other.target == route.target && lfo(other.source) == Some(k))
             .map(|other| other.amount.clamp(-1.0, 1.0))
             .sum();
-        route.target != off && net != 0.0
-    })
+        reach[k] |= route.target != off && net != 0.0;
+    }
+    reach
 }

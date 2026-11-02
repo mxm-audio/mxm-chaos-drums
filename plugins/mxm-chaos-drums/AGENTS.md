@@ -62,7 +62,8 @@ still to come.
   sleeping host freezes the LFOs, and a later strike would then play otherwise than in a host that
   kept calling, so a bounce would differ from what was heard. Otherwise `KeepAlive`. A callback of no frames applies its
   events at once, so its status is theirs: the play start's reset, the editor's auditions and the
-  notes at timing 0 are one sample (`Notes::opening`), as a framed callback's first sample is.
+  notes at timing 0 are one sample (`Notes::opening`), as a framed callback's first sample is; a
+  sample that panics drops the auditions with its notes.
 
 - **The editor.** The grid's squares select a cell and strike it at velocity 100 (a click, or
   OPEN), as the drum machine's slot rows do; a model shows only the controls it reads, under its
