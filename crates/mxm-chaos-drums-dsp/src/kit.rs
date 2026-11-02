@@ -258,7 +258,7 @@ impl Kit {
                 curves::recharge_ms(params.recharge),
                 sample_rate,
             ),
-            lfos: LFO_SEEDS.map(Lfo::new),
+            lfos: lfos(params.seed),
             wheel: 0.0,
             pressure: 0.0,
             routers: cells.map(|cell| DestinationRouter::new(destination(cell.output), transition)),
@@ -307,7 +307,7 @@ impl Kit {
             cell.reset(self.params.seed);
             router.reset(destination(cell.params().output));
         }
-        self.lfos.iter_mut().for_each(Lfo::reset);
+        self.lfos = lfos(self.params.seed);
         self.wheel = 0.0;
         self.pressure = 0.0;
         self.settle_and_fill();
@@ -409,6 +409,15 @@ impl Kit {
         self.apply_resets(&sample);
         let sources = self.sources();
         self.apply_notes(&sample, &sources);
+        self.settle_now();
+    }
+
+    /// Apply the routes as the next sample will, without advancing time: after settings or events
+    /// that arrive with no frames, so [`Kit::is_at_rest`] answers for what they made. The next
+    /// sample settles the same way first, so this changes nothing it renders.
+    pub fn settle_now(&mut self) {
+        let sources = self.sources();
+        self.settle(&sources);
     }
 
     /// This sample's sources: the LFOs where they stand, the wheel and the pressure.
@@ -483,7 +492,7 @@ impl Kit {
             for cell in &mut self.cells {
                 cell.restart(self.params.seed);
             }
-            self.lfos.iter_mut().for_each(Lfo::reset);
+            self.lfos = lfos(self.params.seed);
             self.wheel = 0.0;
             self.pressure = 0.0;
             self.settle_and_fill();
@@ -670,6 +679,16 @@ impl Kit {
         kit.process_raw(&events, &mut frames);
         frames.iter().map(|frame| frame[cell]).collect()
     }
+}
+
+/// The three LFOs, their sample-and-hold streams seeded from the kit's Seed and the LFO's place,
+/// mixed with the drum engine's own seeds so each LFO's stream stays distinct.
+fn lfos(seed: u32) -> [Lfo; 3] {
+    let mut index = 0;
+    LFO_SEEDS.map(|base| {
+        index += 1;
+        Lfo::new(base ^ mxm_rng::SplitMix64::mix((u64::from(seed) << 8) | index))
+    })
 }
 
 /// A cell's output setting as a destination: 0 the main pair, 1…16 an individual output.

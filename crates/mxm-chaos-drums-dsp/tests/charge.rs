@@ -1003,3 +1003,101 @@ fn every_model_shows_exactly_the_controls_it_reads() {
         }
     }
 }
+
+#[test]
+fn settling_now_answers_for_a_bus_raised_with_no_frames() {
+    let mut on_bus = cells(&[(0, ModelId::RAW_RING)]);
+    on_bus[0].bus = Bus::A;
+    on_bus[0].supply = 0.8;
+    let mut kit = Kit::new(RATE, steady(), on_bus);
+    render(&mut kit, &[], 256, 256);
+    assert!(kit.is_at_rest());
+    kit.set_params(KitParams {
+        bus: [1.0, 0.0],
+        ..steady()
+    });
+    kit.settle_now();
+    assert!(!kit.is_at_rest(), "a raised bus feeds its cell");
+}
+
+#[test]
+fn the_seed_chooses_the_sample_and_hold_and_repeats_it() {
+    let mut ring = cells(&[(0, ModelId::RAW_RING)]);
+    ring[0].supply = 1.0;
+    ring[0].routes[0] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Pitch,
+        amount: 1.0,
+    };
+    let with = |seed| {
+        let params = KitParams {
+            seed,
+            lfo_rate_hz: [20.0, 1.3, 4.0],
+            lfo_shape: [mxm_chaos_drums_dsp::LfoShape::SampleHold; 3],
+            ..steady()
+        };
+        bits(&render(
+            &mut Kit::new(RATE, params, ring),
+            &[strike(0, 0, 1.0)],
+            24_000,
+            256,
+        ))
+    };
+    assert!(with(1) == with(1), "a seed repeats");
+    assert!(with(1) != with(2), "two seeds, one sample and hold");
+}
+
+#[test]
+fn a_host_reset_takes_the_seed_set_since() {
+    let snare = cells(&[(0, ModelId::WIRED_SNARE)]);
+    let mut kit = Kit::new(
+        RATE,
+        KitParams {
+            seed: 1,
+            ..steady()
+        },
+        snare,
+    );
+    render(&mut kit, &[strike(0, 0, 1.0)], 4_800, 256);
+    kit.set_params(KitParams {
+        seed: 2,
+        ..steady()
+    });
+    kit.reset();
+    let reset = render(&mut kit, &[strike(0, 0, 1.0)], 9_600, 256);
+    let fresh = render(
+        &mut Kit::new(
+            RATE,
+            KitParams {
+                seed: 2,
+                ..steady()
+            },
+            snare,
+        ),
+        &[strike(0, 0, 1.0)],
+        9_600,
+        256,
+    );
+    assert!(bits(&reset) == bits(&fresh));
+}
+
+#[test]
+fn a_transport_reset_applied_now_is_one_at_the_next_frame() {
+    let kick = cells(&[(0, ModelId::DRAINING_KICK)]);
+    let kinds = [
+        EventKind::TransportReset,
+        EventKind::Strike {
+            cell: 0,
+            velocity: 0.9,
+            gate: true,
+        },
+    ];
+    let mut now = Kit::new(RATE, steady(), kick);
+    render(&mut now, &[strike(0, 0, 1.0)], 2_000, 256);
+    now.apply_now(&kinds.map(|kind| Event { offset: 0, kind }));
+    let a = render(&mut now, &[], 12_000, 256);
+    let mut later = Kit::new(RATE, steady(), kick);
+    render(&mut later, &[strike(0, 0, 1.0)], 2_000, 256);
+    let b = render(&mut later, &kinds.map(|kind| (0, kind)), 12_000, 256);
+    assert!(bits(&a) == bits(&b));
+}

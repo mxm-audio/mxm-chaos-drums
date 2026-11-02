@@ -354,28 +354,20 @@ pub struct MxmChaosDrums {
     play: PlayStart,
 }
 
-/// A start of the host's transport, kept until a callback has a sample to reset on: a start seen in a
-/// callback of no frames resets at the next one's first sample.
+/// A start of the host's transport, reset in the callback that sees it: at its first sample, or, in
+/// a callback of no frames, at once and before that callback's notes (`Kit::apply_now`).
 #[derive(Debug, Default, Clone, Copy)]
 struct PlayStart {
     /// Whether the transport was playing at the last callback.
     playing: bool,
-    /// A start with Reset on play on, waiting for a sample.
-    pending: bool,
 }
 
 impl PlayStart {
-    /// This callback's transport; whether its first sample is a transport reset.
-    fn take(&mut self, playing: bool, reset_on_play: bool, samples: usize) -> bool {
-        if playing && !self.playing && reset_on_play {
-            self.pending = true;
-        }
+    /// This callback's transport; whether it starts with a transport reset.
+    fn take(&mut self, playing: bool, reset_on_play: bool) -> bool {
+        let start = playing && !self.playing && reset_on_play;
         self.playing = playing;
-        let now = self.pending && samples > 0;
-        if now {
-            self.pending = false;
-        }
-        now
+        start
     }
 }
 
@@ -484,7 +476,15 @@ impl Plugin for MxmChaosDrums {
     }
 
     fn reset(&mut self) {
+        // The settings as they are now take part in the reset (its Seed, its pool), not the last
+        // callback's: a host may write parameters and reset before processing again.
+        let tempo = self.telemetry.tempo.get();
+        let cells = self.cell_settings();
         if let Some(kit) = &mut self.kit {
+            kit.set_params(self.params.kit(self.params.lfo_hz(tempo)));
+            for (cell, settings) in cells.into_iter().enumerate() {
+                kit.set_cell(cell, settings);
+            }
             kit.reset();
         }
         self.notes = Notes::new();
@@ -501,11 +501,9 @@ impl Plugin for MxmChaosDrums {
         let transport = context.transport();
         let tempo = mxm_tempo::tempo(transport.tempo);
         self.telemetry.tempo.publish(tempo);
-        let restart = self.play.take(
-            transport.playing,
-            self.params.reset_on_play.value(),
-            buffer.samples(),
-        );
+        let restart = self
+            .play
+            .take(transport.playing, self.params.reset_on_play.value());
         if restart {
             // The performance from rest, the note owners and the expression the kit heard with it: a
             // note held across the start neither owns its key nor feeds its cell.
@@ -528,6 +526,13 @@ impl Plugin for MxmChaosDrums {
         // A callback of no frames still carries notes: each sample's group is resolved and applied
         // now, so it takes effect where the next frame starts, never dropped.
         if samples == 0 {
+            // A start seen here resets now, before this callback's notes, which then play on it.
+            if restart {
+                kit.apply_now(&[Event {
+                    offset: 0,
+                    kind: EventKind::TransportReset,
+                }]);
+            }
             while let Some(first) = next_event {
                 let timing = first.timing();
                 let mut group = EventGroup::new();
@@ -542,6 +547,8 @@ impl Plugin for MxmChaosDrums {
                 self.notes.resolve(&group, &mut sample);
                 kit.apply_now(sample.as_slice());
             }
+            // The settings stored above, applied as the next frame will, so the status is theirs.
+            kit.settle_now();
             return if kit.is_at_rest() {
                 ProcessStatus::Normal
             } else {
@@ -857,15 +864,14 @@ mod play {
     use super::PlayStart;
 
     #[test]
-    fn a_start_in_a_callback_of_no_frames_resets_at_the_next_ones_first_sample() {
+    fn a_start_resets_once_in_the_callback_that_sees_it() {
         let mut play = PlayStart::default();
-        assert!(!play.take(true, true, 0));
-        assert!(play.take(true, true, 64));
-        assert!(!play.take(true, true, 64), "once");
+        assert!(play.take(true, true));
+        assert!(!play.take(true, true), "once");
         let mut off = PlayStart::default();
-        assert!(!off.take(true, false, 64), "Reset on play off");
+        assert!(!off.take(true, false), "Reset on play off");
         assert!(
-            !off.take(false, true, 64) && off.take(true, true, 64),
+            !off.take(false, true) && off.take(true, true),
             "a stop and a start"
         );
     }
