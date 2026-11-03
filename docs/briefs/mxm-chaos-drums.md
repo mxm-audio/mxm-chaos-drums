@@ -334,15 +334,18 @@ Flow and Coupling sit at their defaults but do nothing until Temper rises. No bu
 | 15 | 50 | Damped clave | `cl1` | 0 | Off |
 | 16 | 51 | Grain maraca | `ma1` | 0 | Off |
 
-The closed hat cuts the open hat in Init, as a kit does. Factory kits are installed files; the fifty
-come at the end (P6).
+The closed hat cuts the open hat in Init, as a kit does. **Fifty factory kits** follow Init, installed
+files on its role map (the owner, 2026-11-03, ahead of P4): five each of steady, breathing, tuned,
+metal, noise, drones, feedback, starved, moving and wild, every closed hat cutting its open one.
+The drone kits are *Drone*, the wild ones *Fx*, the rest *Percussion*.
 
 **Levels balance the kit** (the owner, 2026-11-03): every cell equally loud per hit by ITU-R
-BS.1770's K-weighting, the kick at 0 dB, then the noise cells (the hats and the maraca) 6 dB below
-that, so they sit under the kick and snare. The plugin's `examples/kit_balance.rs` measures it, and
-also prints a pink-noise balance (equal peak power per third-octave band), which a kit may take
-instead; Init does not, because it raises every high cell to the Level's ceiling. A factory kit is
-balanced the same way.
+BS.1770's K-weighting, then the noise cells (the hats and the maraca) and any cell a bus drones
+6 dB below that, so they sit under the kick and snare. The kick is at 0 dB unless a quiet cell
+would need more than the Level's +6 dB; then every Level comes down together, by up to 6 dB, so it
+fits (Init's bongo loop takes it 3 dB down). The plugin's `kits` measures it, and also prints a
+pink-noise balance (equal peak power per third-octave band), which no kit takes: it raises every
+high cell to the Level's ceiling. Every factory kit is balanced the same way.
 
 ---
 

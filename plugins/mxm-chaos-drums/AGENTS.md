@@ -27,8 +27,10 @@ still to come.
 - `src/telemetry.rs`: what the audio thread tells the editor (each cell's charge, each edge's flow,
   the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics.
 - `control-map.json`: Master and two LFOs on existing roles.
-- `examples/kit_balance.rs`: Init's cells struck alone and measured, printing a pink-noise and a
-  loudness balance of their Levels beside the ones Init has.
+- `src/kits.rs` (tests only): the fifty factory kits' sparse design, the generator that balances
+  them and writes `presets/`, the balance itself (Init's too), and the checks that hold the files.
+- `presets/`: the fifty kits and their `order.txt`, written by `kits`, never by hand; `cargo xtask
+  bundle` installs them for the plugin's version.
 
 # Local Contracts
 
@@ -60,9 +62,14 @@ still to come.
   IDs free during pre-alpha.
 - **Init** is the defaults: the brief's kit on the drum machine's role map, every route Off, Temper
   0. A role whose drum P4 has not built yet plays a raw engine standing in for it (`params::INIT`).
-  Its Levels are the brief's balance, measured by `examples/kit_balance.rs`: equal loudness per
-  hit, the noise cells 6 dB under it. Rerun it when a model or `INIT` changes; a balance is a
-  preset's Levels, never a change to a model's sound (the owner, 2026-11-03).
+  Its Levels are the brief's balance (`kits::balance`): equal loudness per hit, the noise cells
+  6 dB under it, the whole kit down as far as 6 dB where a quiet cell needs the room. A balance is a preset's Levels, never a change to a model's sound (the owner,
+  2026-11-03).
+- **The fifty factory kits** (`kits`, the owner, 2026-11-03) are on Init's role map, every closed
+  hat cutting its open hat, each cell moving only what its model reads; each file is complete, so
+  no default reaches a shipped kit, and balanced as Init is, a droning cell 6 dB under too. Change a
+  kit in the design and rerun the generator; a change to a model or a default shows as a kit to
+  regenerate (`the_shipped_kits_are_their_designs`, `init_and_every_kit_are_balanced`).
 - **Realtime.** The kit, its delay lines and the frame buffer are made in `activate`; `process`
   allocates nothing (one sample's events are a fixed array). At rest it runs none of the core, and it
   reports `Normal` only when no LFO reaches the performance (`Kit::lfo_reaches_performance`): a
@@ -97,7 +104,8 @@ cargo test -p mxm-chaos-drums
 cargo xtask bundle mxm-chaos-drums --release
 clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 38 passed, 6 skipped (2026-11-02)
 MXM_FLOORS=1 cargo test -p mxm-chaos-drums --lib tree_checks -- --nocapture   # every card's floor
-cargo run -p mxm-chaos-drums --example kit_balance --release   # Init's Levels against the balance
+cargo test -p mxm-chaos-drums --release --lib write_the_factory_kits -- --ignored   # rewrites presets/
+cargo test -p mxm-chaos-drums --release --lib init_and_every_kit_are_balanced -- --ignored --nocapture
 ```
 
 # Child DOX Index

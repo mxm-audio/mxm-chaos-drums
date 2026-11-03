@@ -1,6 +1,6 @@
 //! The collection's presets (`mxm-preset`): Init is the parameter defaults, factory kits are files
-//! installed for the plugin's version (P6 makes the fifty), user presets live where every MXM
-//! instrument keeps them.
+//! installed for the plugin's version (`presets/`, the fifty `kits` designs and writes), user
+//! presets live where every MXM instrument keeps them.
 
 use std::sync::RwLock;
 
@@ -34,10 +34,12 @@ impl Instrument for MxmChaosDrumsParams {
         &self.preset
     }
 
-    /// No factory kits yet: a unit test reads none, never the machine's installed set.
+    /// The installed set, but in a unit test the repository's, never the machine's.
     #[cfg(test)]
     fn factory_files(&self) -> Vec<(String, String)> {
-        Vec::new()
+        mxm_preset::read_factory_dir(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("presets"),
+        )
     }
 
     /// Where a cell is heard is the instance's, as in the drum machine; no kit moves it.

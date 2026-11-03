@@ -22,6 +22,9 @@ pub mod routes;
 pub mod slot_names;
 pub mod telemetry;
 
+#[cfg(test)]
+mod kits;
+
 use std::num::NonZeroU32;
 use std::sync::Arc;
 
