@@ -170,6 +170,107 @@ const RAW_RING: RingLaw = RingLaw {
     strike: 1.5,
 };
 
+/// The tom: the kick's law an octave and more up, its pitch falling less far as it drains.
+const TOM: RingLaw = RingLaw {
+    hz: 110.0,
+    drop: 0.9,
+    power: 2,
+    gain: 0.05,
+    growth: 0.9,
+    damping: 0.009,
+    threshold: 0.85,
+    temper_shift: 0.45,
+    strike: 1.5,
+};
+
+/// A hand drum: a ring body, and a Fold slap at the strike that dies within milliseconds.
+struct HandLaw {
+    body: RingLaw,
+    /// The slap's clock, and its natural rate against the clock, as multiples of the body's pitch.
+    slap_ratio: f32,
+    natural_ratio: f32,
+    /// The slap's share of the drum at Body 0, how long it rings at Snap 0, and how hard it kicks
+    /// the fold: past 1 the circle map is chaotic, which is what makes a slap a slap.
+    slap_mix: f32,
+    slap_s: f32,
+    slap_kick: f32,
+}
+
+/// A hand drum's state: its body, its slap, and how much of the slap is left.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Hand {
+    body: Ring,
+    slap: Fold,
+    left: f32,
+}
+
+impl HandLaw {
+    /// One sample: Drop, Drive and Damping on the body as a ring's, Drive also kicking the slap
+    /// harder, Snap shortening it and Body taking the slap's share.
+    fn tick(&self, hand: &mut Hand, sample_rate: f32, drive: &Drive) -> f32 {
+        let body = self.body.tick(&mut hand.body, sample_rate, drive);
+        let dt = 1.0 / sample_rate;
+        let decay = (dt / (self.slap_s * drive.octaves(6, -1.0))).min(1.0);
+        hand.left = flush(hand.left - hand.left * decay);
+        let slap = if hand.left > 0.0 {
+            let forcing = (self.body.hz * self.slap_ratio * drive.pitch * dt).min(0.45);
+            let natural = (forcing * self.natural_ratio).min(0.45);
+            let kick = self.slap_kick * drive.octaves(7, 1.0) * (0.5 + drive.charge);
+            hand.slap.tick(natural, forcing, kick)
+        } else {
+            0.0
+        };
+        let mix = (self.slap_mix - 0.3 * CONTROL_REACH * drive.control(2)).clamp(0.0, 1.0);
+        (1.0 - mix) * body + mix * hand.left * slap
+    }
+
+    /// A hit: the body's impulse with Snap, and the slap from its start.
+    fn strike(&self, hand: &mut Hand, velocity: f32, controls: &[f32; CONTROLS]) {
+        self.body.strike(&mut hand.body, velocity, controls);
+        hand.left = velocity.clamp(0.0, 1.0);
+        hand.slap = Fold::default();
+    }
+}
+
+const CONGA: HandLaw = HandLaw {
+    body: RingLaw {
+        hz: 196.0,
+        drop: 0.2,
+        power: 1,
+        gain: 0.05,
+        growth: 0.7,
+        damping: 0.012,
+        threshold: 0.85,
+        temper_shift: 0.4,
+        strike: 1.3,
+    },
+    slap_ratio: 2.7,
+    natural_ratio: 1.618,
+    slap_mix: 0.35,
+    slap_s: 0.012,
+    slap_kick: 1.6,
+};
+
+/// The bongo: a smaller, higher, shorter conga with a brighter slap.
+const BONGO: HandLaw = HandLaw {
+    body: RingLaw {
+        hz: 330.0,
+        drop: 0.25,
+        power: 1,
+        gain: 0.05,
+        growth: 0.7,
+        damping: 0.02,
+        threshold: 0.85,
+        temper_shift: 0.4,
+        strike: 1.2,
+    },
+    slap_ratio: 3.1,
+    natural_ratio: 1.618,
+    slap_mix: 0.4,
+    slap_s: 0.008,
+    slap_kick: 1.8,
+};
+
 /// The snare's wires: their centre and Q, and how dense they get.
 const WIRES_HZ: f32 = 3500.0;
 const WIRES_Q: f32 = 0.7;
@@ -295,6 +396,9 @@ pub(crate) struct RawDust {
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum Voice {
     Silent,
+    Tom(Ring),
+    Conga(Hand),
+    Bongo(Hand),
     Kick(Kick),
     Snare(Snare),
     Clap(Clap),
@@ -325,6 +429,9 @@ impl Voice {
                 click: Click::default(),
             }),
             ModelId::RAW_RING => Self::RawRing(Ring::default()),
+            ModelId::FALLING_TOM => Self::Tom(Ring::default()),
+            ModelId::SLAPPED_CONGA => Self::Conga(Hand::default()),
+            ModelId::SLAPPED_BONGO => Self::Bongo(Hand::default()),
             ModelId::RAW_SPARK => Self::RawSpark(RawSpark {
                 spark: Spark::default(),
                 click: Click::default(),
@@ -353,6 +460,8 @@ impl Voice {
             ModelId::DRAINING_KICK => 0.47,
             ModelId::WIRED_SNARE => 0.4,
             ModelId::RAW_FOLD | ModelId::RAW_LOOP => 0.5,
+            ModelId::FALLING_TOM => 0.45,
+            ModelId::SLAPPED_BONGO => 0.36,
             _ => 0.42,
         }
     }
@@ -364,6 +473,9 @@ impl Voice {
             Self::Kick(kick) => KICK.strike(&mut kick.ring, velocity, controls),
             Self::Snare(snare) => SNARE_BODY.strike(&mut snare.body, velocity, controls),
             Self::RawRing(ring) => RAW_RING.strike(ring, velocity, controls),
+            Self::Tom(ring) => TOM.strike(ring, velocity, controls),
+            Self::Conga(hand) => CONGA.strike(hand, velocity, controls),
+            Self::Bongo(hand) => BONGO.strike(hand, velocity, controls),
             Self::Clap(clap) => clap.spark.prime(),
             Self::RawSpark(raw) => raw.spark.prime(),
             Self::RawLoop(raw) => {
@@ -381,6 +493,9 @@ impl Voice {
             Self::Silent => 0.0,
             Self::Kick(kick) => KICK.tick(&mut kick.ring, sample_rate, drive),
             Self::RawRing(ring) => RAW_RING.tick(ring, sample_rate, drive),
+            Self::Tom(ring) => TOM.tick(ring, sample_rate, drive),
+            Self::Conga(hand) => CONGA.tick(hand, sample_rate, drive),
+            Self::Bongo(hand) => BONGO.tick(hand, sample_rate, drive),
             Self::Snare(snare) => {
                 snare.tuned.retune(
                     &mut snare.wires,
@@ -491,7 +606,8 @@ impl Voice {
         match self {
             Self::Silent => {}
             Self::Kick(kick) => kick.ring.clear(),
-            Self::RawRing(ring) => ring.clear(),
+            Self::RawRing(ring) | Self::Tom(ring) => ring.clear(),
+            Self::Conga(hand) | Self::Bongo(hand) => *hand = Hand::default(),
             Self::Snare(snare) => {
                 snare.body.clear();
                 snare.wires.clear();

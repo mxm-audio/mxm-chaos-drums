@@ -185,29 +185,29 @@ pub struct CellParams {
 ///
 /// **The Levels balance the kit** (the owner, 2026-11-03), as every factory kit's (`kits::balance`):
 /// each cell equally loud per hit by ITU-R BS.1770's K-weighting, then the three noise cells (both
-/// hats and the maraca) 6 dB under that, so they sit below the kick and snare. The bongo's loop wants
-/// about +9 dB against the kick, so every Level comes down 3 dB to fit it under the Level's +6 dB
+/// hats and the maraca) 6 dB under that, so they sit below the kick and snare. The crash's loop wants
+/// about +8 dB against the kick, so every Level comes down 2 dB to fit it under the Level's +6 dB
 /// ceiling. `kits::init_and_every_kit_are_balanced` holds it: rerun it when a model or this table
 /// changes.
 const INIT: [(ModelId, i32, Option<f32>, i32, f32); CELLS] = [
-    (ModelId::DRAINING_KICK, 0, None, 0, -3.0),
-    (ModelId::WIRED_SNARE, 0, None, 0, 1.0),
-    // The three toms, and the congas and bongo, rings and folds a fourth or a fifth apart.
-    (ModelId::RAW_RING, -5, None, 0, -4.0),
-    (ModelId::RAW_RING, 0, None, 0, -4.5),
-    (ModelId::RAW_RING, 5, None, 0, -4.5),
-    (ModelId::RAW_FOLD, 0, None, 0, -7.5),
-    (ModelId::RAW_FOLD, 5, None, 0, -7.5),
-    (ModelId::RAW_LOOP, 7, None, 0, 6.0),
+    (ModelId::DRAINING_KICK, 0, None, 0, -2.0),
+    (ModelId::WIRED_SNARE, 0, None, 0, 2.0),
+    // The three toms, a fourth apart, and the congas a fourth apart and the bongo.
+    (ModelId::FALLING_TOM, -5, None, 0, -2.5),
+    (ModelId::FALLING_TOM, 0, None, 0, -3.0),
+    (ModelId::FALLING_TOM, 5, None, 0, -2.5),
+    (ModelId::SLAPPED_CONGA, 0, None, 0, 2.0),
+    (ModelId::SLAPPED_CONGA, 5, None, 0, 3.0),
+    (ModelId::SLAPPED_BONGO, 0, None, 0, 5.0),
     // Rim, clap, the hats (the closed one cuts the open one), crash, cowbell, clave, maraca.
-    (ModelId::RAW_SPARK, 0, None, 0, 0.0),
-    (ModelId::SPARK_CLAP, 0, None, 0, 1.0),
-    (ModelId::RAW_DUST, 0, Some(0.2), 1, -9.5),
-    (ModelId::RAW_DUST, 0, Some(0.5), 1, -12.0),
-    (ModelId::RAW_LOOP, 12, Some(0.6), 0, 5.0),
-    (ModelId::RAW_FOLD, 12, None, 0, -8.0),
-    (ModelId::RAW_SPARK, 12, Some(0.25), 0, 2.5),
-    (ModelId::RAW_DUST, 5, Some(0.3), 0, -10.5),
+    (ModelId::RAW_SPARK, 0, None, 0, 0.5),
+    (ModelId::SPARK_CLAP, 0, None, 0, 1.5),
+    (ModelId::RAW_DUST, 0, Some(0.2), 1, -8.5),
+    (ModelId::RAW_DUST, 0, Some(0.5), 1, -11.0),
+    (ModelId::RAW_LOOP, 12, Some(0.6), 0, 6.0),
+    (ModelId::RAW_FOLD, 12, None, 0, -7.0),
+    (ModelId::RAW_SPARK, 12, Some(0.25), 0, 3.0),
+    (ModelId::RAW_DUST, 5, Some(0.3), 0, -10.0),
 ];
 
 impl CellParams {

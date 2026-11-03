@@ -8,7 +8,9 @@ types, no GUI, no allocation once a kit is built. The crate's docs (`src/lib.rs`
 the brief (`docs/briefs/mxm-chaos-drums.md`) is what it implements.
 
 **P2, the DSP crate** (2026-11-02): all five engines, three drum models (Draining kick, Wired snare,
-Spark clap) and the five raw ones; the rest of the catalogue is P4's.
+Spark clap) and the five raw ones; the rest of the catalogue is P4's, a group at a time: **its
+drums** (2026-11-03), the Falling tom and the Slapped conga and bongo (a ring body under a Fold
+slap, `voice::HandLaw`), wait for the owner's listening before the hats and cymbals follow.
 
 ## Ownership
 

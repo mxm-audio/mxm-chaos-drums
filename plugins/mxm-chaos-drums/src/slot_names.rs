@@ -112,8 +112,10 @@ mod tests {
         let made = params.made_up_names();
         assert_eq!(made[0].as_deref(), Some("bd1"));
         assert_eq!(made[1].as_deref(), Some("sn1"));
-        assert_eq!(made[2].as_deref(), Some("ri1"));
-        assert_eq!(made[4].as_deref(), Some("ri3"));
+        assert_eq!(made[2].as_deref(), Some("tm1"));
+        assert_eq!(made[4].as_deref(), Some("tm3"));
+        assert_eq!(made[5].as_deref(), Some("cg1"));
+        assert_eq!(made[7].as_deref(), Some("bg1"));
         let names = HostNames(params).names();
         assert!(names.iter().any(|n| n.key == 36 && n.name == "bd1"));
         assert!(names.iter().any(|n| n.key == 52 && n.name == "bd1 touch"));

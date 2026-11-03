@@ -11,6 +11,9 @@ impl ModelId {
     pub const NONE: Self = Self(0);
     pub const DRAINING_KICK: Self = Self(1);
     pub const WIRED_SNARE: Self = Self(2);
+    pub const FALLING_TOM: Self = Self(6);
+    pub const SLAPPED_CONGA: Self = Self(7);
+    pub const SLAPPED_BONGO: Self = Self(8);
     pub const SPARK_CLAP: Self = Self(11);
     pub const RAW_RING: Self = Self(21);
     pub const RAW_SPARK: Self = Self(22);
@@ -226,6 +229,46 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
         ],
         notes: "A drum body whose swing spills into noisy wires: the harder it rings, the thicker the \
                 wires.",
+    },
+    ModelSpec {
+        id: ModelId::FALLING_TOM,
+        label: "Falling tom",
+        kind: Kind::Tom,
+        controls: &[
+            control(3, "Drop"),
+            control(6, "Snap"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "A ringing head whose pitch falls as its charge drains, less far than the kick's. Fill \
+                it past its threshold and it sings.",
+    },
+    ModelSpec {
+        id: ModelId::SLAPPED_CONGA,
+        label: "Slapped conga",
+        kind: Kind::Conga,
+        controls: &[
+            control(2, "Body"),
+            control(3, "Drop"),
+            control(6, "Snap"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "A ringing head with a slap at the strike, a fold kicked into chaos for a few \
+                milliseconds; Body trades the slap for the tone.",
+    },
+    ModelSpec {
+        id: ModelId::SLAPPED_BONGO,
+        label: "Slapped bongo",
+        kind: Kind::Bongo,
+        controls: &[
+            control(2, "Body"),
+            control(3, "Drop"),
+            control(6, "Snap"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "A smaller, higher conga: a short ring and a bright slap.",
     },
     ModelSpec {
         id: ModelId::SPARK_CLAP,
