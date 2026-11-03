@@ -55,7 +55,22 @@ impl Drive {
             exp2(CONTROL_REACH * octaves * control)
         }
     }
+
+    /// As [`Drive::octaves`], `down` octaves below and `up` above: for a Tone whose top would leave
+    /// hearing at the full reach.
+    fn octaves_split(&self, number: usize, down: f32, up: f32) -> f32 {
+        let octaves = if self.control(number) > 0.0 { up } else { down };
+        self.octaves(number, octaves)
+    }
 }
+
+/// How far up Tone reaches on the three models whose band left hearing at the full reach (the owner,
+/// 2026-11-03: "pull those three ranges back"), so all of its travel is heard: the snare's wires to
+/// 14 kHz, a spark's click corner to 4 kHz, past which the click filters itself away, a dust's band
+/// to 16 kHz. Down, each keeps the full reach.
+const WIRES_TONE_UP: f32 = 0.8;
+const CLICK_TONE_UP: f32 = 1.5;
+const DUST_TONE_UP: f32 = 1.2;
 
 /// How far every model control reaches past the drum it starts as: each `octaves` a control is
 /// written with is its drum-like span, and the control goes this many times as far, out to where the
@@ -369,7 +384,7 @@ impl Voice {
             Self::Snare(snare) => {
                 snare.tuned.retune(
                     &mut snare.wires,
-                    WIRES_HZ * drive.octaves(1, 1.0),
+                    WIRES_HZ * drive.octaves_split(1, 1.0, WIRES_TONE_UP),
                     WIRES_Q,
                     sample_rate,
                 );
@@ -416,7 +431,7 @@ impl Voice {
                 let refractory = ((SPARK_REFRACTORY_S * sample_rate) as u32).max(width + 2);
                 let leak = (dt / (SPARK_MEMBRANE_S * drive.octaves(5, -2.0))).min(1.0);
                 let (pulse, _) = raw.spark.tick(input, leak, refractory, width);
-                let corner = CLICK_HZ * drive.octaves(1, 3.0);
+                let corner = CLICK_HZ * drive.octaves_split(1, 3.0, CLICK_TONE_UP);
                 raw.click.tick(pulse, (TAU * corner * dt).min(1.0))
             }
             Self::RawFold(fold) => {
@@ -457,7 +472,7 @@ impl Voice {
                 )
             }
             Self::RawDust(raw) => {
-                let centre = DUST_HZ * drive.octaves(1, 2.0);
+                let centre = DUST_HZ * drive.octaves_split(1, 2.0, DUST_TONE_UP);
                 raw.tuned.retune(
                     &mut raw.dust,
                     centre,

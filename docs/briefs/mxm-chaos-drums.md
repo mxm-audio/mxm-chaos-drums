@@ -234,7 +234,7 @@ Every model has the kind its label's last word names, held by a test.
 | `model` | `Cell N model` | 0…255 stepped; Init's kit below |
 | `coarse` | `Cell N coarse` | −48…+48 semitones, stepped, from a subsonic thump to a piercing tone; 0 |
 | `fine` | `Cell N fine` | −100…+100 cents; 0 |
-| `c01` … `c12` | `Cell N tone` … `Cell N damping`, `Cell N control 10` … `12`: the general names (below) | bipolar; zero is the model's own setting, and either end reaches two and a half times the drum's own span, out past where it stops being that drum (the owner, 2026-11-03) |
+| `c01` … `c12` | `Cell N tone` … `Cell N damping`, `Cell N control 10` … `12`: the general names (below) | bipolar; zero is the model's own setting, and either end reaches two and a half times the drum's own span, out past where it stops being that drum (the owner, 2026-11-03); a spark's, a snare's and a dust's Tone reach less far up, to where they are still heard |
 | `strike` | `Cell N strike` | the packet at full velocity, 0–100% of the ceiling; 60% *(prov.)* |
 | `supply` | `Cell N supply` | how fast a held note fills the cell at full velocity, 0–100%; 30% *(prov.)* |
 | `hunger` | `Cell N hunger` | how fast sounding spends charge, 0–100%; 50% *(prov.)* |
