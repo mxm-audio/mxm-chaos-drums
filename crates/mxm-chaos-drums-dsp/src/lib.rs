@@ -25,6 +25,7 @@
 //!
 //! The design is the repository's `docs/briefs/mxm-chaos-drums.md`.
 
+pub mod capture;
 pub mod cell;
 pub mod curves;
 pub mod engine;

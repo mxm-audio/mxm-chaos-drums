@@ -1,0 +1,324 @@
+//! Resample: each cell rendered to a one-shot, and the one-shots played in the cells' place (the
+//! plan's P3, as the drum machine's Resample, whose capture thread and pack are mxm-kit's
+//! `mxm-drum-shell`).
+//!
+//! # A capture is a function of the patch
+//!
+//! Each cell is struck alone from rest at [`CAPTURE_VELOCITY`], held for [`CAPTURE_GATE_S`], its
+//! neighbours at rest but coupled, and recorded before its Level until the whole kit rests, or
+//! [`MAX_CAPTURE_SECONDS`] pass and its tail is faded and reported truncated. The pool and the LFOs
+//! start from reset, so the capture is the patch's sound, not its history (the plan's *Resample for
+//! a lattice*). **The buses are off while it renders**: a frozen cell plays its hit, and a bus has no
+//! hit to give; a droning cell captures what a strike adds to it.
+//!
+//! What a capture leaves out is what stays live: Level, Pan, Mute, Solo, the cell's output and
+//! Master, routes onto them included, act on the one-shot as on the cell. Nothing else reaches a
+//! frozen cell; turn Resample off to change it.
+//!
+//! # Playback
+//!
+//! A strike starts its cell's one-shot at the strike's gain: its velocity through Dynamics, so a
+//! capture at full strength is played quieter rather than struck softer, a loss the plan names. A
+//! new strike fades the one-shot still playing over [`FADE_SECONDS`], as a choke, a group's choke, a
+//! panic and a transport reset do; releases, touch, tuning, the wheel and pressure play nothing.
+
+use crate::cell::CellParams;
+use crate::kit::{CELLS, Event, EventKind, Kit, KitParams};
+
+/// The strike every capture is taken at: full strength, which a pack is too.
+pub const CAPTURE_VELOCITY: f32 = 1.0;
+/// How long a capture's note is held: half a sixteenth at 120 BPM, a sequencer's gate.
+pub const CAPTURE_GATE_S: f32 = 0.0625;
+/// The longest one-shot: a tail still sounding here is faded out and reported truncated.
+pub const MAX_CAPTURE_SECONDS: f32 = 8.0;
+/// The fade on a truncated tail, long enough not to click.
+pub const TRUNCATION_FADE_SECONDS: f32 = 0.010;
+/// How long a one-shot takes to fade when a new strike, a choke or a reset ends it.
+pub const FADE_SECONDS: f32 = 0.004;
+
+/// How much of a capture renders before it looks at whether the kit has rested.
+const REST_CHECK_FRAMES: usize = 256;
+
+/// The settings a capture is rendered from: the kit's and every cell's, with everything that
+/// stays live neutral (the mix) and the buses off.
+#[must_use]
+pub fn capture_patches(
+    kit: KitParams,
+    cells: [CellParams; CELLS],
+) -> (KitParams, [CellParams; CELLS]) {
+    let kit = KitParams {
+        bus: [0.0; 2],
+        master: 1.0,
+        ..kit
+    };
+    let cells = cells.map(|cell| CellParams {
+        level: 1.0,
+        pan: 0.0,
+        mute: false,
+        solo: false,
+        output: 0,
+        ..cell
+    });
+    (kit, cells)
+}
+
+/// Every cell's one-shot, at the rate it was rendered, stamped with the engage it answers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KitCapture {
+    cells: [Vec<f32>; CELLS],
+    truncated: [bool; CELLS],
+    sample_rate: f32,
+    request: u32,
+}
+
+impl KitCapture {
+    /// The same kit, answering engage `request`.
+    #[must_use]
+    pub fn answering(self, request: u32) -> Self {
+        Self { request, ..self }
+    }
+
+    #[must_use]
+    pub fn request(&self) -> u32 {
+        self.request
+    }
+
+    #[must_use]
+    pub fn sample_rate(&self) -> f32 {
+        self.sample_rate
+    }
+
+    /// Cell `cell`'s one-shot, before its Level; empty for a cell that sounds nothing.
+    #[must_use]
+    pub fn cell(&self, cell: usize) -> &[f32] {
+        &self.cells[cell]
+    }
+
+    /// Whether `cell`'s tail was still sounding at [`MAX_CAPTURE_SECONDS`] and was faded there.
+    #[must_use]
+    pub fn truncated(&self, cell: usize) -> bool {
+        self.truncated[cell]
+    }
+
+    /// The longest one-shot, in frames: what a frozen hit can still ring for.
+    #[must_use]
+    pub fn longest(&self) -> usize {
+        self.cells.iter().map(Vec::len).max().unwrap_or(0)
+    }
+}
+
+/// A capture under way, rendered a chunk at a time so the thread doing it can stop between chunks.
+pub struct KitCaptureInProgress {
+    kit: KitParams,
+    cells: [CellParams; CELLS],
+    sample_rate: f32,
+    /// The cell being rendered, and the kit rendering it.
+    cell: usize,
+    engine: Option<Box<Kit>>,
+    recorded: Vec<f32>,
+    done: [Vec<f32>; CELLS],
+    truncated: [bool; CELLS],
+}
+
+impl KitCaptureInProgress {
+    /// Begins capturing `patches` (as [`capture_patches`] makes them) at `sample_rate`.
+    #[must_use]
+    pub fn begin(patches: &(KitParams, [CellParams; CELLS]), sample_rate: f32) -> Self {
+        Self {
+            kit: patches.0,
+            cells: patches.1,
+            sample_rate,
+            cell: 0,
+            engine: None,
+            recorded: Vec::new(),
+            done: std::array::from_fn(|_| Vec::new()),
+            truncated: [false; CELLS],
+        }
+    }
+
+    /// Renders up to `frames` more; `true` once every cell is captured.
+    pub fn render(&mut self, frames: usize) -> bool {
+        let mut budget = frames;
+        while self.cell < CELLS && budget > 0 {
+            budget = budget.saturating_sub(self.render_cell(budget));
+        }
+        self.cell >= CELLS
+    }
+
+    /// Renders up to `budget` frames of the cell under way, finishing it when it rests or reaches
+    /// the cap; returns the frames it rendered.
+    fn render_cell(&mut self, budget: usize) -> usize {
+        let rate = self.sample_rate;
+        let cell = self.cell;
+        let max = (MAX_CAPTURE_SECONDS * rate) as usize;
+        let gate = ((CAPTURE_GATE_S * rate) as usize).max(1);
+        let engine = self.engine.get_or_insert_with(|| {
+            let mut kit = Box::new(Kit::new(rate, self.kit, self.cells));
+            let mut first = vec![[0.0; CELLS]; gate];
+            let strike = [Event {
+                offset: 0,
+                kind: EventKind::Strike {
+                    cell,
+                    velocity: CAPTURE_VELOCITY,
+                    gate: true,
+                },
+            }];
+            kit.process_raw(&strike, &mut first);
+            kit.apply_now(&[Event {
+                offset: 0,
+                kind: EventKind::Release { cell },
+            }]);
+            self.recorded = first.iter().map(|frame| frame[cell]).collect();
+            kit
+        });
+        let mut rendered = 0;
+        let mut chunk = [[0.0; CELLS]; REST_CHECK_FRAMES];
+        let finished = loop {
+            if self.recorded.len() >= max {
+                break true;
+            }
+            if engine.cells_rest() {
+                break false;
+            }
+            if rendered >= budget {
+                return rendered;
+            }
+            let n = REST_CHECK_FRAMES.min(max - self.recorded.len());
+            engine.process_raw(&[], &mut chunk[..n]);
+            self.recorded
+                .extend(chunk[..n].iter().map(|frame| frame[cell]));
+            rendered += n;
+        };
+        let mut shot = core::mem::take(&mut self.recorded);
+        if finished {
+            // Still sounding at the cap: faded out over its last moments, and said.
+            let fade = ((TRUNCATION_FADE_SECONDS * rate) as usize).clamp(1, shot.len().max(1));
+            let start = shot.len().saturating_sub(fade);
+            for (k, sample) in shot[start..].iter_mut().enumerate() {
+                *sample *= 1.0 - (k + 1) as f32 / fade as f32;
+            }
+            self.truncated[cell] = true;
+        }
+        // Rest is exact silence, so a rested shot's trailing zeros carry nothing; a truncated one
+        // keeps its length, faded to zero.
+        while !finished && shot.last() == Some(&0.0) {
+            shot.pop();
+        }
+        self.done[cell] = shot;
+        self.engine = None;
+        self.cell += 1;
+        rendered
+    }
+
+    /// The finished capture, answering engage 0 until [`KitCapture::answering`] stamps it.
+    #[must_use]
+    pub fn finish(self) -> KitCapture {
+        KitCapture {
+            cells: self.done,
+            truncated: self.truncated,
+            sample_rate: self.sample_rate,
+            request: 0,
+        }
+    }
+}
+
+/// A whole capture, now. Off the audio thread: it allocates a kit for every cell.
+#[must_use]
+pub fn capture_kit(patches: &(KitParams, [CellParams; CELLS]), sample_rate: f32) -> KitCapture {
+    capture_kit_until(patches, sample_rate, &|| false).expect("never stopped")
+}
+
+/// [`capture_kit`], stopping between chunks if `stop` says to: `None` when it stopped.
+#[must_use]
+pub fn capture_kit_until(
+    patches: &(KitParams, [CellParams; CELLS]),
+    sample_rate: f32,
+    stop: &dyn Fn() -> bool,
+) -> Option<KitCapture> {
+    let mut progress = KitCaptureInProgress::begin(patches, sample_rate);
+    loop {
+        if stop() {
+            return None;
+        }
+        if progress.render(65_536) {
+            return Some(progress.finish());
+        }
+    }
+}
+
+/// One one-shot being read: where it is, at what gain, and how far it has faded.
+#[derive(Clone, Copy, Debug, Default)]
+struct Reader {
+    at: usize,
+    gain: f32,
+    /// 1 while it plays, falling to 0 once it fades.
+    fade: f32,
+    fading: bool,
+    live: bool,
+}
+
+impl Reader {
+    fn sample(&mut self, shot: &[f32], step: f32) -> f32 {
+        if !self.live {
+            return 0.0;
+        }
+        let Some(&x) = shot.get(self.at) else {
+            *self = Self::default();
+            return 0.0;
+        };
+        self.at += 1;
+        let out = x * self.gain * self.fade;
+        if self.fading {
+            self.fade -= step;
+            if self.fade <= 0.0 {
+                *self = Self::default();
+            }
+        }
+        out
+    }
+}
+
+/// What a frozen cell plays: its one-shot, and the one a new strike is fading out.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Player {
+    now: Reader,
+    gone: Reader,
+}
+
+impl Player {
+    /// A hit at `gain`: the one-shot from its start, the one playing faded out under it.
+    pub(crate) fn strike(&mut self, gain: f32) {
+        self.stop();
+        self.gone = self.now;
+        self.now = Reader {
+            at: 0,
+            gain,
+            fade: 1.0,
+            fading: false,
+            live: true,
+        };
+    }
+
+    /// Whatever plays fades out.
+    pub(crate) fn stop(&mut self) {
+        for reader in [&mut self.now, &mut self.gone] {
+            if reader.live {
+                reader.fading = true;
+            }
+        }
+    }
+
+    /// Silence at once: a reset's, or a frozen kit taken away.
+    pub(crate) fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    pub(crate) fn is_quiet(&self) -> bool {
+        !self.now.live && !self.gone.live
+    }
+
+    /// One sample of `shot`, `step` the fade's fall a sample.
+    pub(crate) fn tick(&mut self, shot: &[f32], step: f32) -> f32 {
+        self.now.sample(shot, step) + self.gone.sample(shot, step)
+    }
+}

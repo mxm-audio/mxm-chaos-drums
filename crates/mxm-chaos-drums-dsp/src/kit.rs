@@ -5,6 +5,7 @@ use mxm_drum_engine::{LFO_SEEDS, Lfo, LfoShape, OUTPUT_TRANSFER_SECONDS, OutputF
 use mxm_dsp::guard::finite_or;
 use mxm_part_routing::{Destination, DestinationRouter};
 
+use crate::capture::{FADE_SECONDS, KitCapture, Player};
 use crate::cell::{Cell, CellParams, velocity_curve};
 use crate::curves::{self, RECHARGE_OCTAVES};
 use crate::fmath;
@@ -219,6 +220,11 @@ pub struct Kit {
     mixer: [[f32; 2]; CELLS],
     master: f32,
     smoothing: f32,
+    /// Resample's frozen kit, when one is installed, what each cell plays from it, and how fast a
+    /// one-shot fades (`capture`).
+    frozen: Option<Box<KitCapture>>,
+    players: [Player; CELLS],
+    fade_step: f32,
 }
 
 /// The kit's settings for one sample, its routes applied.
@@ -273,6 +279,9 @@ impl Kit {
             mixer: cells.map(|cell| [cell.level.max(0.0), cell.pan.clamp(-1.0, 1.0)]),
             master: params.master.max(0.0),
             smoothing: (1.0 / (MIX_FOLLOW_S * sample_rate)).min(1.0),
+            frozen: None,
+            players: [Player::default(); CELLS],
+            fade_step: 1.0 / (FADE_SECONDS * sample_rate).max(1.0),
         };
         kit.reach = kit.lfo_reach();
         // A fresh kit is a reset one: its routes settled at the LFOs' start, its pool full at the
@@ -337,6 +346,9 @@ impl Kit {
         self.pressure = 0.0;
         self.settle_and_fill();
         self.flows = [0.0; EDGES];
+        for player in &mut self.players {
+            player.clear();
+        }
         for (mixer, cell) in self.mixer.iter_mut().zip(&self.cells) {
             *mixer = [cell.level(), cell.pan()];
         }
@@ -368,7 +380,28 @@ impl Kit {
     /// level is what the next note draws on.
     #[must_use]
     pub fn is_at_rest(&self) -> bool {
-        self.pool.is_full() && self.cells_rest()
+        self.pool.is_full() && self.cells_rest() && self.players_quiet()
+    }
+
+    /// No frozen one-shot plays.
+    fn players_quiet(&self) -> bool {
+        self.players.iter().all(Player::is_quiet)
+    }
+
+    /// Installs Resample's frozen kit, or with `None` takes it away, returning the one displaced.
+    /// What a frozen cell was playing stops at once, as its one-shot goes with the kit; a live cell's
+    /// tail rings on. **Audio thread** too: the box moves, nothing is made or freed.
+    pub fn set_captures(&mut self, capture: Option<Box<KitCapture>>) -> Option<Box<KitCapture>> {
+        for player in &mut self.players {
+            player.clear();
+        }
+        core::mem::replace(&mut self.frozen, capture)
+    }
+
+    /// Whether a frozen kit plays: strikes start one-shots, not cells.
+    #[must_use]
+    pub fn is_frozen(&self) -> bool {
+        self.frozen.is_some()
     }
 
     /// Nothing sounding and nothing about to feed a cell, so the kit skips its core: a tick of
@@ -418,7 +451,7 @@ impl Kit {
                 .windows(2)
                 .all(|pair| pair[0].offset <= pair[1].offset)
         );
-        let resting = self.cells_rest();
+        let resting = self.cells_rest() && self.players_quiet();
         let mut sample = Sample::default();
         let mut any = false;
         while *next < events.len() && events[*next].offset <= n {
@@ -433,8 +466,7 @@ impl Kit {
         // routes applied, before the rest check, since a route can be what feeds a resting cell.
         if any {
             self.apply_resets(&sample);
-            let sources = self.sources();
-            self.apply_notes(&sample, &sources);
+            self.apply_events(&sample);
         }
         let sources = self.sources();
         self.settle(&sources);
@@ -442,12 +474,80 @@ impl Kit {
             self.settle_mix();
         }
         self.advance_lfos();
-        if !any && self.cells_rest() {
+        let mut out = if !any && self.cells_rest() {
             // Resting cells ask nothing of the pool and change nothing, so their tick is this.
             self.pool.recharge();
-            return [0.0; CELLS];
+            [0.0; CELLS]
+        } else {
+            self.tick()
+        };
+        self.play(&mut out);
+        out
+    }
+
+    /// One sample's notes, to the cells or, while frozen, to their one-shots.
+    fn apply_events(&mut self, sample: &Sample) {
+        if self.frozen.is_some() {
+            self.apply_frozen(sample);
+        } else {
+            let sources = self.sources();
+            self.apply_notes(sample, &sources);
         }
-        self.tick()
+    }
+
+    /// One sample's notes while frozen: a strike starts its cell's one-shot and chokes its group as
+    /// a live one does; a choke ends a one-shot; releases and touches reach the live tails still
+    /// ringing, which a frozen strike on their cell cuts; tuning plays nothing.
+    fn apply_frozen(&mut self, sample: &Sample) {
+        for (index, cell) in self.cells.iter_mut().enumerate() {
+            if sample.all_off || sample.release[index] {
+                cell.release();
+            }
+            if sample.all_off || sample.touch_off[index] {
+                cell.touch_off();
+            }
+            if sample.choke[index] {
+                cell.choke();
+                self.players[index].stop();
+            }
+        }
+        let mut groups = 0u32;
+        for (cell, velocity) in self.cells.iter().zip(sample.strike) {
+            let group = cell.params().choke_group;
+            if velocity > 0.0 && group > 0 {
+                groups |= 1 << group.min(31);
+            }
+        }
+        let dynamics = self.params.dynamics;
+        for (index, (cell, player)) in self.cells.iter_mut().zip(&mut self.players).enumerate() {
+            let group = cell.params().choke_group;
+            let velocity = sample.strike[index];
+            if velocity > 0.0 {
+                player.strike(velocity_curve(velocity, dynamics));
+                cell.choke();
+            } else if group > 0 && groups & (1 << group.min(31)) != 0 {
+                cell.choke();
+                player.stop();
+            }
+        }
+        if let Some(wheel) = sample.wheel {
+            self.wheel = wheel.clamp(0.0, 1.0);
+        }
+        if let Some(pressure) = sample.pressure {
+            self.pressure = pressure.clamp(0.0, 1.0);
+        }
+    }
+
+    /// The frozen one-shots playing, added to what the cells made.
+    fn play(&mut self, out: &mut [f32; CELLS]) {
+        let Some(frozen) = self.frozen.as_deref() else {
+            return;
+        };
+        for (cell, player) in self.players.iter_mut().enumerate() {
+            if !player.is_quiet() {
+                out[cell] += player.tick(frozen.cell(cell), self.fade_step);
+            }
+        }
     }
 
     /// Apply `events` now, before the next sample, whatever their offsets: a host callback with no
@@ -455,14 +555,13 @@ impl Kit {
     pub fn apply_now(&mut self, events: &[Event]) {
         // Whether the next sample's events find every cell at rest, asked before they apply, as
         // the sample would ask it.
-        let resting = self.cells_rest();
+        let resting = self.cells_rest() && self.players_quiet();
         let mut sample = Sample::default();
         for event in events {
             sample.add(event.kind);
         }
         self.apply_resets(&sample);
-        let sources = self.sources();
-        self.apply_notes(&sample, &sources);
+        self.apply_events(&sample);
         self.settle_now();
         if resting {
             self.settle_mix();
@@ -562,11 +661,17 @@ impl Kit {
             self.wheel = 0.0;
             self.pressure = 0.0;
             self.settle_and_fill();
+            for player in &mut self.players {
+                player.stop();
+            }
         }
         // Panic is silence and no expression: what no channel holds routes nothing.
         if sample.panic {
             for cell in &mut self.cells {
                 cell.panic(self.params.seed);
+            }
+            for player in &mut self.players {
+                player.clear();
             }
             self.wheel = 0.0;
             self.pressure = 0.0;
@@ -735,32 +840,6 @@ impl Kit {
             }
         }
         frame
-    }
-
-    /// One cell's one-shot for Resample: that cell struck from rest at `velocity`, held for `gate`
-    /// samples, its neighbours at rest but coupled, `len` samples of its output before Level.
-    /// Allocates a whole kit: call off the audio thread.
-    #[must_use]
-    pub fn one_shot(&self, cell: usize, velocity: f32, gate: usize, len: usize) -> Vec<f32> {
-        let cells: [CellParams; CELLS] = core::array::from_fn(|i| *self.cells[i].params());
-        let mut kit = Kit::new(self.sample_rate, self.params, cells);
-        let events = [
-            Event {
-                offset: 0,
-                kind: EventKind::Strike {
-                    cell,
-                    velocity,
-                    gate: gate > 0,
-                },
-            },
-            Event {
-                offset: gate.max(1),
-                kind: EventKind::Release { cell },
-            },
-        ];
-        let mut frames = vec![[0.0; CELLS]; len];
-        kit.process_raw(&events, &mut frames);
-        frames.iter().map(|frame| frame[cell]).collect()
     }
 }
 

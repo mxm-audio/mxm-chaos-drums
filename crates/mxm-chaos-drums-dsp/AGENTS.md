@@ -17,7 +17,10 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   curve, and the cell's parameters with its routes applied.
 - `src/pool.rs`: the shared supply, divided among every demand at once.
 - `src/kit.rs`: the torus, Flow and Coupling, the events and their order, group chokes, the LFOs, the
-  kit routes, Level, Pan, Mute, Solo, the outputs, Master, and the one-shot for Resample.
+  kit routes, Level, Pan, Mute, Solo, the outputs, Master, and the frozen kit Resample installs.
+- `src/capture.rs`: Resample's DSP half, as the drum machine's: each cell's one-shot (`capture_kit`,
+  chunked in `KitCaptureInProgress`) and the players a frozen kit strikes. The capture thread, the
+  pack and the editor's pair are mxm-kit's `mxm-drum-shell`.
 - `src/routes.rs`: the four routes a cell and four for the kit, on the collection's standard.
 - `src/voice.rs`: each model's engine network, the controls it reads and its constants.
 - `src/engine/`: Ring (van der Pol), Spark (leaky integrate-and-fire), Fold (a phase oscillator
@@ -28,7 +31,7 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
 - `src/fmath.rs`: `exp2`, semitones and the sine, in basic operations.
 - `examples/charge_grid.rs`: P1's listening grids. `examples/cpu_cost.rs`: sixteen busy cells at
   96 kHz, as a share of real time.
-- `tests/charge.rs`: the contracts below.
+- `tests/charge.rs`: the contracts below; `tests/capture.rs`: Resample's.
 
 ## Local Contracts
 
@@ -73,6 +76,16 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   kit LFO's Sine is its RampUp phase through `fmath::sin_turns`. Tests and examples may use anything.
 - **Temper 0 is steady**: no Flow, no Coupling, no jitter's effect; a hit from rest repeats exactly
   and leaves every other cell silent.
+- **Resample freezes the patch, not the history** (the plan's *Resample for a lattice*). A capture
+  is each cell struck alone from rest at full strength for a sequencer's gate, its neighbours at
+  rest but coupled, the buses off (a frozen cell plays its hit, and a bus has none), recorded before
+  Level until the kit rests or 8 s pass, then faded and said. Its settings with the mix neutral are
+  its key (`capture_patches`), so Level, Pan, Mute, Solo, the output and Master, routes onto them
+  included, stay live. A frozen strike plays its one-shot at its velocity's gain through Dynamics, a
+  capture played quieter rather than struck softer; a new strike, a choke, a group's choke and a
+  transport reset fade it over `FADE_SECONDS`, a panic cuts it; releases, touch and tuning play
+  nothing. Engaging lets a live tail ring out; a frozen cell's own strike chokes it. Installing or
+  taking away a frozen kit cuts what it was playing, as its one-shots go with it.
 - **The model IDs and kind codes are permanent** (the brief's Appendix A).
 - MSRV **1.87**; dependencies `mxm-drum-engine`, `mxm-dsp`, `mxm-modulation`, `mxm-part-routing` and
   `mxm-rng`, all framework-free kit crates.
