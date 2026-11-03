@@ -541,7 +541,9 @@ impl Plugin for MxmChaosDrums {
         // A new activation starts with no tempo: the first callback reports one.
         self.telemetry.tempo.publish(None);
         let kit = self.params.kit(self.params.lfo_hz(None));
-        self.kit = Some(Box::new(Kit::new(sample_rate, kit, self.cell_settings())));
+        let mut fresh = Box::new(Kit::new(sample_rate, kit, self.cell_settings()));
+        capture::carry_capture(self.kit.as_deref_mut(), &mut fresh);
+        self.kit = Some(fresh);
         self.notes = Notes::new();
         self.play = PlayStart::default();
         // A new engage: the kit captured now when Resample is on, kept when its patch has not

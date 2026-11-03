@@ -28,7 +28,7 @@
 
 use crate::cell::{Bus, CellParams};
 use crate::kit::{CELLS, Event, EventKind, Kit, KitParams};
-use crate::routes::{CellTarget, KitTarget, Route};
+use crate::routes::{CellTarget, KitTarget, Route, Source};
 
 /// The strike every capture is taken at: full strength, which a pack is too.
 pub const CAPTURE_VELOCITY: f32 = 1.0;
@@ -54,7 +54,8 @@ const REST_CHECK_FRAMES: usize = 256;
 /// stands: the kit's and every cell's, with all that stays live while frozen neutral (the mix, its
 /// routes, Dynamics, which a velocity-1 hit cannot hear), and all that would disturb the isolated
 /// hit taken away (the buses and every route onto them, the choke groups, whose strike would latch
-/// a neighbour out of the coupling).
+/// a neighbour out of the coupling). An LFO no route left reads stands still and moves nothing, so
+/// its Rate and Shape are Init's in the key.
 #[must_use]
 pub fn capture_patches(
     kit: KitParams,
@@ -84,6 +85,27 @@ pub fn capture_patches(
         }),
         ..cell
     });
+    let reads = |lfo: Source| {
+        kit.routes
+            .iter()
+            .any(|route| route.source == lfo && route.target != KitTarget::Off)
+            || cells.iter().any(|cell| {
+                cell.routes
+                    .iter()
+                    .any(|route| route.source == lfo && route.target != CellTarget::Off)
+            })
+    };
+    let init = KitParams::default();
+    let mut kit = kit;
+    for (i, lfo) in [Source::Lfo1, Source::Lfo2, Source::Lfo3]
+        .into_iter()
+        .enumerate()
+    {
+        if !reads(lfo) {
+            kit.lfo_rate_hz[i] = init.lfo_rate_hz[i];
+            kit.lfo_shape[i] = init.lfo_shape[i];
+        }
+    }
     (kit, cells)
 }
 

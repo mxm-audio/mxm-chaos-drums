@@ -429,3 +429,35 @@ fn a_frozen_kit_feeds_no_bus_and_comes_to_rest() {
         assert!(seconds < 60, "a held note keeps a frozen kit awake");
     }
 }
+
+/// An LFO that only a live route reads (the mix, a bus) moves no captured sample, so editing it is
+/// not a new capture; once a route onto the sound reads it, it is.
+#[test]
+fn an_lfo_only_the_live_mix_reads_is_not_part_of_a_capture() {
+    let kit = KitParams::default();
+    let mut mixed = cells(&[(0, ModelId::DRAINING_KICK)]);
+    mixed[0].routes[0] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Level,
+        amount: 1.0,
+    };
+    let mut retuned = kit;
+    retuned.lfo_rate_hz[0] = 9.0;
+    retuned.lfo_shape[0] = mxm_chaos_drums_dsp::LfoShape::Square;
+    assert_eq!(
+        capture_patches(retuned, mixed),
+        capture_patches(kit, mixed),
+        "read only by the mix"
+    );
+    let mut bent = mixed;
+    bent[0].routes[1] = Route {
+        source: Source::Lfo1,
+        target: CellTarget::Pitch,
+        amount: 0.5,
+    };
+    assert_ne!(
+        capture_patches(retuned, bent),
+        capture_patches(kit, bent),
+        "read by the sound"
+    );
+}

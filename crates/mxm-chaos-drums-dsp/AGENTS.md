@@ -109,7 +109,7 @@ twenty-five models render.
   (`examples/capture_cost.rs`, 2026-11-03); the exact rest alone took twice as long, and the
   validator's parameter fuzz timed out on it. Those settings are its key (`capture_patches`), so
   what stays live while frozen is not a new capture: Level, Pan, Mute, Solo, the output, Master,
-  routes onto them, Dynamics, the choke groups, the buses. A frozen strike plays its one-shot at its
+  routes onto them, Dynamics, the choke groups, the buses, and an LFO only those routes read. A frozen strike plays its one-shot at its
   velocity's gain through Dynamics, a capture played quieter rather than struck softer, with its own
   Velocity and Random staged for the routes onto its mix; a new strike, a choke, a group's choke and
   a transport reset fade it over `FADE_SECONDS`, a panic cuts it; releases, touch and tuning play

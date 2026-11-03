@@ -22,6 +22,16 @@ pub const CAPTURE_TEMPO: f64 = 120.0;
 /// What a capture renders: the kit's settings and every cell's, the mix neutral and the buses off.
 pub type Patches = (KitParams, [CellParams; CELLS]);
 
+/// A new activation's kit takes the old kit's capture. mxm-drum-shell keeps a capture across
+/// activations as installed in the engine (the drum machine keeps its engine); this plugin makes a
+/// new kit each activation, so the capture moves into it, for the shell to keep, replace or take
+/// away there as it would.
+pub fn carry_capture(old: Option<&mut Kit>, new: &mut Kit) {
+    if let Some(capture) = old.and_then(|old| old.set_captures(None)) {
+        drop(new.set_captures(Some(capture)));
+    }
+}
+
 /// The patch every capture renders from, read unsmoothed: nice-plug smooths none of these.
 #[must_use]
 pub fn patches(params: &MxmChaosDrumsParams) -> Patches {
@@ -161,8 +171,20 @@ mod tests {
             assert_eq!(frame[0], shot[n], "at {n}");
         }
 
-        resample.service(&mut kit, false, &telemetry.signals, RATE);
-        assert!(!kit.is_frozen(), "off at once");
+        // A second activation at the same rate, the patch unmoved: the shell keeps the capture as
+        // installed, so the new kit has to carry it.
+        let mut again = Kit::new(RATE, params.kit(params.lfo_hz(None)), cells);
+        carry_capture(Some(&mut kit), &mut again);
+        resample.activate(&mut again, true, &telemetry, RATE);
+        assert!(again.is_frozen(), "reactivated, still frozen");
+        let mut out = vec![[0.0; CELLS]; shot.len()];
+        again.process_raw(&hit, &mut out);
+        for (n, frame) in out.iter().enumerate() {
+            assert_eq!(frame[0], shot[n], "reactivated, at {n}");
+        }
+
+        resample.service(&mut again, false, &telemetry.signals, RATE);
+        assert!(!again.is_frozen(), "off at once");
     }
 
     /// A capture is the same kit when only the mix moved, and a new one when a cell's sound did.

@@ -71,7 +71,9 @@ P5** (2026-11-02): the first version the owner explores; Resample and Export, P3
   parameter edit that `process` serves (`Resample::service`, a pointer swap at most), the capture on
   the plugin's own thread, never nice-plug's shared background one (a task left on it against a
   destroyed instance takes the thread down for every other); engaged at activation, the kit is
-  captured then. A capture is the patch's sound, not its history (the DSP's `capture`): only the
+  captured then. The shell keeps a capture across activations as installed in the engine, and this
+  plugin makes a new kit each activation, so the new kit carries the old one's capture
+  (`capture::carry_capture`) for the shell to keep, replace or take away. A capture is the patch's sound, not its history (the DSP's `capture`): only the
   mix, Dynamics, the choke groups and the buses stay live while frozen (the buses then feed no
   cell), so changing anything else is Resample off, edit, on. Export needs
   Resample engaged and writes the kit heard, under its name, to the default pack folder or one
