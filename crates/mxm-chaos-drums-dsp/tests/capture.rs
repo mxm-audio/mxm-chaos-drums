@@ -3,10 +3,12 @@
 //! comes to rest.
 
 use mxm_chaos_drums_dsp::capture::{
-    CAPTURE_GATE_S, FADE_SECONDS, KitCapture, MAX_CAPTURE_SECONDS, capture_kit, capture_patches,
+    CAPTURE_GATE_S, FADE_SECONDS, KitCapture, KitCaptureInProgress, MAX_CAPTURE_SECONDS,
+    capture_kit, capture_patches,
 };
 use mxm_chaos_drums_dsp::{
-    CELLS, CellParams, Event, EventKind, Kit, KitParams, ModelId, OutputFrame, velocity_curve,
+    Bus, CELLS, CellParams, CellTarget, Event, EventKind, Kit, KitParams, KitTarget, ModelId,
+    OutputFrame, Route, Source, velocity_curve,
 };
 
 const RATE: f32 = 16_000.0;
@@ -249,4 +251,181 @@ fn a_tail_still_sounding_at_the_cap_is_faded_and_said() {
     let last = *capture.cell(2).last().unwrap();
     assert!(last.abs() < 1e-3, "faded to its end: {last}");
     assert!(!capture.truncated(0));
+}
+
+/// The capture leaves out what stays live while frozen (the mix's routes, Dynamics) and what would
+/// disturb the isolated hit (a bus and the routes onto one, a choke group, whose strike would latch
+/// a coupled neighbour out of the lattice): neither changes a one-shot, so neither is a new capture.
+#[test]
+fn what_stays_live_or_would_disturb_the_hit_is_not_part_of_a_capture() {
+    let kit = KitParams {
+        temper: 0.6,
+        coupling: 1.0,
+        ..KitParams::default()
+    };
+    let base = cells(&[
+        (10, ModelId::LEAKING_CLOSED_HAT),
+        (11, ModelId::LEAKING_OPEN_HAT),
+    ]);
+    let mut played = base;
+    played[10].choke_group = 1;
+    played[11].choke_group = 1;
+    played[10].bus = Bus::A;
+    played[11].routes[0] = Route {
+        source: Source::Velocity,
+        target: CellTarget::Pan,
+        amount: 1.0,
+    };
+    played[10].routes[1] = Route {
+        source: Source::Random,
+        target: CellTarget::Level,
+        amount: -1.0,
+    };
+    let mut routed = KitParams {
+        dynamics: -0.8,
+        ..kit
+    };
+    routed.routes[0] = Route {
+        source: Source::Lfo1,
+        target: KitTarget::BusA,
+        amount: 1.0,
+    };
+    assert_eq!(capture_patches(routed, played), capture_patches(kit, base));
+    assert_eq!(
+        capture_kit(&capture_patches(routed, played), RATE),
+        capture_kit(&capture_patches(kit, base), RATE),
+        "the hats' group latches neither out of the coupling"
+    );
+    let mut bent = base;
+    bent[10].routes[0] = Route {
+        source: Source::Velocity,
+        target: CellTarget::Pitch,
+        amount: 1.0,
+    };
+    assert_ne!(
+        capture_patches(kit, bent),
+        capture_patches(kit, base),
+        "a route onto the sound is"
+    );
+}
+
+/// A capture renders at most the frames it is asked for, its gates' included, so the thread doing it
+/// can stop within a chunk; and in any steps it renders the same samples.
+#[test]
+fn a_capture_renders_no_more_than_it_is_asked_and_the_same_samples() {
+    let rate = 1_000.0;
+    let patches = capture_patches(
+        KitParams::default(),
+        cells(&[(0, ModelId::DAMPED_CLAVE), (5, ModelId::GRAIN_MARACA)]),
+    );
+    let mut progress = KitCaptureInProgress::begin(&patches, rate);
+    let mut calls = 1;
+    while !progress.render(1) {
+        calls += 1;
+    }
+    let whole = capture_kit(&patches, rate);
+    let kept: usize = (0..CELLS).map(|cell| whole.cell(cell).len()).sum();
+    let gates = CELLS * (CAPTURE_GATE_S * rate) as usize;
+    assert!(
+        calls >= kept.max(gates),
+        "{calls} calls rendered {kept} frames kept and {gates} of gates"
+    );
+    assert_eq!(progress.finish(), whole);
+}
+
+/// A frozen hit stages its own Velocity and Random, as a live one does, for the routes onto the mix.
+#[test]
+fn a_frozen_hit_moves_the_routes_onto_its_mix_hit_by_hit() {
+    let plain = cells(&[(0, ModelId::DRAINING_KICK)]);
+    let peaks = |cells: [CellParams; CELLS], velocities: &[f32]| -> Vec<f32> {
+        let (mut kit, _) = frozen(KitParams::default(), cells);
+        velocities
+            .iter()
+            .map(|&velocity| {
+                let mut frames = vec![OutputFrame::default(); 4_000];
+                kit.process(
+                    &[Event {
+                        offset: 0,
+                        kind: strike(0, velocity),
+                    }],
+                    &mut frames,
+                );
+                frames
+                    .iter()
+                    .map(|frame| frame.main[0].abs().max(frame.main[1].abs()))
+                    .fold(0.0, f32::max)
+            })
+            .collect()
+    };
+    let mut by_velocity = plain;
+    by_velocity[0].routes[0] = Route {
+        source: Source::Velocity,
+        target: CellTarget::Level,
+        amount: 1.0,
+    };
+    assert!(
+        peaks(by_velocity, &[0.5])[0] < peaks(plain, &[0.5])[0],
+        "Velocity onto Level"
+    );
+    let mut by_random = plain;
+    by_random[0].routes[0] = Route {
+        source: Source::Random,
+        target: CellTarget::Level,
+        amount: 1.0,
+    };
+    let hits = peaks(by_random, &[1.0, 1.0, 1.0]);
+    assert!(
+        hits[0] != hits[1] || hits[1] != hits[2],
+        "Random onto Level, hit by hit: {hits:?}"
+    );
+}
+
+/// Frozen, the buses feed no live cell, whether set or routed, so the kit rests; unfrozen, a bus
+/// feeds again at once. A note held as Resample engages lets go, and its tail decays to rest.
+#[test]
+fn a_frozen_kit_feeds_no_bus_and_comes_to_rest() {
+    for routed in [false, true] {
+        let mut params = KitParams {
+            bus: [if routed { 0.0 } else { 0.5 }, 0.0],
+            ..KitParams::default()
+        };
+        if routed {
+            params.routes[0] = Route {
+                source: Source::Lfo1,
+                target: KitTarget::BusA,
+                amount: 1.0,
+            };
+        }
+        let mut droning = cells(&[(0, ModelId::RAW_RING)]);
+        droning[0].bus = Bus::A;
+        let (mut kit, _) = frozen(params, droning);
+        let out = render(&mut kit, &[], 16_000);
+        assert!(
+            out.iter().all(|frame| *frame == [0.0; CELLS]),
+            "no bus feeds a frozen kit (routed: {routed})"
+        );
+        assert!(kit.is_at_rest(), "routed: {routed}");
+        if !routed {
+            kit.set_captures(None);
+            assert!(!kit.is_at_rest(), "unfrozen, the bus feeds again at once");
+            let out = render(&mut kit, &[], 16_000);
+            assert!(out.iter().any(|frame| frame[0] != 0.0));
+        }
+    }
+    let base = cells(&[(0, ModelId::RAW_RING)]);
+    let capture = capture_kit(&capture_patches(KitParams::default(), base), RATE);
+    let mut kit = Kit::new(RATE, KitParams::default(), base);
+    let held = EventKind::Strike {
+        cell: 0,
+        velocity: 1.0,
+        gate: true,
+    };
+    render(&mut kit, &[(0, held)], 2_000);
+    kit.set_captures(Some(Box::new(capture)));
+    let mut seconds = 0;
+    while !kit.is_at_rest() {
+        render(&mut kit, &[], 16_000);
+        seconds += 1;
+        assert!(seconds < 60, "a held note keeps a frozen kit awake");
+    }
 }

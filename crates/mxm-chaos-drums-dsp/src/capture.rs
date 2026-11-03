@@ -26,8 +26,9 @@
 //! new strike fades the one-shot still playing over [`FADE_SECONDS`], as a choke, a group's choke, a
 //! panic and a transport reset do; releases, touch, tuning, the wheel and pressure play nothing.
 
-use crate::cell::CellParams;
+use crate::cell::{Bus, CellParams};
 use crate::kit::{CELLS, Event, EventKind, Kit, KitParams};
+use crate::routes::{CellTarget, KitTarget, Route};
 
 /// The strike every capture is taken at: full strength, which a pack is too.
 pub const CAPTURE_VELOCITY: f32 = 1.0;
@@ -49,8 +50,11 @@ pub const FADE_SECONDS: f32 = 0.004;
 /// How much of a capture renders before it looks at whether the kit has rested.
 const REST_CHECK_FRAMES: usize = 256;
 
-/// The settings a capture is rendered from: the kit's and every cell's, with everything that
-/// stays live neutral (the mix) and the buses off.
+/// The settings a capture is rendered from, which are also what decides whether a capture still
+/// stands: the kit's and every cell's, with all that stays live while frozen neutral (the mix, its
+/// routes, Dynamics, which a velocity-1 hit cannot hear), and all that would disturb the isolated
+/// hit taken away (the buses and every route onto them, the choke groups, whose strike would latch
+/// a neighbour out of the coupling).
 #[must_use]
 pub fn capture_patches(
     kit: KitParams,
@@ -59,6 +63,11 @@ pub fn capture_patches(
     let kit = KitParams {
         bus: [0.0; 2],
         master: 1.0,
+        dynamics: 0.0,
+        routes: kit.routes.map(|route| match route.target {
+            KitTarget::BusA | KitTarget::BusB => Route::default(),
+            _ => route,
+        }),
         ..kit
     };
     let cells = cells.map(|cell| CellParams {
@@ -67,6 +76,12 @@ pub fn capture_patches(
         mute: false,
         solo: false,
         output: 0,
+        bus: Bus::Off,
+        choke_group: 0,
+        routes: cell.routes.map(|route| match route.target {
+            CellTarget::Level | CellTarget::Pan => Route::default(),
+            _ => route,
+        }),
         ..cell
     });
     (kit, cells)
@@ -126,6 +141,8 @@ pub struct KitCaptureInProgress {
     cell: usize,
     engine: Option<Box<Kit>>,
     recorded: Vec<f32>,
+    /// The frames of the cell's gate still to render; its release follows the last.
+    gate_left: usize,
     /// The cell's loudest sample so far, and where its present quiet began, if it is quiet.
     peak: f32,
     quiet_from: Option<usize>,
@@ -144,6 +161,7 @@ impl KitCaptureInProgress {
             cell: 0,
             engine: None,
             recorded: Vec::new(),
+            gate_left: 0,
             peak: 0.0,
             quiet_from: None,
             done: std::array::from_fn(|_| Vec::new()),
@@ -151,7 +169,7 @@ impl KitCaptureInProgress {
         }
     }
 
-    /// Renders up to `frames` more; `true` once every cell is captured.
+    /// Renders at most `frames` more, the gate's included; `true` once every cell is captured.
     pub fn render(&mut self, frames: usize) -> bool {
         let mut budget = frames;
         while self.cell < CELLS && budget > 0 {
@@ -178,58 +196,89 @@ impl KitCaptureInProgress {
                 *quiet_from = Some(at);
             }
         };
-        let engine = self.engine.get_or_insert_with(|| {
-            let mut kit = Box::new(Kit::new(rate, self.kit, self.cells));
-            let mut first = vec![[0.0; CELLS]; gate];
-            let strike = [Event {
-                offset: 0,
-                kind: EventKind::Strike {
-                    cell,
-                    velocity: CAPTURE_VELOCITY,
-                    gate: true,
-                },
-            }];
-            kit.process_raw(&strike, &mut first);
-            kit.apply_now(&[Event {
-                offset: 0,
-                kind: EventKind::Release { cell },
-            }]);
-            self.recorded = first.iter().map(|frame| frame[cell]).collect();
+        if self.engine.is_none() {
+            self.engine = Some(Box::new(Kit::new(rate, self.kit, self.cells)));
+            self.recorded.clear();
+            self.gate_left = gate;
             self.peak = 0.0;
             self.quiet_from = None;
-            for (at, &x) in self.recorded.iter().enumerate() {
-                note(&mut self.peak, &mut self.quiet_from, at, x);
-            }
-            kit
-        });
+        }
+        let Some(engine) = self.engine.as_mut() else {
+            unreachable!("made above");
+        };
+        let strike = [Event {
+            offset: 0,
+            kind: EventKind::Strike {
+                cell,
+                velocity: CAPTURE_VELOCITY,
+                gate: true,
+            },
+        }];
         let mut rendered = 0;
         let mut chunk = [[0.0; CELLS]; REST_CHECK_FRAMES];
-        let finished = loop {
-            if self.recorded.len() >= max {
-                break true;
-            }
-            if engine.cells_rest() {
-                break false;
-            }
-            if let Some(from) = self.quiet_from
-                && self.recorded.len() >= from + hold
-            {
-                // Silent since `from`: what follows is under the floor, and left out.
-                self.recorded.truncate(from);
-                break false;
+        // The gate in chunks like the rest, each within the budget: the kit renders the same samples
+        // whatever the chunks, so the release still falls after exactly `gate` frames. Where the shot
+        // ends is a function of its samples alone, whatever the chunks: the quiet is judged on every
+        // sample, rest before the cap, and either way the shot ends where its last quiet began (at
+        // rest the output is exact silence, so both find the same place).
+        let finished = 'cell: loop {
+            if self.gate_left == 0 {
+                if engine.cells_rest() {
+                    break false;
+                }
+                if self.recorded.len() >= max {
+                    break true;
+                }
+                if self
+                    .quiet_from
+                    .is_some_and(|from| self.recorded.len() >= from + hold)
+                {
+                    break false;
+                }
             }
             if rendered >= budget {
                 return rendered;
             }
-            let n = REST_CHECK_FRAMES.min(max - self.recorded.len());
-            engine.process_raw(&[], &mut chunk[..n]);
+            let mut n = REST_CHECK_FRAMES
+                .min(budget - rendered)
+                .min(max - self.recorded.len());
+            if self.gate_left > 0 {
+                n = n.min(self.gate_left);
+            }
+            let events: &[Event] = if self.recorded.is_empty() {
+                &strike
+            } else {
+                &[]
+            };
+            engine.process_raw(events, &mut chunk[..n]);
+            rendered += n;
+            let after_gate = self.gate_left == 0;
             for frame in &chunk[..n] {
                 let at = self.recorded.len();
                 self.recorded.push(frame[cell]);
                 note(&mut self.peak, &mut self.quiet_from, at, frame[cell]);
+                if after_gate
+                    && self
+                        .quiet_from
+                        .is_some_and(|from| self.recorded.len() >= from + hold)
+                {
+                    break 'cell false;
+                }
             }
-            rendered += n;
+            if self.gate_left > 0 {
+                self.gate_left -= n;
+                if self.gate_left == 0 {
+                    engine.apply_now(&[Event {
+                        offset: 0,
+                        kind: EventKind::Release { cell },
+                    }]);
+                }
+            }
         };
+        if !finished && let Some(from) = self.quiet_from {
+            // Under the floor since `from`, to the end: left out.
+            self.recorded.truncate(from);
+        }
         let mut shot = core::mem::take(&mut self.recorded);
         if finished {
             // Still sounding at the cap: faded out over its last moments, and said.

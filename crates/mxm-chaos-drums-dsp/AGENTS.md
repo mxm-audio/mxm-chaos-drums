@@ -99,18 +99,24 @@ twenty-five models render.
   and leaves every other cell silent.
 - **Resample freezes the patch, not the history** (the plan's *Resample for a lattice*). A capture
   is each cell struck alone from rest at full strength for a sequencer's gate, its neighbours at
-  rest but coupled, the buses off (a frozen cell plays its hit, and a bus has none), recorded before
+  rest but coupled (no choke group, whose strike would latch one out of the lattice), the buses off
+  and every route onto them (a frozen cell plays its hit, and a bus has none), recorded before
   Level until it falls silent (the kit at rest, or the cell 80 dB under its peak for a quarter
-  second) or 4 s pass, then faded and said. It blocks activation when Resample is on, so its cost is
-  watched: a tame kit about half a second at 48 kHz, every cell sustaining itself at the cap under
-  three (`examples/capture_cost.rs`, 2026-11-03); the exact rest alone took twice as long, and the
-  validator's parameter fuzz timed out on it. Its settings with the mix neutral are
-  its key (`capture_patches`), so Level, Pan, Mute, Solo, the output and Master, routes onto them
-  included, stay live. A frozen strike plays its one-shot at its velocity's gain through Dynamics, a
-  capture played quieter rather than struck softer; a new strike, a choke, a group's choke and a
-  transport reset fade it over `FADE_SECONDS`, a panic cuts it; releases, touch and tuning play
-  nothing. Engaging lets a live tail ring out; a frozen cell's own strike chokes it. Installing or
-  taking away a frozen kit cuts what it was playing, as its one-shots go with it.
+  second), ending where its last quiet began, or 4 s pass, then faded and said. Where it ends is a
+  function of its samples, whatever the chunks it renders in, and it renders no more than it is
+  asked, its gate included. It blocks activation when Resample is on, so its cost is watched: a tame
+  kit about half a second at 48 kHz, every cell sustaining itself at the cap under three
+  (`examples/capture_cost.rs`, 2026-11-03); the exact rest alone took twice as long, and the
+  validator's parameter fuzz timed out on it. Those settings are its key (`capture_patches`), so
+  what stays live while frozen is not a new capture: Level, Pan, Mute, Solo, the output, Master,
+  routes onto them, Dynamics, the choke groups, the buses. A frozen strike plays its one-shot at its
+  velocity's gain through Dynamics, a capture played quieter rather than struck softer, with its own
+  Velocity and Random staged for the routes onto its mix; a new strike, a choke, a group's choke and
+  a transport reset fade it over `FADE_SECONDS`, a panic cuts it; releases, touch and tuning play
+  nothing. Engaging lets a live tail ring out but feeds it nothing: every gate and touch lets go,
+  and while frozen the buses feed no cell, so it decays to rest; a frozen cell's own strike chokes
+  it. Installing or taking away a frozen kit cuts what it was playing, as its one-shots go with it,
+  and settles the kit at once.
 - **The model IDs and kind codes are permanent** (the brief's Appendix A).
 - MSRV **1.87**; dependencies `mxm-drum-engine`, `mxm-dsp`, `mxm-modulation`, `mxm-part-routing` and
   `mxm-rng`, all framework-free kit crates.

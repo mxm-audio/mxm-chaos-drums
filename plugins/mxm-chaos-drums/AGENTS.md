@@ -28,7 +28,8 @@ P5** (2026-11-02): the first version the owner explores; Resample and Export, P3
   the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics, and Resample's
   signals (mxm-drum-shell's `Signals`).
 - `src/capture.rs`: Resample's `Capturer`: the patch a capture renders from (`patches`, the mix
-  neutral and the buses off) and the kit's name a pack takes. The capture thread, the bank and the
+  neutral, the buses and choke groups off: the DSP's `capture_patches`) and the kit's name a pack
+  takes. The capture thread, the bank and the
   state machine are mxm-drum-shell's `capture`; the capture and the frozen players the DSP's.
 - `src/pack.rs`: Export's sample pack, each cell's one-shot at unity gain (mxm-drum-shell's `pack`
   writes it).
@@ -70,8 +71,9 @@ P5** (2026-11-02): the first version the owner explores; Resample and Export, P3
   parameter edit that `process` serves (`Resample::service`, a pointer swap at most), the capture on
   the plugin's own thread, never nice-plug's shared background one (a task left on it against a
   destroyed instance takes the thread down for every other); engaged at activation, the kit is
-  captured then. A capture is the patch's sound, not its history (the DSP's `capture`): nothing but
-  the mix stays live while frozen, so changing anything else is Resample off, edit, on. Export needs
+  captured then. A capture is the patch's sound, not its history (the DSP's `capture`): only the
+  mix, Dynamics, the choke groups and the buses stay live while frozen (the buses then feed no
+  cell), so changing anything else is Resample off, edit, on. Export needs
   Resample engaged and writes the kit heard, under its name, to the default pack folder or one
   chosen. The pair sits in the app bar, moving into its `…` menu when the bar is narrow.
 - **Init** is the defaults: the brief's kit on the drum machine's role map, every model it names,

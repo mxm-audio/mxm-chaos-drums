@@ -389,13 +389,24 @@ impl Kit {
     }
 
     /// Installs Resample's frozen kit, or with `None` takes it away, returning the one displaced.
-    /// What a frozen cell was playing stops at once, as its one-shot goes with the kit; a live cell's
-    /// tail rings on. **Audio thread** too: the box moves, nothing is made or freed.
+    /// What a frozen cell was playing stops at once, as its one-shot goes with the kit. Engaging lets
+    /// a live tail ring on but feeds it nothing: every gate and touch lets go, and while frozen the
+    /// buses are off (a frozen cell plays its hit, and a bus has none), so the live core only decays
+    /// to rest. Either way the kit settles at once, so a kit at rest the host skips still hears it.
+    /// **Audio thread** too: the box moves, nothing is made or freed.
     pub fn set_captures(&mut self, capture: Option<Box<KitCapture>>) -> Option<Box<KitCapture>> {
         for player in &mut self.players {
             player.clear();
         }
-        core::mem::replace(&mut self.frozen, capture)
+        if capture.is_some() {
+            for cell in &mut self.cells {
+                cell.release();
+                cell.touch_off();
+            }
+        }
+        let displaced = core::mem::replace(&mut self.frozen, capture);
+        self.settle_now();
+        displaced
     }
 
     /// Whether a frozen kit plays: strikes start one-shots, not cells.
@@ -523,6 +534,8 @@ impl Kit {
             let group = cell.params().choke_group;
             let velocity = sample.strike[index];
             if velocity > 0.0 {
+                // The hit's own Velocity and Random, as a live hit's, for the routes onto its mix.
+                cell.stage_hit(velocity);
                 player.strike(velocity_curve(velocity, dynamics));
                 cell.choke();
             } else if group > 0 && groups & (1 << group.min(31)) != 0 {
@@ -635,10 +648,15 @@ impl Kit {
             temper: (p.temper + mods.temper).clamp(0.0, 1.0),
             flow: (p.flow + mods.flow).clamp(0.0, 1.0),
             coupling: (p.coupling + mods.coupling).clamp(0.0, 1.0),
-            buses: [
-                (p.bus[0] + mods.bus[0]).clamp(0.0, 1.0),
-                (p.bus[1] + mods.bus[1]).clamp(0.0, 1.0),
-            ],
+            // Frozen, the buses feed no live cell.
+            buses: if self.frozen.is_some() {
+                [0.0; 2]
+            } else {
+                [
+                    (p.bus[0] + mods.bus[0]).clamp(0.0, 1.0),
+                    (p.bus[1] + mods.bus[1]).clamp(0.0, 1.0),
+                ]
+            },
         };
         let recharge = (p.recharge + mods.recharge_octaves / RECHARGE_OCTAVES).clamp(0.0, 1.0);
         let pool = (p.pool + mods.pool).clamp(0.0, 1.0);
