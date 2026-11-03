@@ -22,8 +22,8 @@ still to come.
 - `src/editor.rs`: the panel: the app bar, and eight cards — Cells (the 4×4 grid and the Pool), Kit,
   LFOs, Model, Charge, Feeds, Controls, Output — each one tree, measured and drawn through the
   collection's bindings, each knob's route stack (`Stack`) under it; its tests hold the opening size,
-  the paging, the keyboard cursor, adding and offering routes, and the tree checks for every card in
-  every model.
+  the paging, the keyboard cursor (every square's M and S included), adding and offering routes, and
+  the tree checks for every card in every model.
 - `src/telemetry.rs`: what the audio thread tells the editor (each cell's charge, each edge's flow,
   the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics.
 - `control-map.json`: Master and two LFOs on existing roles.
@@ -68,8 +68,11 @@ still to come.
   sample that panics drops the auditions with its notes.
 
 - **The editor.** The grid's squares select a cell and strike it at velocity 100 (a click, or
-  OPEN), as the drum machine's slot rows do; a model shows only the controls it reads, under its
-  own names; the Output card's All cells row writes every cell's Output in one gesture.
+  OPEN), as the drum machine's slot rows do, and each carries its cell's compact `M` and `S` in its
+  top right corner (the owner, 2026-11-03), Solo selecting the cell too; nowhere else has Mute or
+  Solo. A square is sized from what it holds (`square`): the widest made-up name beside M and S,
+  the widest model label. A model shows only the controls it reads, under its own names; the
+  Output card's All cells row writes every cell's Output in one gesture.
 - **Routes are rows under the knob they move** (the owner, 2026-11-03: a Routes card "have been
   tried a few times and abandoned every time"), over the cell's four route slots or the kit's, as
   the drum machine's: `‹ modulate ›` offers the sources not on the knob while a slot is free; adding
@@ -77,8 +80,6 @@ still to come.
   source off and keeps the depth. A route aimed at a control the model does not read is drawn
   under its general name, `Tone (unused)`, removable, never offered more. No Routes card may come
   back. The host and a route name a control by its general name (`GENERAL_NAMES`).
-- *Not yet as the brief has it:* Mute and Solo sit on the Output card, the grid showing their
-  marks.
 
 # Work Guidance
 

@@ -37,8 +37,6 @@ const REFERENCE: (u32, u32) = (1346, 791);
 const MINIMUM: (u32, u32) = (444, 320);
 /// The keyboard cursor's card for the app bar's Master, outside the paging keys.
 const MASTER_CARD: u64 = 64;
-/// One cell's square on the grid, at its narrowest.
-const SQUARE: egui::Vec2 = egui::Vec2::new(104.0, 56.0);
 /// What the Controls card says for a model that reads none.
 const NO_CONTROLS: &str = "This model has no controls of its own.";
 /// The Pool's bar under the grid.
@@ -292,8 +290,6 @@ enum Leaf {
     NoControls,
     Knob(usize),
     Bus,
-    Mute,
-    Solo,
     Output,
     AllCells,
     ChokeGroup,
@@ -357,8 +353,8 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
             leaf(
                 Leaf::Grid,
                 Kind::Custom {
-                    min_width: grid_width(),
-                    height: Height::Fixed(grid_height()),
+                    min_width: grid_width(ui),
+                    height: Height::Fixed(grid_height(ui)),
                     fills: true,
                 },
             ),
@@ -547,27 +543,8 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                 cell,
                 [CellTarget::Level, CellTarget::Pan],
             ));
+            // Mute and Solo are on the cell's square, as the drum machine's are on its slot rows.
             body.extend([
-                pad(
-                    SPACE_3,
-                    row_gap(
-                        ui.spacing().item_spacing.x,
-                        vec![
-                            leaf(
-                                Leaf::Mute,
-                                Kind::Toggle {
-                                    label: "Mute".to_owned(),
-                                },
-                            ),
-                            leaf(
-                                Leaf::Solo,
-                                Kind::Toggle {
-                                    label: "Solo".to_owned(),
-                                },
-                            ),
-                        ],
-                    ),
-                ),
                 pad(SPACE_3, selector_leaf(Leaf::Output, "Output", &OUTPUTS)),
                 leaf(
                     Leaf::AllCells,
@@ -1064,12 +1041,65 @@ fn lfo_row(ui: &Ui, params: &MxmChaosDrumsParams, index: usize) -> Node<Leaf> {
     )
 }
 
-fn grid_width() -> f32 {
-    SIDE as f32 * SQUARE.x + (SIDE - 1) as f32 * SPACE_2
+/// The fonts of a square's two lines: its number and name, and its model.
+const NAME_FONT: f32 = 13.0;
+const MODEL_FONT: f32 = 11.0;
+/// How far a square's text sits in from its edge, and its M and S from the corner.
+const TEXT_INSET: f32 = 6.0;
+const BUTTON_INSET: f32 = 4.0;
+
+fn text_size(ui: &Ui, text: &str, size: f32) -> egui::Vec2 {
+    ui.ctx().fonts_mut(|fonts| {
+        fonts
+            .layout_no_wrap(
+                text.to_owned(),
+                egui::FontId::proportional(size),
+                egui::Color32::PLACEHOLDER,
+            )
+            .rect
+            .size()
+    })
 }
 
-fn grid_height() -> f32 {
-    SIDE as f32 * SQUARE.y + (SIDE - 1) as f32 * SPACE_2
+/// Mute and Solo side by side, as the drum machine's slot rows have them.
+fn toggles_width(ui: &Ui) -> f32 {
+    2.0 * control::toggle_compact_size().x + ui.spacing().item_spacing.x
+}
+
+/// One cell's square at its narrowest, measured from what it holds (the brief's §7): the widest
+/// made-up name beside M and S on its top line, and the widest model label on its bottom one.
+fn square(ui: &Ui) -> egui::Vec2 {
+    let name = mxm_chaos_drums_dsp::Kind::ALL
+        .iter()
+        .map(|kind| {
+            text_size(
+                ui,
+                &format!("{CELLS:02}  {}{CELLS}", kind.code()),
+                NAME_FONT,
+            )
+            .x
+        })
+        .fold(0.0, f32::max);
+    let model = AVAILABLE_MODELS
+        .iter()
+        .map(|spec| text_size(ui, spec.label, MODEL_FONT).x)
+        .fold(0.0, f32::max);
+    let top = TEXT_INSET + name + ui.spacing().item_spacing.x + toggles_width(ui) + BUTTON_INSET;
+    let bottom = 2.0 * TEXT_INSET + model;
+    let height = BUTTON_INSET
+        + control::toggle_compact_size().y
+        + SPACE_2
+        + text_size(ui, "Ag", MODEL_FONT).y
+        + TEXT_INSET;
+    egui::vec2(top.max(bottom).ceil(), height.ceil())
+}
+
+fn grid_width(ui: &Ui) -> f32 {
+    SIDE as f32 * square(ui).x + (SIDE - 1) as f32 * SPACE_2
+}
+
+fn grid_height(ui: &Ui) -> f32 {
+    SIDE as f32 * square(ui).y + (SIDE - 1) as f32 * SPACE_2
 }
 
 /// Everything a leaf draws with.
@@ -1212,22 +1242,6 @@ fn paint(ui: &mut Ui, tokens: &Tokens, leaf: &Leaf, rect: egui::Rect, live: &mut
             "What else powers this cell, with no note: Bus A's or Bus B's level.",
             setter,
         ),
-        Leaf::Mute => binding::toggle(
-            ui,
-            tokens,
-            ids[at::MUTE],
-            &p.mute,
-            "Silence this cell without stopping it: its charge and its neighbours carry on.",
-            setter,
-        ),
-        Leaf::Solo => binding::toggle(
-            ui,
-            tokens,
-            ids[at::SOLO],
-            &p.solo,
-            "Hear this cell on its own.",
-            setter,
-        ),
         Leaf::Output => binding::selector(
             ui,
             tokens,
@@ -1348,19 +1362,22 @@ fn model_selector(
     }
 }
 
-/// The grid: each cell's square with its number, name, model and charge, and the charge moving
-/// across each edge drawn between them. A click, or OPEN with the cursor on it, selects the cell and
-/// strikes it, to hear it while editing.
+/// The grid: each cell's square with its number, name, model and charge, its Mute and Solo, and the
+/// charge moving across each edge drawn between them. A click, or OPEN with the cursor on it,
+/// selects the cell and strikes it, to hear it while editing; Solo selects it too, as the drum
+/// machine's does.
 fn grid(ui: &mut Ui, tokens: &Tokens, rect: egui::Rect, live: &mut Live<'_, '_>) {
     let gap = SPACE_2;
     let width = (rect.width() - (SIDE - 1) as f32 * gap) / SIDE as f32;
+    let height = (rect.height() - (SIDE - 1) as f32 * gap) / SIDE as f32;
     let square = |cell: usize| {
         let (row, col) = ((cell / SIDE) as f32, (cell % SIDE) as f32);
         egui::Rect::from_min_size(
-            rect.min + egui::vec2(col * (width + gap), row * (SQUARE.y + gap)),
-            egui::vec2(width, SQUARE.y),
+            rect.min + egui::vec2(col * (width + gap), row * (height + gap)),
+            egui::vec2(width, height),
         )
     };
+    let toggles = egui::vec2(toggles_width(ui), control::toggle_compact_size().y);
     let painter = ui.painter().with_clip_rect(rect);
     // Flow first, under the squares: a mark across each edge, as heavy as the charge it moved.
     for e in 0..EDGES {
@@ -1443,35 +1460,68 @@ fn grid(ui: &mut Ui, tokens: &Tokens, rect: egui::Rect, live: &mut Live<'_, '_>)
             );
             painter.rect_filled(level, 4.0, tokens.accent.gamma_multiply(0.28));
         }
-        let text = painter.with_clip_rect(r.shrink(4.0));
-        text.text(
-            r.left_top() + egui::vec2(6.0, 5.0),
-            egui::Align2::LEFT_TOP,
+        // M and S in the top right corner; the name stops short of them.
+        let buttons = egui::Rect::from_min_size(
+            egui::pos2(r.right() - BUTTON_INSET - toggles.x, r.top() + BUTTON_INSET),
+            toggles,
+        );
+        let top = egui::Rect::from_min_max(
+            r.min + egui::vec2(4.0, 4.0),
+            egui::pos2(
+                buttons.left() - ui.spacing().item_spacing.x,
+                r.bottom() - 4.0,
+            ),
+        );
+        painter.with_clip_rect(top).text(
+            egui::pos2(r.left() + TEXT_INSET, buttons.center().y),
+            egui::Align2::LEFT_CENTER,
             format!("{:02}  {name}", cell + 1),
-            egui::FontId::proportional(13.0),
+            egui::FontId::proportional(NAME_FONT),
             tokens.text_primary,
         );
-        text.text(
-            r.left_bottom() + egui::vec2(6.0, -6.0),
+        painter.with_clip_rect(r.shrink(4.0)).text(
+            r.left_bottom() + egui::vec2(TEXT_INSET, -TEXT_INSET),
             egui::Align2::LEFT_BOTTOM,
             model,
-            egui::FontId::proportional(11.0),
+            egui::FontId::proportional(MODEL_FONT),
             tokens.text_secondary,
         );
         let p = &live.params.cells[cell];
-        let marks = match (p.mute.value(), p.solo.value()) {
-            (true, true) => "M S",
-            (true, false) => "M",
-            (false, true) => "S",
-            (false, false) => "",
-        };
-        text.text(
-            r.right_top() + egui::vec2(-6.0, 5.0),
-            egui::Align2::RIGHT_TOP,
-            marks,
-            egui::FontId::proportional(11.0),
-            tokens.text_secondary,
-        );
+        let ids = cell_ids(cell);
+        let setter = live.setter;
+        let solo = ui
+            .scope_builder(
+                egui::UiBuilder::new()
+                    .max_rect(buttons)
+                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                |ui| {
+                    ui.add_enabled_ui(!live.text_editing, |ui| {
+                        binding::toggle_compact(
+                            ui,
+                            tokens,
+                            ids[at::MUTE],
+                            "M",
+                            &p.mute,
+                            "Silence this cell without stopping it: its charge and its neighbours carry on.",
+                            setter,
+                        );
+                        binding::toggle_compact(
+                            ui,
+                            tokens,
+                            ids[at::SOLO],
+                            "S",
+                            &p.solo,
+                            "Hear this cell on its own, and select it for editing.",
+                            setter,
+                        )
+                    })
+                    .inner
+                },
+            )
+            .inner;
+        if solo {
+            *live.selected = cell;
+        }
         if selected {
             painter.rect_stroke(
                 r,
@@ -1910,5 +1960,29 @@ mod tests {
             kit_stack(&params, 2).on().is_empty(),
             "Flow carries nothing"
         );
+    }
+
+    /// Every square's Mute and Solo join the keyboard cursor, not only the selected cell's.
+    #[test]
+    fn every_squares_mute_and_solo_join_the_keyboard_cursor() {
+        let (params, telemetry) = (MxmChaosDrumsParams::default(), Telemetry::default());
+        let recorder = Arc::new(keyboard_checks::Recorder::default());
+        let setter = ParamSetter::new(recorder.as_ref());
+        let mut state = state(&params);
+        let mut panel = drive(&params, &telemetry, &setter, &mut state);
+        let session = keyboard_checks::Session::new(reference());
+        mxm_ui::paging::editor::request_card(session.context(), mxm_ui::paging::Key(0));
+        REVEAL(session.context());
+        session.settle(&mut panel);
+        let found: Vec<String> = session.registered().into_iter().collect();
+        for cell in 0..CELLS {
+            let ids = cell_ids(cell);
+            for id in [ids[at::MUTE], ids[at::SOLO]] {
+                assert!(
+                    found.iter().any(|f| f == id),
+                    "{id} is out of the cursor's reach"
+                );
+            }
+        }
     }
 }
