@@ -335,9 +335,10 @@ Flow and Coupling sit at their defaults but do nothing until Temper rises. No bu
 | 16 | 51 | Grain maraca | `ma1` | 0 | Off |
 
 The closed hat cuts the open hat in Init, as a kit does. **Fifty factory kits** follow Init, installed
-files on its role map (the owner, 2026-11-03, ahead of P4): five each of steady, breathing, tuned,
-metal, noise, drones, feedback, starved, moving and wild, every closed hat cutting its open one.
-The drone kits are *Drone*, the wild ones *Fx*, the rest *Percussion*.
+files on its keys (the owner, 2026-11-03, ahead of P4), each its own abstract sound world ("this is
+abstract sounds. So go wild"): ten each of struck, ringing, grit, drones and moving or wild kits,
+far apart by a measured fingerprint, the cells on 46 and 47 cutting each other. The drone kits are
+*Drone*, the wildest *Fx*, the rest *Percussion*.
 
 **Levels balance the kit** (the owner, 2026-11-03): every cell equally loud per hit by ITU-R
 BS.1770's K-weighting, then the noise cells (the hats and the maraca) and any cell a bus drones

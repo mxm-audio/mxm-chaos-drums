@@ -2,9 +2,12 @@
 //! that balances them and writes their files, and the checks that hold them. Tests only: what ships
 //! is `presets/`, installed for the plugin's version.
 //!
-//! Every kit is on Init's role map, the drum machine's (36 kick, 37 snare, 38–40 low, mid and high
-//! tom, 41–43 percussion, 44 rim, 45 clap, 46 and 47 closed and open hat, 48 cymbal, 49 cowbell, 50
-//! clave, 51 shaker), so one beat plays across the whole bank. **The design is sparse**: a cell names
+//! **Every kit is its own sound world** (the owner, 2026-11-03, of a first set that kept Init's drums
+//! and nudged them: "they sound far too similar... this is abstract sounds. So go wild"): its models,
+//! pitches, regimes and motion far from Init's and from each other's, as
+//! [`no_two_kits_sound_alike`] measures. They keep Init's keys, so one beat plays the whole bank,
+//! and its hats on 46 and 47 cut each other; what sounds on each key is the kit's. **The design is
+//! sparse**: a cell names
 //! its model, Coarse, pan and only the controls it moves; everything else is Init, and a Leak it does
 //! not name is its model's own. [`generated`] lays a kit over Init; the ignored
 //! [`write_the_factory_kits`] measures its balance and writes the files, complete, so a shipped kit
@@ -38,7 +41,7 @@ use crate::routes::{KIT_TARGETS, KitSourceChoice, SourceChoice, cell_target_inde
 use BusChoice::{A, B};
 use Category::{Drone, Fx, Percussion};
 use KitSourceChoice as K;
-use LfoShapeChoice::{RampDown, SampleHold, Sine, Square, Triangle};
+use LfoShapeChoice::{RampDown, RampUp, SampleHold, Sine, Square, Triangle};
 use SourceChoice::{Lfo1, Lfo2, Lfo3, Random, Velocity};
 
 const KICK: ModelId = ModelId::DRAINING_KICK;
@@ -226,1506 +229,2218 @@ const INIT: Kit = Kit {
     keys: [k(ModelId::NONE, 0, 0.0, &[]); CELLS],
 };
 
-/// **The fifty**, in the browser's order, five of each: steady, breathing, tuned, metal, noise,
-/// drones, feedback, starved, moving and wild. Pans are the player's view: low tom left, high tom
-/// right.
+/// **The fifty**, in the browser's order (the owner, 2026-11-03: "this is abstract sounds. So go
+/// wild"): every kit its own sound world, its models, pitches, regimes and motion far from Init's and
+/// each other's ([`no_two_kits_sound_alike`]). Pans are the player's view.
 static KITS: [Kit; 50] = [
-    // ---- Steady: Temper 0, a drum every time -------------------------------------------------
-    // Short and tight: every body damped, every tail cut, for fast dry patterns.
+    // ---- Struck: wild drums, each played once and left to ring -------------------------------
+    // Every cell a falling ring, pitched high and swept far: a kit of laser shots.
     Kit {
-        name: "Dry Cell",
+        name: "Laser Grid",
         keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, 0.15), (DROP, -0.2), (SNAP, 0.2)])
-                .hunger(0.65)
-                .leak(350.0),
-            k(SNARE, 0, 0.0, &[(BODY, 0.2), (TONE, 0.1), (DAMPING, 0.15)]).leak(250.0),
-            k(RING, -5, -0.3, &[(DAMPING, 0.2)]).leak(300.0),
-            k(RING, 0, 0.0, &[(DAMPING, 0.2)]).leak(300.0),
-            k(RING, 5, 0.3, &[(DAMPING, 0.2)]).leak(300.0),
-            k(FOLD, 0, -0.4, &[(DRIVE, -0.2)]).leak(250.0),
-            k(FOLD, 5, 0.4, &[(DRIVE, -0.2)]).leak(250.0),
-            k(LOOP, 7, 0.15, &[(DAMPING, 0.2)]).leak(250.0),
-            k(SPARK, 0, -0.1, &[(SNAP, 0.3)]).leak(120.0),
-            k(CLAP, 0, 0.05, &[(SNAP, 0.3), (SPACING, -0.1)]),
-            k(DUST, 0, 0.25, &[(TONE, 0.1)]).leak(60.0).hats(),
-            k(DUST, 0, 0.25, &[(TONE, 0.1)]).leak(450.0).hats(),
-            k(LOOP, 12, -0.3, &[(DAMPING, 0.1)]).leak(1100.0),
-            k(FOLD, 12, 0.35, &[]).leak(250.0),
-            k(SPARK, 0, -0.35, &[(TONE, 0.15)]).leak(90.0),
-            k(DUST, 5, 0.45, &[(GRAIN, -0.1)]).leak(120.0),
+            k(KICK, 12, 0.0, &[(DROP, 1.0), (DAMPING, 0.3), (SNAP, 0.6)]).leak(250.0),
+            k(SNARE, 7, 0.0, &[(DROP, 1.0), (BODY, 0.8), (TONE, 0.5)]).leak(200.0),
+            k(RING, 24, -0.6, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
+            k(RING, 31, -0.2, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
+            k(RING, 36, 0.2, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
+            k(RING, 19, 0.6, &[(DROP, 0.8), (DAMPING, 0.2)]).leak(300.0),
+            k(RING, 43, -0.8, &[(DROP, 1.0), (DAMPING, 0.6)]).leak(120.0),
+            k(RING, 12, 0.8, &[(DROP, 1.0), (DAMPING, 0.1)]).leak(400.0),
+            k(SPARK, 0, -0.3, &[(TONE, 0.5), (GRAIN, 0.6), (SNAP, 1.0)]).leak(120.0),
+            k(CLAP, 0, 0.3, &[(TONE, 0.9), (SPACING, -0.8), (SNAP, 0.8)]),
+            k(SPARK, 0, 0.5, &[(TONE, 0.5), (GRAIN, 0.9)])
+                .leak(120.0)
+                .hats(),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5), (GRAIN, 0.9)])
+                .leak(300.0)
+                .hats(),
+            k(LOOP, 36, 0.0, &[(DAMPING, -0.6), (SPREAD, 0.5)]).leak(900.0),
+            k(RING, 48, 0.4, &[(DROP, 1.0), (DAMPING, 0.8)]).leak(120.0),
+            k(SPARK, 0, -0.6, &[(TONE, 0.5), (SNAP, 1.0)]).leak(120.0),
+            k(DUST, 12, 0.7, &[(TONE, 0.6), (SPREAD, 1.0), (GRAIN, 0.5)]).leak(150.0),
         ],
         ..INIT
     },
-    // Low and long: the kick and toms tuned down and let ring, the noise darkened.
+    // Two to four octaves down and let ring: subsonic rings, buzzing loops, rumbling noise.
     Kit {
-        name: "Deep Charge",
+        name: "Sub Pressure",
         keys: [
-            k(KICK, -3, 0.0, &[(DAMPING, -0.25), (DROP, 0.3)])
-                .supply(0.4)
-                .leak(900.0),
+            k(KICK, -9, 0.0, &[(DAMPING, -0.7), (DROP, 0.4), (DRIVE, 0.5)])
+                .hunger(0.2)
+                .leak(2500.0),
             k(
                 SNARE,
-                -3,
+                -14,
                 0.0,
-                &[(TONE, -0.2), (BODY, 0.3), (DAMPING, -0.1)],
-            ),
-            k(RING, -9, -0.3, &[(DAMPING, -0.25)]).leak(800.0),
-            k(RING, -4, 0.0, &[(DAMPING, -0.25)]).leak(800.0),
-            k(RING, 1, 0.3, &[(DAMPING, -0.25)]).leak(800.0),
-            k(FOLD, -5, -0.4, &[(DRIVE, -0.1)]),
-            k(FOLD, 0, 0.4, &[(DRIVE, -0.1)]),
-            k(LOOP, 0, 0.15, &[(DAMPING, 0.3)]).leak(700.0),
-            k(SPARK, 0, -0.1, &[(TONE, -0.15)]),
-            k(CLAP, 0, 0.05, &[(TONE, -0.25), (GRAIN, -0.1)]),
-            k(DUST, 0, 0.25, &[(TONE, -0.15)]).leak(110.0).hats(),
-            k(DUST, 0, 0.25, &[(TONE, -0.15)]).leak(900.0).hats(),
-            k(LOOP, 7, -0.3, &[(DAMPING, 0.2)]).leak(2200.0),
-            k(FOLD, 7, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[(TONE, -0.1)]).leak(140.0),
-            k(DUST, 0, 0.45, &[(TONE, -0.2)]).leak(220.0),
+                &[(TONE, -0.9), (BODY, 0.6), (DAMPING, -0.4)],
+            )
+            .leak(1200.0),
+            k(RING, -24, -0.4, &[(DAMPING, -0.8)])
+                .hunger(0.2)
+                .leak(3000.0),
+            k(RING, -19, 0.0, &[(DAMPING, -0.8)])
+                .hunger(0.2)
+                .leak(3000.0),
+            k(RING, -17, 0.4, &[(DAMPING, -0.8)])
+                .hunger(0.2)
+                .leak(3000.0),
+            k(FOLD, -24, -0.6, &[(DRIVE, -0.6), (SPREAD, -0.5)]).leak(1500.0),
+            k(FOLD, -29, 0.6, &[(DRIVE, 0.5)]).leak(1500.0),
+            k(LOOP, -36, 0.2, &[(DAMPING, 0.5), (DRIVE, 0.6)]).leak(1200.0),
+            k(SPARK, 0, -0.2, &[(TONE, -1.0), (SNAP, -1.0)]).leak(400.0),
+            k(CLAP, 0, 0.2, &[(TONE, -1.0), (GRAIN, -0.4), (SPACING, 0.6)]),
+            k(DUST, 0, 0.3, &[(TONE, -1.0), (GRAIN, 0.4)])
+                .leak(150.0)
+                .hats(),
+            k(DUST, 0, -0.3, &[(TONE, -0.8), (GRAIN, 0.6)])
+                .leak(2000.0)
+                .hats(),
+            k(LOOP, -24, 0.0, &[(SPREAD, 0.9), (DAMPING, 0.2)]).leak(4000.0),
+            k(FOLD, -12, 0.5, &[(DRIVE, 0.8)]).leak(800.0),
+            k(RING, -36, -0.5, &[(DROP, 1.0), (DAMPING, -0.3)]).leak(1000.0),
+            k(DUST, -24, 0.6, &[(TONE, -0.9), (SPREAD, 0.9)]).leak(600.0),
         ],
         ..INIT
     },
-    // Bright and crisp: a snappy kick, a cracking snare, hats and clave pushed up.
+    // Pure, bright, long plucks three octaves up, and whistling noise: ice falling on glass.
     Kit {
-        name: "Bright Wire",
+        name: "Glass Rain",
         keys: [
-            k(KICK, 2, 0.0, &[(SNAP, 0.4), (DROP, 0.2), (DAMPING, 0.05)]),
-            k(SNARE, 2, 0.0, &[(TONE, 0.25), (BODY, -0.2), (SNAP, 0.3)]),
-            k(RING, -2, -0.3, &[(SNAP, 0.3)]),
-            k(RING, 3, 0.0, &[(SNAP, 0.3)]),
-            k(RING, 8, 0.3, &[(SNAP, 0.3)]),
-            k(FOLD, 2, -0.4, &[(SPREAD, 0.1)]),
-            k(FOLD, 7, 0.4, &[(SPREAD, 0.1)]),
-            k(LOOP, 12, 0.15, &[(DAMPING, -0.2)]),
-            k(SPARK, 0, -0.1, &[(TONE, 0.15), (SNAP, 0.2)]),
-            k(CLAP, 0, 0.05, &[(TONE, 0.25), (GRAIN, 0.15)]),
-            k(DUST, 0, 0.25, &[(TONE, 0.2), (SPREAD, -0.1)])
-                .leak(70.0)
+            k(KICK, 24, 0.0, &[(DAMPING, -0.3), (DROP, -1.0), (SNAP, 0.8)]).leak(800.0),
+            k(SNARE, 19, 0.0, &[(TONE, 0.5), (BODY, 1.0), (DAMPING, -0.5)]).leak(900.0),
+            k(LOOP, 24, -0.7, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+                .strike(0.7)
+                .leak(3000.0),
+            k(LOOP, 27, -0.4, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+                .strike(0.7)
+                .leak(3000.0),
+            k(LOOP, 31, -0.1, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+                .strike(0.7)
+                .leak(3000.0),
+            k(LOOP, 34, 0.2, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+                .strike(0.7)
+                .leak(3000.0),
+            k(LOOP, 36, 0.5, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+                .strike(0.7)
+                .leak(3000.0),
+            k(LOOP, 39, 0.8, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+                .strike(0.7)
+                .leak(3000.0),
+            k(SPARK, 0, -0.2, &[(TONE, 0.5), (GRAIN, 0.4), (SNAP, 1.0)]).leak(150.0),
+            k(CLAP, 0, 0.2, &[(TONE, 1.0), (GRAIN, 1.0), (SNAP, 1.0)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (SPREAD, 1.0), (GRAIN, -0.6)])
+                .leak(150.0)
                 .hats(),
-            k(DUST, 0, 0.25, &[(TONE, 0.2), (SPREAD, -0.1)])
-                .leak(650.0)
+            k(DUST, 0, -0.4, &[(TONE, 0.6), (SPREAD, 1.0), (GRAIN, -0.4)])
+                .leak(2500.0)
                 .hats(),
-            k(LOOP, 19, -0.3, &[(DAMPING, -0.15), (SPREAD, 0.2)]).leak(1800.0),
-            k(FOLD, 14, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[(TONE, 0.2)]).leak(110.0),
-            k(DUST, 7, 0.45, &[(TONE, 0.25)]).leak(170.0),
+            k(LOOP, 43, 0.0, &[(DAMPING, -1.0), (SPREAD, 0.4)]).leak(8000.0),
+            k(LOOP, 46, 0.3, &[(DAMPING, -0.8), (SPREAD, -1.0)]).leak(2000.0),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5)]).leak(150.0),
+            k(DUST, 0, 0.6, &[(TONE, 0.6), (SPREAD, 1.0)]).leak(300.0),
         ],
         ..INIT
     },
-    // Gentle: softer strikes and attacks, soft hits brought up, for brushed, quiet playing.
+    // Dark, low plucks that die at once and thumping sparks: a kit with the lights off.
     Kit {
-        name: "Soft Current",
-        dynamics: 0.4,
+        name: "Plucked Void",
         keys: [
-            k(KICK, 0, 0.0, &[(SNAP, -0.3), (DAMPING, -0.1)]).strike(0.5),
-            k(SNARE, 0, 0.0, &[(SNAP, -0.3), (BODY, 0.1), (TONE, -0.1)]).strike(0.5),
-            k(RING, -5, -0.3, &[(SNAP, -0.3)]).strike(0.5),
-            k(RING, 0, 0.0, &[(SNAP, -0.3)]).strike(0.5),
-            k(RING, 5, 0.3, &[(SNAP, -0.3)]).strike(0.5),
-            k(FOLD, 0, -0.4, &[(DRIVE, -0.3)]).strike(0.45),
-            k(FOLD, 5, 0.4, &[(DRIVE, -0.3)]).strike(0.45),
-            k(LOOP, 7, 0.15, &[(DAMPING, 0.2)]),
-            k(SPARK, 0, -0.1, &[(GRAIN, -0.2), (SNAP, -0.2)]),
+            k(KICK, -7, 0.0, &[(DAMPING, -0.6), (DROP, -0.5)]).leak(1500.0),
+            k(SNARE, -5, 0.0, &[(BODY, 0.9), (TONE, -1.0), (DAMPING, 0.4)]),
+            k(
+                LOOP,
+                -24,
+                -0.5,
+                &[(DAMPING, 0.6), (SPREAD, -1.0), (SNAP, -0.6)],
+            )
+            .leak(700.0),
+            k(
+                LOOP,
+                -19,
+                -0.1,
+                &[(DAMPING, 0.6), (SPREAD, -1.0), (SNAP, -0.6)],
+            )
+            .leak(700.0),
+            k(
+                LOOP,
+                -14,
+                0.3,
+                &[(DAMPING, 0.6), (SPREAD, -1.0), (SNAP, -0.6)],
+            )
+            .leak(700.0),
+            k(LOOP, -12, -0.7, &[(DAMPING, 0.8), (SPREAD, -0.6)]).leak(500.0),
+            k(LOOP, -7, 0.7, &[(DAMPING, 0.8), (SPREAD, -0.6)]).leak(500.0),
+            k(SPARK, 0, 0.1, &[(TONE, -1.0), (SNAP, -0.8), (GRAIN, -0.4)]).leak(300.0),
+            k(SPARK, 0, -0.3, &[(TONE, -0.9), (SNAP, -1.0)]).leak(200.0),
+            k(CLAP, 0, 0.1, &[(TONE, -0.8), (SPACING, 0.5)]),
+            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.7)])
+                .leak(100.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.7)])
+                .leak(1500.0)
+                .hats(),
+            k(LOOP, -19, -0.2, &[(DAMPING, 0.8), (SPREAD, 0.5)]).leak(4000.0),
+            k(LOOP, -2, 0.5, &[(DAMPING, 1.0), (SNAP, -1.0)]).leak(300.0),
+            k(SPARK, 0, -0.6, &[(TONE, -0.7), (GRAIN, -0.8)]).leak(150.0),
+            k(DUST, -12, 0.6, &[(TONE, -0.9), (SPREAD, 0.6)]).leak(400.0),
+        ],
+        ..INIT
+    },
+    // Folds and a kick whose pitch ramps up on the sixteenths and eighths: a kit of rising chirps.
+    Kit {
+        name: "Chirp Machine",
+        lfos: &[
+            synced(1, RampUp, Division::Sixteenth),
+            synced(2, RampUp, Division::Eighth),
+        ],
+        keys: [
+            k(KICK, 0, 0.0, &[(DROP, -1.0), (DAMPING, 0.5)])
+                .leak(250.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
+            k(SNARE, 5, 0.0, &[(BODY, 1.0), (DROP, -1.0), (DAMPING, 0.4)])
+                .leak(250.0)
+                .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(FOLD, 12, -0.6, &[(DRIVE, -0.6)]).leak(120.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                1.0,
+            )]),
+            k(FOLD, 17, -0.2, &[(DRIVE, -0.6)]).leak(120.0).routes(&[(
+                Lfo2,
+                CellTarget::Pitch,
+                1.0,
+            )]),
+            k(FOLD, 22, 0.2, &[(DRIVE, -0.6)]).leak(120.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                1.0,
+            )]),
+            k(FOLD, 26, 0.6, &[(DRIVE, -0.4), (SPREAD, 0.4)])
+                .leak(120.0)
+                .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(FOLD, 29, -0.8, &[(DRIVE, -0.4), (SPREAD, -0.4)])
+                .leak(120.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, -1.0)]),
+            k(FOLD, 31, 0.8, &[(DRIVE, -0.6)]).leak(100.0).routes(&[(
+                Lfo2,
+                CellTarget::Pitch,
+                -1.0,
+            )]),
+            k(SPARK, 0, -0.3, &[(TONE, 0.4), (GRAIN, 0.3)]).leak(100.0),
+            k(CLAP, 0, 0.3, &[(SNAP, 1.0), (SPACING, -1.0)]),
+            k(SPARK, 0, 0.5, &[(TONE, 0.5), (GRAIN, 0.4)])
+                .leak(50.0)
+                .hats(),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5), (GRAIN, 0.4)])
+                .leak(300.0)
+                .hats(),
+            k(LOOP, 24, 0.0, &[(SPREAD, -1.0), (DAMPING, 0.3)])
+                .leak(500.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
+            k(FOLD, 36, 0.4, &[(DRIVE, -1.0)])
+                .leak(80.0)
+                .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(SPARK, 0, -0.6, &[(TONE, 0.5)]).leak(60.0),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.4), (GRAIN, -0.6)])
+                .leak(250.0)
+                .routes(&[(Lfo2, to(TONE), 1.0)]),
+        ],
+        ..INIT
+    },
+    // Wide-spread, hard-driven metal low down, coupled so one strike rattles the rest.
+    Kit {
+        name: "Metal Shop",
+        temper: 0.3,
+        coupling: 0.7,
+        seed: 271,
+        keys: [
+            k(KICK, -2, 0.0, &[(DRIVE, 0.9), (DAMPING, 0.5)]),
+            k(SNARE, -5, 0.0, &[(TONE, 0.5), (BODY, -1.0), (DRIVE, 1.0)]),
+            k(LOOP, -19, -0.5, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(LOOP, -14, -0.1, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(LOOP, -9, 0.3, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(FOLD, -5, -0.7, &[(SPREAD, 1.0), (DRIVE, 0.8)]),
+            k(FOLD, 0, 0.7, &[(SPREAD, -1.0), (DRIVE, 0.8)]),
+            k(LOOP, -2, 0.1, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(
+                LOOP,
+                5,
+                -0.3,
+                &[(SPREAD, 1.0), (DAMPING, 0.6), (DRIVE, 0.6)],
+            )
+            .leak(150.0),
+            k(CLAP, 0, 0.2, &[(TONE, 0.3), (SPACING, -0.5)]),
+            k(
+                LOOP,
+                12,
+                0.4,
+                &[(SPREAD, 1.0), (DAMPING, 0.6), (DRIVE, 0.6)],
+            )
+            .leak(100.0)
+            .hats(),
+            k(
+                LOOP,
+                12,
+                0.4,
+                &[(SPREAD, 1.0), (DAMPING, 0.3), (DRIVE, 0.6)],
+            )
+            .leak(1500.0)
+            .hats(),
+            k(LOOP, 0, -0.4, &[(SPREAD, 1.0), (DRIVE, 0.8)]).leak(6000.0),
+            k(FOLD, 5, 0.5, &[(SPREAD, 1.0), (DRIVE, 0.8)]),
+            k(
+                LOOP,
+                17,
+                -0.6,
+                &[(SPREAD, 0.8), (DAMPING, 0.5), (DRIVE, 0.6)],
+            )
+            .leak(200.0),
+            k(DUST, -12, 0.6, &[(SPREAD, 0.8), (TONE, -0.3), (GRAIN, 0.7)]).leak(300.0),
+        ],
+        ..INIT
+    },
+    // Rings that hardly lose anything and sing at their pitch for seconds, sympathetic on the grid.
+    Kit {
+        name: "Gong Hall",
+        temper: 0.2,
+        flow: 0.2,
+        coupling: 0.9,
+        seed: 313,
+        keys: [
+            k(KICK, -7, 0.0, &[(DAMPING, -0.8), (DROP, -0.6)]).leak(6000.0),
+            k(SNARE, -2, 0.0, &[(BODY, 1.0), (DAMPING, -0.8)]).leak(3000.0),
+            k(RING, -24, -0.6, &[(DAMPING, -1.0), (DROP, -1.0)])
+                .threshold(-0.3)
+                .hunger(0.1)
+                .leak(15000.0),
+            k(RING, -17, -0.3, &[(DAMPING, -1.0), (DROP, -1.0)])
+                .threshold(-0.3)
+                .hunger(0.1)
+                .leak(15000.0),
+            k(RING, -12, 0.0, &[(DAMPING, -1.0), (DROP, -1.0)])
+                .threshold(-0.3)
+                .hunger(0.1)
+                .leak(15000.0),
+            k(RING, -9, 0.3, &[(DAMPING, -1.0), (DROP, -1.0)])
+                .threshold(-0.3)
+                .hunger(0.1)
+                .leak(15000.0),
+            k(RING, -5, 0.6, &[(DAMPING, -1.0), (DROP, -1.0)])
+                .threshold(-0.3)
+                .hunger(0.1)
+                .leak(15000.0),
+            k(LOOP, -5, -0.8, &[(SPREAD, 0.8), (DAMPING, -0.8)]).leak(8000.0),
+            k(LOOP, 7, 0.8, &[(SPREAD, 0.9), (DAMPING, -0.7)]).leak(5000.0),
+            k(CLAP, 0, 0.0, &[(TONE, -0.4), (SPACING, 0.4)]),
+            k(DUST, 0, 0.3, &[(SPREAD, 0.6), (TONE, 0.3)])
+                .leak(200.0)
+                .hats(),
+            k(DUST, 0, 0.3, &[(SPREAD, 0.6), (TONE, 0.3)])
+                .leak(5000.0)
+                .hats(),
+            k(LOOP, -12, 0.0, &[(SPREAD, 1.0), (DAMPING, -1.0)]).leak(30000.0),
+            k(RING, 5, -0.4, &[(DAMPING, -1.0)])
+                .hunger(0.1)
+                .leak(10000.0),
+            k(SPARK, 0, 0.4, &[(TONE, -0.5)]).leak(400.0),
+            k(DUST, 0, -0.5, &[(TONE, -0.3), (SPREAD, 0.8)]).leak(3000.0),
+        ],
+        ..INIT
+    },
+    // Cells driven past their tipping point: every key screams and growls while its charge lasts.
+    Kit {
+        name: "Toy Riot",
+        temper: 0.4,
+        seed: 421,
+        keys: [
+            k(KICK, 24, 0.0, &[(DRIVE, 1.0), (DAMPING, 0.2)]).threshold(-0.3),
+            k(SNARE, 24, 0.0, &[(DRIVE, 1.0), (TONE, 0.5)]).threshold(-0.3),
+            k(RING, 24, -0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(RING, 29, -0.2, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(RING, 34, 0.2, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(FOLD, 24, 0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(FOLD, 31, -0.8, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(LOOP, 24, 0.8, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(SPARK, 0, -0.3, &[(TONE, 0.5)]).threshold(-0.3),
+            k(CLAP, 0, 0.3, &[(TONE, 0.9)]).threshold(-0.3),
+            k(DUST, 24, 0.5, &[(TONE, 0.6)]).leak(150.0).hats(),
+            k(DUST, 24, -0.5, &[(TONE, 0.6)]).leak(500.0).hats(),
+            k(LOOP, 36, 0.0, &[(DRIVE, 1.0), (SPREAD, 0.5)])
+                .threshold(-0.3)
+                .leak(1200.0),
+            k(FOLD, 36, 0.4, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(SPARK, 0, -0.6, &[(TONE, 0.5)]).threshold(-0.3),
+            k(RING, 40, 0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
+        ],
+        ..INIT
+    },
+    // The whole kit two octaves down and three times as long: a beat played at half speed, twice.
+    Kit {
+        name: "Half Speed",
+        keys: [
+            k(KICK, -24, 0.0, &[(DAMPING, -0.5)]).leak(1800.0),
+            k(SNARE, -24, 0.0, &[(DAMPING, -0.5), (TONE, -0.6)]).leak(1200.0),
+            k(RING, -29, -0.4, &[(DAMPING, -0.5)]).leak(1800.0),
+            k(RING, -24, 0.0, &[(DAMPING, -0.5)]).leak(1800.0),
+            k(RING, -19, 0.4, &[(DAMPING, -0.5)]).leak(1800.0),
+            k(FOLD, -24, -0.6, &[]).leak(1200.0),
+            k(FOLD, -19, 0.6, &[]).leak(1200.0),
+            k(LOOP, -17, 0.2, &[(DAMPING, -0.3)]).leak(1200.0),
+            k(SPARK, 0, -0.2, &[(TONE, -0.8), (GRAIN, -0.7)]).leak(400.0),
+            k(CLAP, 0, 0.1, &[(SPACING, 1.0), (TONE, -0.8), (SNAP, -1.0)]),
+            k(DUST, 0, 0.3, &[(TONE, -0.6), (GRAIN, -0.5)])
+                .leak(250.0)
+                .hats(),
+            k(DUST, 0, 0.3, &[(TONE, -0.6), (GRAIN, -0.5)])
+                .leak(2400.0)
+                .hats(),
+            k(LOOP, -12, -0.3, &[(DAMPING, -0.3)]).leak(5000.0),
+            k(FOLD, -12, 0.4, &[]).leak(800.0),
+            k(SPARK, 0, -0.4, &[(TONE, -0.6), (GRAIN, -0.8)]).leak(350.0),
+            k(DUST, -19, 0.5, &[(TONE, -0.6), (GRAIN, -0.6)]).leak(550.0),
+        ],
+        ..INIT
+    },
+    // Tin, wire and plastic: bright noise snares, little cans, buzzing folds, a ratchet clap.
+    Kit {
+        name: "Junk Percussion",
+        keys: [
+            k(KICK, 5, 0.0, &[(DAMPING, 0.6), (DRIVE, 0.6)]).leak(200.0),
+            k(SNARE, 7, 0.0, &[(BODY, -1.0), (TONE, 0.5)]).leak(150.0),
+            k(LOOP, 5, -0.5, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
+            k(LOOP, 10, -0.1, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
+            k(LOOP, 15, 0.3, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
+            k(FOLD, 12, -0.7, &[(DRIVE, 0.3), (SPREAD, -0.8)]).leak(200.0),
+            k(FOLD, 19, 0.7, &[(DRIVE, 0.3), (SPREAD, 0.8)]).leak(200.0),
+            k(SPARK, 0, 0.1, &[(SNAP, -1.0), (TONE, -0.4)]).leak(120.0),
+            k(SPARK, 0, -0.3, &[(TONE, 0.4), (GRAIN, 0.6)]).leak(80.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.7), (TONE, 0.5)]),
+            k(DUST, 0, 0.5, &[(GRAIN, 0.8), (TONE, 0.4), (SPREAD, -1.0)])
+                .leak(50.0)
+                .hats(),
+            k(DUST, 0, 0.5, &[(GRAIN, 0.8), (TONE, 0.4), (SPREAD, -1.0)])
+                .leak(400.0)
+                .hats(),
+            k(LOOP, 24, -0.4, &[(SPREAD, 1.0), (DAMPING, 0.2)]).leak(700.0),
+            k(FOLD, 24, 0.4, &[(DRIVE, 0.4), (SPREAD, 1.0)]).leak(150.0),
+            k(LOOP, 34, -0.6, &[(SPREAD, 0.7), (DAMPING, 0.7)]).leak(60.0),
+            k(DUST, 7, 0.6, &[(GRAIN, -0.4), (SPREAD, 0.5)]).leak(200.0),
+        ],
+        ..INIT
+    },
+    // ---- Ringing: tones that sustain, howl and feed each other ------------------------------
+    // High loops and rings that barely lose anything, coupled so the grid shimmers around a hit.
+    Kit {
+        name: "Crystal Cave",
+        temper: 0.35,
+        flow: 0.1,
+        coupling: 0.85,
+        seed: 509,
+        keys: [
+            k(KICK, 0, 0.0, &[(DAMPING, -0.4), (DROP, -0.8)]).leak(3000.0),
+            k(SNARE, 12, 0.0, &[(BODY, 1.0), (TONE, 0.5), (DAMPING, -0.6)]).leak(2500.0),
+            k(LOOP, 12, -0.6, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
+            k(LOOP, 16, -0.3, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
+            k(LOOP, 19, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
+            k(RING, 24, 0.3, &[(DAMPING, -0.8)]).leak(8000.0),
+            k(RING, 28, 0.6, &[(DAMPING, -0.8)]).leak(8000.0),
+            k(LOOP, 31, -0.8, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
+            k(SPARK, 0, 0.8, &[(TONE, 0.5), (GRAIN, -0.5)]).leak(600.0),
+            k(CLAP, 0, 0.0, &[(TONE, 1.0), (SPACING, 0.3)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 1.0), (TONE, 0.6), (GRAIN, -0.8)])
+                .leak(600.0)
+                .hats(),
+            k(DUST, 0, -0.4, &[(SPREAD, 1.0), (TONE, 0.6), (GRAIN, -0.8)])
+                .leak(6000.0)
+                .hats(),
+            k(LOOP, 43, 0.0, &[(DAMPING, -1.0), (SPREAD, 0.3)]).leak(20000.0),
+            k(RING, 36, 0.5, &[(DAMPING, -1.0)]).leak(12000.0),
+            k(SPARK, 0, -0.6, &[(TONE, 0.5), (GRAIN, -0.5)]).leak(600.0),
+            k(DUST, 0, 0.7, &[(SPREAD, 1.0), (TONE, 0.6)]).leak(2000.0),
+        ],
+        ..INIT
+    },
+    // Rings tipped into sustaining themselves, steady rather than growling: a held key plays a pipe.
+    Kit {
+        name: "Organ Pipes",
+        keys: [
+            k(KICK, -12, 0.0, &[(DRIVE, -0.4), (DROP, -1.0)])
+                .threshold(-0.6)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(6000.0),
+            k(SNARE, 0, 0.0, &[(BODY, 1.0), (DRIVE, -0.4)])
+                .threshold(-0.6)
+                .supply(0.8),
+            k(RING, -12, -0.7, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(RING, -5, -0.4, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(RING, 0, -0.1, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(RING, 4, 0.2, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(RING, 7, 0.5, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(RING, 12, 0.8, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(RING, 16, -0.6, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(RING, 19, 0.6, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .hunger(0.2)
+                .leak(8000.0),
+            k(DUST, 12, 0.3, &[(SPREAD, 1.0), (TONE, 0.5)])
+                .leak(200.0)
+                .hats(),
+            k(DUST, 12, 0.3, &[(SPREAD, 1.0), (TONE, 0.5)])
+                .supply(0.8)
+                .leak(3000.0)
+                .hats(),
+            k(RING, 24, -0.3, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .leak(8000.0),
+            k(RING, 28, 0.3, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .leak(8000.0),
+            k(RING, 31, 0.0, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .leak(8000.0),
+            k(RING, -24, 0.0, &[(DRIVE, -0.5), (DROP, -1.0)])
+                .threshold(-0.7)
+                .supply(0.8)
+                .leak(8000.0),
+        ],
+        ..INIT
+    },
+    // Loops past onset, driven and coupled hard: each hit howls and sets its neighbours howling.
+    Kit {
+        name: "Feedback Loop",
+        category: Fx,
+        temper: 0.5,
+        flow: 0.2,
+        coupling: 1.0,
+        seed: 613,
+        keys: [
+            k(KICK, 0, 0.0, &[(DRIVE, 0.6)]).threshold(-0.6),
+            k(SNARE, 0, 0.0, &[(DRIVE, 0.6)]).threshold(-0.6),
+            k(LOOP, -5, -0.6, &[(DRIVE, 0.8), (DAMPING, -0.5)])
+                .threshold(-0.8)
+                .touch(1.0),
+            k(LOOP, 0, -0.2, &[(DRIVE, 0.8), (DAMPING, -0.5)])
+                .threshold(-0.8)
+                .touch(1.0),
+            k(LOOP, 7, 0.2, &[(DRIVE, 0.8), (DAMPING, -0.5)])
+                .threshold(-0.8)
+                .touch(1.0),
+            k(LOOP, 12, 0.6, &[(DRIVE, 0.8), (SPREAD, 0.5)])
+                .threshold(-0.8)
+                .touch(1.0),
+            k(LOOP, 17, -0.8, &[(DRIVE, 0.8), (SPREAD, 0.5)])
+                .threshold(-0.8)
+                .touch(1.0),
+            k(LOOP, 22, 0.8, &[(DRIVE, 0.8), (SPREAD, 0.8)])
+                .threshold(-0.8)
+                .touch(1.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, 0.5)]).threshold(-0.8),
+            k(CLAP, 0, 0.3, &[(GRAIN, 0.5)]).threshold(-0.7),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.7)]).leak(100.0).hats(),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.7)]).leak(1500.0).hats(),
+            k(LOOP, 29, 0.0, &[(DRIVE, 0.8), (SPREAD, 1.0)])
+                .threshold(-0.8)
+                .leak(4000.0),
+            k(FOLD, 12, 0.5, &[(DRIVE, 1.0)]).threshold(-0.6),
+            k(LOOP, 34, -0.5, &[(DRIVE, 0.8)]).threshold(-0.8),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.4)]).leak(400.0),
+        ],
+        ..INIT
+    },
+    // Pure, tuned rings on a pentatonic with a shimmer, velocity bending them, ringing together.
+    Kit {
+        name: "Bell Riot",
+        temper: 0.5,
+        coupling: 0.8,
+        flow: 0.3,
+        seed: 727,
+        lfos: &[free(2, Sine, 5.0)],
+        keys: [
+            k(KICK, 0, 0.0, &[(DROP, -0.8), (DAMPING, 0.2)]).routes(&[(
+                Velocity,
+                CellTarget::Pitch,
+                0.4,
+            )]),
+            k(SNARE, 0, 0.0, &[(BODY, 1.0), (TONE, -0.4)]),
+            k(RING, -5, -0.7, &[(DAMPING, -0.5), (DROP, -0.8)])
+                .leak(1200.0)
+                .routes(&[
+                    (Velocity, CellTarget::Pitch, 0.5),
+                    (Lfo2, CellTarget::Pitch, 0.05),
+                ]),
+            k(RING, -2, -0.4, &[(DAMPING, -0.5), (DROP, -0.8)])
+                .leak(1200.0)
+                .routes(&[
+                    (Velocity, CellTarget::Pitch, 0.5),
+                    (Lfo2, CellTarget::Pitch, 0.05),
+                ]),
+            k(RING, 0, -0.1, &[(DAMPING, -0.5), (DROP, -0.8)])
+                .leak(1200.0)
+                .routes(&[
+                    (Velocity, CellTarget::Pitch, 0.5),
+                    (Lfo2, CellTarget::Pitch, -0.05),
+                ]),
+            k(RING, 2, 0.2, &[(DAMPING, -0.5), (DROP, -0.8)])
+                .leak(1200.0)
+                .routes(&[
+                    (Velocity, CellTarget::Pitch, 0.5),
+                    (Lfo2, CellTarget::Pitch, -0.05),
+                ]),
+            k(RING, 5, 0.5, &[(DAMPING, -0.5), (DROP, -0.8)])
+                .leak(1200.0)
+                .routes(&[
+                    (Velocity, CellTarget::Pitch, 0.5),
+                    (Lfo2, CellTarget::Pitch, 0.05),
+                ]),
+            k(RING, 7, 0.8, &[(DAMPING, -0.5), (DROP, -0.8)])
+                .leak(1200.0)
+                .routes(&[
+                    (Velocity, CellTarget::Pitch, 0.5),
+                    (Lfo2, CellTarget::Pitch, -0.05),
+                ]),
+            k(RING, 10, -0.3, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(600.0),
+            k(CLAP, 0, 0.3, &[(TONE, -0.3), (SPACING, 0.4)]),
+            k(LOOP, 19, 0.5, &[(SPREAD, 0.8), (DAMPING, 0.6)])
+                .leak(80.0)
+                .hats(),
+            k(LOOP, 19, 0.5, &[(SPREAD, 0.8), (DAMPING, 0.3)])
+                .leak(700.0)
+                .hats(),
+            k(RING, 12, -0.5, &[(DAMPING, -0.5), (DROP, -0.8)])
+                .leak(2500.0)
+                .routes(&[(Lfo2, CellTarget::Pitch, 0.05)]),
+            k(RING, -9, 0.6, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(1500.0),
+            k(RING, 14, -0.8, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(500.0),
+            k(SPARK, 0, 0.7, &[(GRAIN, 0.5), (TONE, 0.2)]).leak(150.0),
+        ],
+        ..INIT
+    },
+    // Rings that drop far and wobble: the harder the hit, the longer the boing.
+    Kit {
+        name: "Rubber Band",
+        lfos: &[free(2, Sine, 6.0)],
+        keys: [
+            k(KICK, -5, 0.0, &[(DROP, 0.8), (DAMPING, -0.3)]).routes(&[(Velocity, to(DROP), 1.0)]),
+            k(SNARE, 0, 0.0, &[(DROP, 0.8), (BODY, 0.8)]).routes(&[(Velocity, to(DROP), 1.0)]),
+            k(RING, -12, -0.6, &[(DROP, 0.8), (DAMPING, -0.3)])
+                .routes(&[(Velocity, to(DROP), 1.0), (Lfo2, CellTarget::Pitch, 0.1)]),
+            k(RING, -7, -0.2, &[(DROP, 0.8), (DAMPING, -0.3)])
+                .routes(&[(Velocity, to(DROP), 1.0), (Lfo2, CellTarget::Pitch, 0.1)]),
+            k(RING, -2, 0.2, &[(DROP, 0.8), (DAMPING, -0.3)])
+                .routes(&[(Velocity, to(DROP), 1.0), (Lfo2, CellTarget::Pitch, 0.1)]),
+            k(RING, 3, 0.6, &[(DROP, 0.8), (DAMPING, -0.3)])
+                .routes(&[(Velocity, to(DROP), 1.0), (Lfo2, CellTarget::Pitch, -0.1)]),
+            k(RING, 8, -0.8, &[(DROP, 0.8), (DAMPING, -0.3)])
+                .routes(&[(Velocity, to(DROP), 1.0), (Lfo2, CellTarget::Pitch, -0.1)]),
+            k(RING, 12, 0.8, &[(DROP, 0.8), (DAMPING, -0.3)]).routes(&[(Velocity, to(DROP), 1.0)]),
+            k(SPARK, 0, -0.3, &[(TONE, -0.3), (SNAP, -0.5)]),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.5)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.5)]).leak(100.0).hats(),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.5)]).leak(900.0).hats(),
+            k(LOOP, 5, 0.0, &[(DAMPING, 0.4), (SPREAD, 0.4)])
+                .leak(1500.0)
+                .routes(&[(Lfo2, CellTarget::Pitch, 0.15)]),
+            k(RING, 17, 0.5, &[(DROP, 1.0), (DAMPING, 0.2)]).routes(&[(Velocity, to(DROP), 1.0)]),
+            k(RING, 24, -0.5, &[(DROP, 1.0), (DAMPING, 0.5)]),
+            k(DUST, 0, 0.6, &[(GRAIN, -0.3)]).leak(200.0),
+        ],
+        ..INIT
+    },
+    // Huge, low, spread loops and dark noise, coupled into one another like a shaken sheet.
+    Kit {
+        name: "Thunder Sheet",
+        temper: 0.6,
+        flow: 0.5,
+        coupling: 0.9,
+        seed: 839,
+        keys: [
+            k(KICK, -10, 0.0, &[(DAMPING, -0.4), (DRIVE, 0.5)]).leak(2000.0),
+            k(SNARE, -7, 0.0, &[(BODY, -0.9), (TONE, -0.6), (DRIVE, 0.8)]),
+            k(LOOP, -24, -0.6, &[(SPREAD, 1.0), (DRIVE, 0.4)])
+                .threshold(-0.3)
+                .leak(6000.0),
+            k(LOOP, -19, -0.2, &[(SPREAD, 1.0), (DRIVE, 0.4)])
+                .threshold(-0.3)
+                .leak(6000.0),
+            k(LOOP, -14, 0.2, &[(SPREAD, 1.0), (DRIVE, 0.4)])
+                .threshold(-0.3)
+                .leak(6000.0),
+            k(DUST, -12, 0.6, &[(TONE, -0.8), (GRAIN, 0.6)]).leak(3000.0),
+            k(
+                DUST,
+                -12,
+                -0.8,
+                &[(TONE, -0.6), (GRAIN, 0.6), (SPREAD, 0.4)],
+            )
+            .leak(3000.0),
+            k(LOOP, -9, 0.8, &[(SPREAD, 1.0), (DRIVE, 0.4)])
+                .threshold(-0.3)
+                .leak(6000.0),
+            k(SPARK, 0, -0.3, &[(TONE, -1.0), (GRAIN, 0.6)]).leak(1000.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.9), (TONE, -0.6)]),
+            k(DUST, 0, 0.4, &[(TONE, -0.5), (GRAIN, 0.7)])
+                .leak(300.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, -0.5), (GRAIN, 0.7)])
+                .leak(8000.0)
+                .hats(),
+            k(LOOP, -2, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.5)]).leak(15000.0),
+            k(FOLD, -12, 0.5, &[(DRIVE, 1.0)]).leak(2000.0),
+            k(RING, -30, -0.5, &[(DROP, 1.0), (DRIVE, 0.6)]).leak(3000.0),
+            k(DUST, -24, 0.6, &[(TONE, -1.0), (GRAIN, 0.8)]).leak(4000.0),
+        ],
+        ..INIT
+    },
+    // High rings that fall far and fast, each at a random pitch: drips into a bucket.
+    Kit {
+        name: "Water Drops",
+        seed: 947,
+        keys: [
+            k(KICK, 12, 0.0, &[(DROP, 1.0), (DAMPING, 0.6)])
+                .leak(200.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.3)]),
+            k(SNARE, 12, 0.0, &[(BODY, 1.0), (DROP, 1.0), (DAMPING, 0.5)]),
+            k(RING, 19, -0.7, &[(DROP, 1.0), (DAMPING, 0.3)])
+                .leak(250.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.5)]),
+            k(RING, 24, -0.4, &[(DROP, 1.0), (DAMPING, 0.3)])
+                .leak(250.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.5)]),
+            k(RING, 28, -0.1, &[(DROP, 1.0), (DAMPING, 0.3)])
+                .leak(250.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.5)]),
+            k(RING, 31, 0.2, &[(DROP, 1.0), (DAMPING, 0.3)])
+                .leak(250.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.5)]),
+            k(RING, 34, 0.5, &[(DROP, 1.0), (DAMPING, 0.3)])
+                .leak(250.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.5)]),
+            k(RING, 36, 0.8, &[(DROP, 1.0), (DAMPING, 0.3)])
+                .leak(250.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.5)]),
+            k(SPARK, 0, -0.3, &[(TONE, 0.5), (GRAIN, -0.6)]).leak(150.0),
+            k(
+                LOOP,
+                24,
+                0.3,
+                &[(DAMPING, 0.2), (SNAP, -1.0), (SPREAD, -1.0)],
+            )
+            .leak(400.0),
+            k(DUST, 0, 0.5, &[(TONE, 0.2), (SPREAD, 1.0), (GRAIN, -1.0)])
+                .leak(150.0)
+                .hats(),
+            k(DUST, 0, 0.5, &[(TONE, 0.2), (SPREAD, 1.0), (GRAIN, -1.0)])
+                .leak(1500.0)
+                .hats(),
+            k(LOOP, 31, -0.5, &[(DAMPING, -0.4), (SPREAD, -1.0)]).leak(2500.0),
+            k(RING, 40, 0.4, &[(DROP, 1.0), (DAMPING, 0.4)])
+                .leak(150.0)
+                .routes(&[(Random, CellTarget::Pitch, 0.5)]),
+            k(SPARK, 0, -0.6, &[(TONE, 0.4), (GRAIN, -1.0)]).leak(400.0),
+            k(DUST, 7, 0.6, &[(SPREAD, 1.0), (TONE, 0.4), (GRAIN, -0.8)]).leak(500.0),
+        ],
+        ..INIT
+    },
+    // Driven, sub-low rings and folds and rumbling noise that shake the grid as they spread.
+    Kit {
+        name: "Earthquake",
+        temper: 0.5,
+        flow: 0.8,
+        coupling: 0.8,
+        seed: 1051,
+        keys: [
+            k(KICK, -12, 0.0, &[(DRIVE, 1.0), (DAMPING, -0.4)])
+                .threshold(-0.6)
+                .leak(2000.0),
+            k(SNARE, -12, 0.0, &[(TONE, -1.0), (BODY, -0.4), (DRIVE, 1.0)]),
+            k(RING, -24, -0.6, &[(DRIVE, 0.8)])
+                .threshold(-0.5)
+                .leak(2500.0),
+            k(RING, -19, -0.2, &[(DRIVE, 0.8)])
+                .threshold(-0.5)
+                .leak(2500.0),
+            k(RING, -12, 0.2, &[(DRIVE, 0.8)])
+                .threshold(-0.5)
+                .leak(2500.0),
+            k(FOLD, -36, 0.6, &[(DRIVE, 1.0)]).leak(2000.0),
+            k(FOLD, -31, -0.8, &[(DRIVE, 1.0)]).leak(2000.0),
+            k(LOOP, -30, 0.8, &[(DRIVE, 0.8), (SPREAD, 0.8)]).leak(2000.0),
+            k(SPARK, 0, -0.3, &[(TONE, -1.0), (SNAP, -1.0)]).leak(800.0),
+            k(CLAP, 0, 0.3, &[(TONE, -1.0), (SPACING, 0.8)]),
+            k(DUST, 0, 0.4, &[(TONE, -1.0), (GRAIN, 0.5)])
+                .leak(300.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, -1.0), (GRAIN, 0.5)])
+                .leak(4000.0)
+                .hats(),
+            k(LOOP, -24, 0.0, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+                .threshold(-0.4)
+                .leak(8000.0),
+            k(FOLD, -24, 0.5, &[(DRIVE, 1.0)]).leak(1500.0),
+            k(RING, -30, -0.5, &[(DROP, 1.0), (DRIVE, 0.5)]).leak(1500.0),
+            k(DUST, -12, 0.6, &[(TONE, -1.0), (GRAIN, 1.0)]).leak(3000.0),
+        ],
+        ..INIT
+    },
+    // The highest, shortest, most driven metal and spark and noise: every hit a spray of shards.
+    Kit {
+        name: "Shattered",
+        category: Fx,
+        temper: 0.6,
+        flow: 0.4,
+        coupling: 0.7,
+        seed: 1163,
+        keys: [
+            k(KICK, 24, 0.0, &[(DRIVE, 1.0), (DAMPING, 0.8), (SNAP, 1.0)]).leak(150.0),
+            k(SNARE, 24, 0.0, &[(TONE, 0.5), (BODY, -1.0), (SNAP, 1.0)]).leak(150.0),
+            k(LOOP, 40, -0.6, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+                .threshold(-0.5)
+                .leak(150.0),
+            k(LOOP, 43, -0.2, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+                .threshold(-0.5)
+                .leak(150.0),
+            k(LOOP, 45, 0.2, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+                .threshold(-0.5)
+                .leak(150.0),
+            k(SPARK, 0, 0.6, &[(GRAIN, 1.0), (TONE, 0.5), (SNAP, 1.0)]).leak(150.0),
+            k(DUST, 0, -0.8, &[(TONE, 0.6), (GRAIN, 0.4), (SPREAD, -0.5)]).leak(150.0),
+            k(SPARK, 0, 0.8, &[(GRAIN, 1.0), (TONE, 0.5)]).leak(150.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, 0.5)]).leak(150.0),
             k(
                 CLAP,
                 0,
-                0.05,
-                &[(SNAP, -0.2), (GRAIN, -0.2), (SPACING, 0.15)],
+                0.3,
+                &[(GRAIN, 1.0), (TONE, 1.0), (SPACING, -1.0), (SNAP, 1.0)],
             ),
-            k(DUST, 0, 0.25, &[(GRAIN, -0.15), (TONE, -0.05)])
-                .leak(90.0)
+            k(DUST, 0, 0.5, &[(TONE, 0.6), (GRAIN, 1.0)])
+                .leak(150.0)
                 .hats(),
-            k(DUST, 0, 0.25, &[(GRAIN, -0.15), (TONE, -0.05)])
-                .leak(750.0)
+            k(DUST, 0, 0.5, &[(TONE, 0.6), (GRAIN, 1.0)])
+                .leak(300.0)
                 .hats(),
-            k(LOOP, 12, -0.3, &[(DAMPING, 0.1)]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[(DRIVE, -0.3)]),
-            k(SPARK, 0, -0.35, &[(SNAP, -0.2)]).leak(125.0),
-            k(DUST, 5, 0.45, &[(GRAIN, -0.2)]).leak(180.0),
+            k(LOOP, 48, 0.0, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+                .threshold(-0.5)
+                .leak(200.0),
+            k(FOLD, 40, 0.4, &[(DRIVE, 1.0), (SPREAD, 1.0)]).leak(150.0),
+            k(SPARK, 0, -0.6, &[(GRAIN, 1.0), (TONE, 0.5), (SNAP, 1.0)]).leak(150.0),
+            k(DUST, 24, 0.7, &[(TONE, 0.6), (GRAIN, 1.0)]).leak(150.0),
         ],
         ..INIT
     },
-    // Long tails: little hunger and slow leaks, so every drum rings out.
+    // A tiny pool that refills like a pulse, and a kick that swells on the beat and drains between.
     Kit {
-        name: "Long Fuse",
+        name: "Heartbeat",
+        pool: 0.2,
+        recharge_ms: Some(800.0),
+        lfos: &[synced(1, Sine, Division::Quarter)],
         keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, -0.3)]).hunger(0.3).leak(1800.0),
-            k(SNARE, 0, 0.0, &[(DAMPING, -0.2)])
-                .hunger(0.35)
-                .leak(900.0),
-            k(RING, -5, -0.3, &[(DAMPING, -0.35)])
+            k(KICK, -7, 0.0, &[(DAMPING, -0.4)]).supply(1.0).routes(&[(
+                Lfo1,
+                CellTarget::Supply,
+                0.8,
+            )]),
+            k(SNARE, -5, 0.0, &[(BODY, 0.8), (TONE, -0.5)]).supply(1.0),
+            k(RING, -19, -0.5, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
+            k(RING, -14, 0.0, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
+            k(RING, -9, 0.5, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
+            k(FOLD, -12, -0.7, &[(DRIVE, -0.3)]).supply(1.0),
+            k(FOLD, -7, 0.7, &[(DRIVE, -0.3)]).supply(1.0),
+            k(LOOP, -12, 0.2, &[(DAMPING, 0.6)]).supply(1.0),
+            k(SPARK, 0, -0.3, &[(TONE, -0.7)]).supply(1.0),
+            k(CLAP, 0, 0.3, &[(TONE, -0.5), (SPACING, 0.4)]).supply(1.0),
+            k(DUST, 0, 0.4, &[(TONE, -0.4)])
+                .supply(1.0)
+                .leak(150.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, -0.4)])
+                .supply(1.0)
+                .leak(1500.0)
+                .hats(),
+            k(LOOP, 0, -0.4, &[(SPREAD, 0.6), (DAMPING, 0.3)])
+                .supply(1.0)
+                .leak(3000.0),
+            k(FOLD, 0, 0.4, &[]).supply(1.0),
+            k(SPARK, 0, -0.6, &[(TONE, -0.5)]).supply(1.0),
+            k(DUST, -5, 0.6, &[(TONE, -0.6), (GRAIN, -0.4)])
+                .supply(1.0)
+                .leak(300.0),
+        ],
+        ..INIT
+    },
+    // ---- Grit: sparks, noise and broken machines ---------------------------------------------
+    // Sparks firing so fast they buzz, gated by a fast square: a kit of arcing coils.
+    Kit {
+        name: "Tesla Coil",
+        lfos: &[free(1, Square, 9.0)],
+        keys: [
+            k(KICK, 0, 0.0, &[(DRIVE, 1.0), (SNAP, 1.0)]).threshold(-0.5),
+            k(SNARE, 0, 0.0, &[(DRIVE, 1.0), (BODY, -0.7), (TONE, 0.5)]).threshold(-0.6),
+            k(SPARK, 0, -0.6, &[(GRAIN, 0.8), (TONE, -0.6)])
+                .threshold(-0.7)
+                .supply(1.0)
                 .hunger(0.3)
-                .leak(1600.0),
-            k(RING, 0, 0.0, &[(DAMPING, -0.35)])
+                .leak(1500.0)
+                .routes(&[(Lfo1, CellTarget::Threshold, 0.5)]),
+            k(SPARK, 0, -0.2, &[(GRAIN, 0.9), (TONE, -0.2)])
+                .threshold(-0.7)
+                .supply(1.0)
                 .hunger(0.3)
-                .leak(1600.0),
-            k(RING, 5, 0.3, &[(DAMPING, -0.35)])
+                .leak(1500.0)
+                .routes(&[(Lfo1, CellTarget::Threshold, 0.5)]),
+            k(SPARK, 0, 0.2, &[(GRAIN, 1.0), (TONE, 0.2)])
+                .threshold(-0.7)
+                .supply(1.0)
                 .hunger(0.3)
-                .leak(1600.0),
-            k(FOLD, 0, -0.4, &[]).leak(1400.0),
-            k(FOLD, 5, 0.4, &[]).leak(1400.0),
-            k(LOOP, 7, 0.15, &[(DAMPING, -0.3)]).leak(1500.0),
-            k(SPARK, 0, -0.1, &[]).leak(300.0),
-            k(CLAP, 0, 0.05, &[(SNAP, -0.3)]).leak(700.0),
-            k(DUST, 0, 0.25, &[]).leak(120.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(2500.0).hats(),
-            k(LOOP, 12, -0.3, &[(DAMPING, -0.3)]).leak(6000.0),
-            k(FOLD, 12, 0.35, &[]).leak(1200.0),
-            k(SPARK, 0, -0.35, &[]).leak(400.0),
-            k(DUST, 5, 0.45, &[]).leak(500.0),
-        ],
-        ..INIT
-    },
-    // ---- Breathing: a little Temper, the grid starts to share --------------------------------
-    // Init's drums with the first breath of Temper: hits begin to lean on their neighbours.
-    Kit {
-        name: "First Breath",
-        temper: 0.2,
-        flow: 0.4,
-        coupling: 0.3,
-        seed: 11,
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]).threshold(-0.1),
-            k(RING, 0, 0.0, &[]).threshold(-0.1),
-            k(RING, 5, 0.3, &[]).threshold(-0.1),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // The sound leaks across the grid: each hit rings faintly in its neighbours.
-    Kit {
-        name: "Warm Lattice",
-        temper: 0.3,
-        flow: 0.3,
-        coupling: 0.6,
-        seed: 23,
-        keys: [
-            k(KICK, -1, 0.0, &[(DAMPING, -0.1)]),
-            k(SNARE, 0, 0.0, &[(BODY, 0.15)]),
-            k(RING, -6, -0.3, &[(DAMPING, -0.1)]),
-            k(RING, -1, 0.0, &[(DAMPING, -0.1)]),
-            k(RING, 4, 0.3, &[(DAMPING, -0.1)]),
-            k(FOLD, -2, -0.4, &[]),
-            k(FOLD, 3, 0.4, &[]),
-            k(LOOP, 5, 0.15, &[(DAMPING, 0.1)]),
-            k(SPARK, 0, -0.1, &[(TONE, -0.1)]),
-            k(CLAP, 0, 0.05, &[(TONE, -0.1)]),
-            k(DUST, 0, 0.25, &[(TONE, -0.1)]).leak(90.0).hats(),
-            k(DUST, 0, 0.25, &[(TONE, -0.1)]).leak(800.0).hats(),
-            k(LOOP, 10, -0.3, &[]).leak(1800.0),
-            k(FOLD, 10, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 3, 0.45, &[(TONE, -0.1)]).leak(200.0),
-        ],
-        ..INIT
-    },
-    // Charge runs fast between cells and the pool is smaller: held notes pull on each other.
-    Kit {
-        name: "Shared Wire",
-        temper: 0.25,
-        flow: 0.85,
-        coupling: 0.2,
-        pool: 0.7,
-        seed: 37,
-        keys: [
-            k(KICK, 0, 0.0, &[]).supply(0.5),
-            k(SNARE, 0, 0.0, &[]).supply(0.5),
-            k(RING, -5, -0.3, &[]).supply(0.5),
-            k(RING, 0, 0.0, &[]).supply(0.5),
-            k(RING, 5, 0.3, &[]).supply(0.5),
-            k(FOLD, 0, -0.4, &[]).supply(0.5),
-            k(FOLD, 5, 0.4, &[]).supply(0.5),
-            k(LOOP, 7, 0.15, &[]).supply(0.5),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]).supply(0.5),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Temper rises and falls over two bars: the kit is steady, then loose, then steady again.
-    Kit {
-        name: "Pulse Field",
-        temper: 0.3,
-        seed: 41,
-        lfos: &[synced(1, Sine, Division::TwoBars)],
-        routes: &[(K::Lfo1, KitTarget::Temper, 0.25)],
-        keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, -0.05)]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]),
-            k(RING, 0, 0.0, &[]),
-            k(RING, 5, 0.3, &[]),
-            k(FOLD, 0, -0.4, &[(SPREAD, 0.1)]),
-            k(FOLD, 5, 0.4, &[(SPREAD, 0.1)]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Soft hits into a loose grid: quiet playing that still drifts.
-    Kit {
-        name: "Quiet Storm",
-        temper: 0.35,
-        flow: 0.5,
-        coupling: 0.4,
-        dynamics: 0.3,
-        seed: 53,
-        keys: [
-            k(KICK, 0, 0.0, &[(SNAP, -0.2)]).strike(0.5),
-            k(SNARE, 0, 0.0, &[(SNAP, -0.2)]).strike(0.5),
-            k(RING, -5, -0.3, &[]).strike(0.5),
-            k(RING, 0, 0.0, &[]).strike(0.5),
-            k(RING, 5, 0.3, &[]).strike(0.5),
-            k(FOLD, 0, -0.4, &[]).strike(0.5),
-            k(FOLD, 5, 0.4, &[]).strike(0.5),
-            k(LOOP, 7, 0.15, &[]).strike(0.5),
-            k(SPARK, 0, -0.1, &[]).strike(0.5),
-            k(CLAP, 0, 0.05, &[(SPACING, 0.1)]).strike(0.5),
-            k(DUST, 0, 0.25, &[(GRAIN, -0.1)])
-                .strike(0.5)
-                .leak(85.0)
-                .hats(),
-            k(DUST, 0, 0.25, &[(GRAIN, -0.1)])
-                .strike(0.5)
-                .leak(775.0)
-                .hats(),
-            k(LOOP, 12, -0.3, &[]).strike(0.5).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]).strike(0.5),
-            k(SPARK, 0, -0.35, &[]).strike(0.5).leak(120.0),
-            k(DUST, 5, 0.45, &[]).strike(0.5).leak(180.0),
-        ],
-        ..INIT
-    },
-    // ---- Tuned: the toms and percussion on scales --------------------------------------------
-    // Six rings on a minor pentatonic, a melody under the beat.
-    Kit {
-        name: "Pentatone",
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -12, -0.4, &[(DAMPING, -0.15)]).leak(900.0),
-            k(RING, -9, -0.2, &[(DAMPING, -0.15)]).leak(900.0),
-            k(RING, -7, 0.0, &[(DAMPING, -0.15)]).leak(900.0),
-            k(RING, -5, 0.2, &[(DAMPING, -0.15)]).leak(900.0),
-            k(RING, -2, 0.4, &[(DAMPING, -0.15)]).leak(900.0),
-            k(RING, 0, 0.1, &[(DAMPING, -0.15)]).leak(900.0),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(RING, 3, 0.35, &[(DAMPING, -0.15)]).leak(900.0),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Low rings set just past their tipping point, so each one sings like a small gong.
-    Kit {
-        name: "Gong Steps",
-        keys: [
-            k(KICK, -2, 0.0, &[(DAMPING, -0.15)]),
-            k(SNARE, 0, 0.0, &[(BODY, 0.2)]),
-            k(RING, -14, -0.4, &[(DAMPING, -0.4), (DROP, -0.6)])
-                .threshold(-0.2)
-                .hunger(0.3)
-                .leak(2000.0),
-            k(RING, -10, -0.2, &[(DAMPING, -0.4), (DROP, -0.6)])
-                .threshold(-0.2)
-                .hunger(0.3)
-                .leak(2000.0),
-            k(RING, -7, 0.0, &[(DAMPING, -0.4), (DROP, -0.6)])
-                .threshold(-0.2)
-                .hunger(0.3)
-                .leak(2000.0),
-            k(RING, -2, 0.2, &[(DAMPING, -0.4), (DROP, -0.6)])
-                .threshold(-0.2)
-                .hunger(0.3)
-                .leak(2000.0),
-            k(RING, 3, 0.4, &[(DAMPING, -0.4), (DROP, -0.6)])
-                .threshold(-0.2)
-                .hunger(0.3)
-                .leak(2000.0),
-            k(RING, 5, 0.1, &[(DAMPING, -0.4), (DROP, -0.6)])
-                .threshold(-0.2)
-                .hunger(0.3)
-                .leak(2000.0),
-            k(SPARK, 0, -0.1, &[(TONE, -0.1)]),
-            k(CLAP, 0, 0.05, &[(TONE, -0.1)]),
-            k(DUST, 0, 0.25, &[(TONE, -0.1)]).leak(90.0).hats(),
-            k(DUST, 0, 0.25, &[(TONE, -0.1)]).leak(1200.0).hats(),
-            k(LOOP, 5, -0.3, &[(SPREAD, 0.4), (DAMPING, -0.2)]).leak(3500.0),
-            k(FOLD, 10, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 2, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Bright plucked loops in fifths and fourths, glassy and long.
-    Kit {
-        name: "Glass Tiers",
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[(TONE, 0.2)]),
-            k(LOOP, 0, -0.4, &[(DAMPING, -0.5), (SPREAD, -1.0)]).leak(1200.0),
-            k(LOOP, 5, -0.2, &[(DAMPING, -0.5), (SPREAD, -1.0)]).leak(1200.0),
-            k(LOOP, 7, 0.0, &[(DAMPING, -0.5), (SPREAD, -1.0)]).leak(1200.0),
-            k(LOOP, 12, 0.2, &[(DAMPING, -0.5), (SPREAD, -1.0)]).leak(1200.0),
-            k(LOOP, 17, 0.4, &[(DAMPING, -0.5), (SPREAD, -1.0)]).leak(1200.0),
-            k(LOOP, 19, 0.1, &[(DAMPING, -0.5), (SPREAD, -1.0)]).leak(1200.0),
-            k(SPARK, 0, -0.1, &[(TONE, 0.15)]),
-            k(CLAP, 0, 0.05, &[(TONE, 0.15)]),
-            k(DUST, 0, 0.25, &[(TONE, 0.25)]).leak(80.0).hats(),
-            k(DUST, 0, 0.25, &[(TONE, 0.25)]).leak(700.0).hats(),
-            k(LOOP, 24, -0.3, &[(DAMPING, -0.4), (SPREAD, 0.3)]).leak(2500.0),
-            k(FOLD, 19, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[(TONE, 0.2)]).leak(110.0),
-            k(DUST, 7, 0.45, &[(TONE, 0.2)]).leak(170.0),
-        ],
-        ..INIT
-    },
-    // Toms whose pitch falls far as they drain: the classic electronic tom, here from charge.
-    Kit {
-        name: "Bent Toms",
-        keys: [
-            k(KICK, 0, 0.0, &[(DROP, 0.5)]),
-            k(SNARE, 0, 0.0, &[(DROP, 0.4)]),
-            k(RING, -10, -0.4, &[(DROP, 0.6)]).leak(700.0),
-            k(RING, -5, -0.1, &[(DROP, 0.6)]).leak(700.0),
-            k(RING, 0, 0.2, &[(DROP, 0.6)]).leak(700.0),
-            k(RING, 3, -0.3, &[(DROP, 0.5)]).leak(600.0),
-            k(RING, 7, 0.4, &[(DROP, 0.5)]).leak(600.0),
-            k(RING, 10, 0.1, &[(DROP, 0.5)]).leak(600.0),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(RING, 14, 0.35, &[(DROP, 0.4)]).leak(400.0),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Metal loops on a major chord, rung like a yard of oil drums.
-    Kit {
-        name: "Steel Yard",
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[(TONE, 0.1)]),
-            k(LOOP, 0, -0.4, &[(SPREAD, 0.3), (DAMPING, -0.2)]).leak(1000.0),
-            k(LOOP, 4, -0.2, &[(SPREAD, 0.3), (DAMPING, -0.2)]).leak(1000.0),
-            k(LOOP, 7, 0.0, &[(SPREAD, 0.3), (DAMPING, -0.2)]).leak(1000.0),
-            k(LOOP, 12, 0.2, &[(SPREAD, 0.3), (DAMPING, -0.2)]).leak(1000.0),
-            k(LOOP, 16, 0.4, &[(SPREAD, 0.3), (DAMPING, -0.2)]).leak(1000.0),
-            k(LOOP, 19, 0.1, &[(SPREAD, 0.3), (DAMPING, -0.2)]).leak(1000.0),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.2)]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.2)]).leak(900.0).hats(),
-            k(LOOP, 24, -0.3, &[(SPREAD, 0.6)]).leak(2500.0),
-            k(FOLD, 12, 0.35, &[(SPREAD, 0.3)]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // ---- Metal ---------------------------------------------------------------------------------
-    // High, inharmonic loops for bells; the hats ring as well as hiss.
-    Kit {
-        name: "Rust Bells",
-        keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, 0.05)]),
-            k(SNARE, 0, 0.0, &[(TONE, 0.15)]),
-            k(LOOP, 7, -0.4, &[(SPREAD, 0.6), (DAMPING, -0.3)]).leak(1400.0),
-            k(LOOP, 10, -0.2, &[(SPREAD, 0.6), (DAMPING, -0.3)]).leak(1400.0),
-            k(LOOP, 14, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.3)]).leak(1400.0),
-            k(LOOP, 17, 0.2, &[(SPREAD, 0.6), (DAMPING, -0.3)]).leak(1400.0),
-            k(LOOP, 19, 0.4, &[(SPREAD, 0.6), (DAMPING, -0.3)]).leak(1400.0),
-            k(LOOP, 24, 0.1, &[(SPREAD, 0.6), (DAMPING, -0.3)]).leak(1400.0),
-            k(SPARK, 0, -0.1, &[(TONE, 0.1)]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.3), (TONE, 0.2)])
-                .leak(90.0)
-                .hats(),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.3), (TONE, 0.2)])
-                .leak(1000.0)
-                .hats(),
-            k(LOOP, 19, -0.3, &[(SPREAD, 0.8)]).leak(3000.0),
-            k(FOLD, 14, 0.35, &[(SPREAD, 0.4)]),
-            k(SPARK, 0, -0.35, &[(TONE, 0.2)]).leak(120.0),
-            k(DUST, 9, 0.45, &[(SPREAD, 0.2)]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Wide-spread, driven loops for toms and a crash that shimmers: a junkyard kit.
-    Kit {
-        name: "Sheet Metal",
-        keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, 0.1), (DRIVE, 0.2)]),
-            k(SNARE, 0, 0.0, &[(TONE, 0.3), (BODY, -0.3)]),
-            k(LOOP, -5, -0.3, &[(SPREAD, 0.8), (DRIVE, 0.2)]).leak(900.0),
-            k(LOOP, 0, 0.0, &[(SPREAD, 0.8), (DRIVE, 0.2)]).leak(900.0),
-            k(LOOP, 5, 0.3, &[(SPREAD, 0.8), (DRIVE, 0.2)]).leak(900.0),
-            k(FOLD, 0, -0.4, &[(SPREAD, 0.5), (DRIVE, 0.1)]),
-            k(FOLD, 5, 0.4, &[(SPREAD, 0.5), (DRIVE, 0.1)]),
-            k(LOOP, 10, 0.15, &[(SPREAD, 0.6)]),
-            k(SPARK, 0, -0.1, &[(TONE, 0.2)]),
-            k(CLAP, 0, 0.05, &[(TONE, 0.2)]),
-            k(DUST, 0, 0.25, &[(TONE, 0.15), (SPREAD, 0.15)])
-                .leak(85.0)
-                .hats(),
-            k(DUST, 0, 0.25, &[(TONE, 0.15), (SPREAD, 0.15)])
-                .leak(900.0)
-                .hats(),
-            k(LOOP, 14, -0.3, &[(SPREAD, 0.9)]).leak(2500.0),
-            k(FOLD, 12, 0.35, &[(SPREAD, 0.4)]),
-            k(SPARK, 0, -0.35, &[(TONE, 0.25)]).leak(110.0),
-            k(DUST, 5, 0.45, &[(SPREAD, 0.3)]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Small, short metal: a tiny high kick and toms like struck tins.
-    Kit {
-        name: "Tin Can",
-        keys: [
-            k(KICK, 7, 0.0, &[(DAMPING, 0.3)]).leak(250.0),
-            k(SNARE, 5, 0.0, &[(BODY, -0.2), (TONE, 0.2)]).leak(250.0),
-            k(LOOP, 5, -0.3, &[(DAMPING, 0.2), (SPREAD, 0.5)]).leak(250.0),
-            k(LOOP, 10, 0.0, &[(DAMPING, 0.2), (SPREAD, 0.5)]).leak(250.0),
-            k(LOOP, 15, 0.3, &[(DAMPING, 0.2), (SPREAD, 0.5)]).leak(250.0),
-            k(FOLD, 12, -0.4, &[(SPREAD, -0.3), (DRIVE, -0.2)]).leak(200.0),
-            k(FOLD, 17, 0.4, &[(SPREAD, -0.3), (DRIVE, -0.2)]).leak(200.0),
-            k(LOOP, 19, 0.15, &[(DAMPING, 0.1), (SPREAD, 0.4)]).leak(250.0),
-            k(SPARK, 0, -0.1, &[(TONE, 0.2), (SNAP, 0.3)]).leak(80.0),
-            k(CLAP, 0, 0.05, &[(TONE, 0.3), (SNAP, 0.3)]),
-            k(DUST, 0, 0.25, &[(TONE, 0.25), (SPREAD, 0.25)])
-                .leak(50.0)
-                .hats(),
-            k(DUST, 0, 0.25, &[(TONE, 0.25), (SPREAD, 0.25)])
-                .leak(350.0)
-                .hats(),
-            k(LOOP, 22, -0.3, &[(SPREAD, 0.7)]).leak(900.0),
-            k(FOLD, 19, 0.35, &[(SPREAD, -0.2)]).leak(200.0),
-            k(SPARK, 0, -0.35, &[(TONE, 0.3)]).leak(70.0),
-            k(DUST, 9, 0.45, &[(TONE, 0.3)]).leak(100.0),
-        ],
-        ..INIT
-    },
-    // Ringing noise and metal that leaks into its neighbours, like rain on a roof.
-    Kit {
-        name: "Iron Rain",
-        temper: 0.2,
-        coupling: 0.5,
-        seed: 97,
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[(BODY, -0.2)]),
-            k(LOOP, -2, -0.3, &[(SPREAD, 0.5)]).leak(800.0),
-            k(LOOP, 3, 0.0, &[(SPREAD, 0.5)]).leak(800.0),
-            k(LOOP, 8, 0.3, &[(SPREAD, 0.5)]).leak(800.0),
-            k(DUST, 0, -0.4, &[(SPREAD, 0.4)]).leak(250.0),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.4), (TONE, 0.15)]).leak(250.0),
-            k(SPARK, 0, 0.15, &[(GRAIN, 0.2)]).leak(200.0),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[(GRAIN, 0.1)]),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.3)]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.3)]).leak(900.0).hats(),
-            k(LOOP, 17, -0.3, &[(SPREAD, 0.7)]).leak(2500.0),
-            k(FOLD, 12, 0.35, &[(SPREAD, 0.3)]),
-            k(SPARK, 0, -0.35, &[(TONE, 0.2)]).leak(120.0),
-            k(DUST, 5, 0.45, &[(SPREAD, 0.4), (GRAIN, -0.3)]).leak(250.0),
-        ],
-        ..INIT
-    },
-    // Long, bright, nearly pure plucks on a major pentatonic: a harp of loops.
-    Kit {
-        name: "Wire Harp",
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(LOOP, 0, -0.4, &[(DAMPING, -0.6), (SPREAD, -0.8)])
-                .threshold(-0.1)
-                .strike(0.7)
-                .leak(2500.0),
-            k(LOOP, 2, -0.2, &[(DAMPING, -0.6), (SPREAD, -0.8)])
-                .threshold(-0.1)
-                .strike(0.7)
-                .leak(2500.0),
-            k(LOOP, 4, 0.0, &[(DAMPING, -0.6), (SPREAD, -0.8)])
-                .threshold(-0.1)
-                .strike(0.7)
-                .leak(2500.0),
-            k(LOOP, 7, 0.2, &[(DAMPING, -0.6), (SPREAD, -0.8)])
-                .threshold(-0.1)
-                .strike(0.7)
-                .leak(2500.0),
-            k(LOOP, 9, 0.4, &[(DAMPING, -0.6), (SPREAD, -0.8)])
-                .threshold(-0.1)
-                .strike(0.7)
-                .leak(2500.0),
-            k(LOOP, 12, 0.1, &[(DAMPING, -0.6), (SPREAD, -0.8)])
-                .threshold(-0.1)
-                .strike(0.7)
-                .leak(2500.0),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 24, -0.3, &[(DAMPING, -0.5)]).leak(4000.0),
-            k(LOOP, 14, 0.35, &[(DAMPING, -0.6), (SPREAD, -0.8)]).leak(2500.0),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // ---- Noise ---------------------------------------------------------------------------------
-    // Noise in place of the percussion: three bands of hiss, a crackling rim, a driven kick.
-    Kit {
-        name: "Static Field",
-        keys: [
-            k(KICK, 0, 0.0, &[(DRIVE, 0.3)]),
-            k(SNARE, 0, 0.0, &[(BODY, -0.3)]),
-            k(RING, -5, -0.3, &[]),
-            k(RING, 0, 0.0, &[]),
-            k(RING, 5, 0.3, &[]),
-            k(DUST, 0, -0.4, &[(TONE, -0.2), (GRAIN, -0.3)]).leak(300.0),
-            k(DUST, 0, 0.4, &[(GRAIN, -0.3)]).leak(300.0),
-            k(DUST, 0, 0.15, &[(TONE, 0.2), (GRAIN, -0.3)]).leak(300.0),
-            k(SPARK, 0, -0.1, &[]).threshold(-0.2),
-            k(CLAP, 0, 0.05, &[(GRAIN, 0.2)]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[(DRIVE, 0.2)]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[(GRAIN, -0.5)]).leak(220.0),
-        ],
-        ..INIT
-    },
-    // Sparse grit: the noise thinned to single grains, the percussion to ticks.
-    Kit {
-        name: "Sand Glass",
-        keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, 0.1)]),
-            k(SNARE, 0, 0.0, &[(BODY, -0.2), (TONE, 0.15)]),
-            k(RING, -5, -0.3, &[(DAMPING, 0.1)]),
-            k(RING, 0, 0.0, &[(DAMPING, 0.1)]),
-            k(RING, 5, 0.3, &[(DAMPING, 0.1)]),
-            k(SPARK, 0, -0.4, &[(GRAIN, -0.3), (TONE, 0.1)]).leak(300.0),
-            k(SPARK, 0, 0.4, &[(GRAIN, -0.3), (TONE, 0.2)]).leak(300.0),
-            k(SPARK, 0, 0.15, &[(GRAIN, -0.3), (TONE, 0.3)]).leak(300.0),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[(GRAIN, -0.2)]),
-            k(DUST, 0, 0.25, &[(GRAIN, -0.6), (TONE, 0.1)])
+                .leak(1500.0)
+                .routes(&[(Lfo1, CellTarget::Threshold, -0.5)]),
+            k(SPARK, 0, 0.6, &[(GRAIN, 0.8), (TONE, 0.5), (SNAP, -0.8)])
+                .threshold(-0.7)
+                .supply(1.0)
+                .leak(1500.0),
+            k(SPARK, 0, -0.8, &[(GRAIN, 0.9), (TONE, 0.5), (SNAP, 0.8)])
+                .threshold(-0.7)
+                .supply(1.0)
+                .leak(1500.0),
+            k(SPARK, 0, 0.8, &[(GRAIN, 1.0), (TONE, -0.9)])
+                .threshold(-0.7)
+                .supply(1.0)
+                .leak(1500.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, 0.3)])
+                .threshold(-0.8)
+                .leak(200.0),
+            k(CLAP, 0, 0.3, &[(GRAIN, 1.0), (SPACING, -1.0), (TONE, 0.6)]).threshold(-0.6),
+            k(SPARK, 0, 0.4, &[(GRAIN, 0.9), (TONE, 0.5)])
                 .leak(120.0)
                 .hats(),
-            k(DUST, 0, 0.25, &[(GRAIN, -0.6), (TONE, 0.1)])
-                .leak(900.0)
+            k(SPARK, 0, 0.4, &[(GRAIN, 0.9), (TONE, 0.5)])
+                .threshold(-0.6)
+                .leak(1500.0)
                 .hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[(TONE, 0.25)]).leak(120.0),
-            k(DUST, 5, 0.45, &[(GRAIN, -0.4)]).leak(250.0),
+            k(LOOP, 24, 0.0, &[(DRIVE, 1.0), (SPREAD, 1.0)])
+                .threshold(-0.6)
+                .leak(2000.0),
+            k(FOLD, 19, 0.5, &[(DRIVE, 1.0)]).threshold(-0.5),
+            k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, 0.5)]).leak(120.0),
+            k(SPARK, 0, 0.6, &[(GRAIN, -0.5), (TONE, 0.5)])
+                .threshold(-0.8)
+                .leak(800.0),
         ],
         ..INIT
     },
-    // Sparks low enough to crackle at any charge, and a held note keeps them going.
+    // Noise on nearly every key, from rumble to hiss, sparse to dense, all of it coupled.
     Kit {
-        name: "Crackle Box",
+        name: "Static Storm",
+        category: Fx,
+        temper: 0.7,
+        flow: 1.0,
+        coupling: 1.0,
+        seed: 1277,
         keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(SPARK, 0, -0.4, &[(GRAIN, 0.3), (TONE, -0.3)])
-                .threshold(-0.4)
-                .supply(0.6),
-            k(SPARK, 0, -0.2, &[(GRAIN, 0.3), (TONE, -0.15)])
-                .threshold(-0.4)
-                .supply(0.6),
-            k(SPARK, 0, 0.0, &[(GRAIN, 0.3)])
-                .threshold(-0.4)
-                .supply(0.6),
-            k(SPARK, 0, 0.2, &[(GRAIN, 0.3), (TONE, 0.15)])
-                .threshold(-0.4)
-                .supply(0.6),
-            k(SPARK, 0, 0.4, &[(GRAIN, 0.3), (TONE, 0.3)])
-                .threshold(-0.4)
-                .supply(0.6),
-            k(SPARK, 0, 0.1, &[(GRAIN, 0.3), (TONE, 0.45)])
-                .threshold(-0.4)
-                .supply(0.6),
-            k(SPARK, 0, -0.1, &[]).threshold(-0.2),
-            k(CLAP, 0, 0.05, &[]).threshold(-0.2),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[(TONE, 0.3)]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
+            k(KICK, -2, 0.0, &[(DRIVE, 0.8)]),
+            k(SNARE, 0, 0.0, &[(BODY, -1.0), (TONE, -0.3)]),
+            k(DUST, 0, -0.6, &[(TONE, -1.0), (SPREAD, -1.0), (GRAIN, 0.6)]).leak(800.0),
+            k(DUST, 0, -0.2, &[(TONE, -0.6), (SPREAD, 0.5), (GRAIN, -0.6)]).leak(800.0),
+            k(DUST, 0, 0.2, &[(TONE, -0.2), (SPREAD, 1.0), (GRAIN, 0.2)]).leak(800.0),
+            k(DUST, 0, 0.6, &[(TONE, 0.2), (SPREAD, -0.5), (GRAIN, -1.0)]).leak(800.0),
+            k(DUST, 0, -0.8, &[(TONE, 0.6), (SPREAD, 0.8), (GRAIN, 0.5)]).leak(800.0),
+            k(DUST, 0, 0.8, &[(TONE, 0.6), (SPREAD, -0.2), (GRAIN, -0.3)]).leak(800.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, -0.5)]).leak(400.0),
+            k(CLAP, 0, 0.3, &[(GRAIN, 1.0), (SPACING, -0.6)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (GRAIN, 1.0)])
+                .leak(80.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.5), (GRAIN, 1.0)])
+                .leak(2000.0)
+                .hats(),
+            k(DUST, 0, 0.0, &[(TONE, 0.4), (SPREAD, 1.0)]).leak(4000.0),
+            k(FOLD, 0, 0.5, &[(DRIVE, 1.0)]),
+            k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, 0.5)]).leak(200.0),
+            k(DUST, 0, 0.6, &[(GRAIN, -1.0), (TONE, 0.3)]).leak(1500.0),
         ],
         ..INIT
     },
-    // Pitched hiss whose tone jumps on every hit, like a radio between stations.
+    // Sparks that crackle for seconds after a hit, cut in and out by a stepped LFO on the eighths.
     Kit {
-        name: "Radio Dust",
-        seed: 211,
+        name: "Crackle Gate",
+        seed: 1381,
         lfos: &[synced(3, SampleHold, Division::Eighth)],
         keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[(BODY, -0.2)]),
-            k(RING, -5, -0.3, &[]),
-            k(RING, 0, 0.0, &[]),
-            k(RING, 5, 0.3, &[]),
-            k(DUST, 0, -0.4, &[(SPREAD, 0.5), (TONE, -0.3)])
-                .leak(300.0)
-                .routes(&[(Random, to(TONE), 0.3)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.5)])
-                .leak(300.0)
-                .routes(&[(Random, to(TONE), 0.3)]),
-            k(DUST, 0, 0.15, &[(SPREAD, 0.5), (TONE, 0.3)])
-                .leak(300.0)
-                .routes(&[(Random, to(TONE), 0.3)]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.4)])
-                .leak(85.0)
-                .hats()
-                .routes(&[(Lfo3, to(TONE), 0.25)]),
-            k(DUST, 0, 0.25, &[(SPREAD, 0.4)])
-                .leak(775.0)
-                .hats()
-                .routes(&[(Lfo3, to(TONE), 0.25)]),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[(SPREAD, 0.5)])
-                .leak(180.0)
-                .routes(&[(Random, to(TONE), 0.4)]),
+            k(KICK, 0, 0.0, &[(DAMPING, 0.3)]).leak(300.0),
+            k(SNARE, 0, 0.0, &[(BODY, -0.5)]).leak(300.0),
+            k(SPARK, 0, -0.6, &[(GRAIN, -0.6), (TONE, -0.5)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(6000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, 0.6)]),
+            k(SPARK, 0, -0.2, &[(GRAIN, -0.2), (TONE, 0.0)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(6000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, -0.6)]),
+            k(SPARK, 0, 0.2, &[(GRAIN, 0.2), (TONE, 0.4)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(6000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, 0.6)]),
+            k(SPARK, 0, 0.6, &[(GRAIN, 0.6), (TONE, 0.5)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(6000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, -0.6)]),
+            k(SPARK, 0, -0.8, &[(GRAIN, -0.9), (TONE, 0.5), (SNAP, -1.0)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(6000.0),
+            k(SPARK, 0, 0.8, &[(GRAIN, 0.9), (TONE, -0.8)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(6000.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, 0.3)])
+                .threshold(-0.6)
+                .leak(1500.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.4)]).threshold(-0.6),
+            k(DUST, 0, 0.4, &[(GRAIN, -0.8)]).leak(100.0).hats(),
+            k(DUST, 0, 0.4, &[(GRAIN, -0.8)]).leak(3000.0).hats(),
+            k(LOOP, 12, 0.0, &[(SPREAD, 0.5)]).leak(1600.0),
+            k(FOLD, 12, 0.5, &[(DRIVE, 0.5)]),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5)])
+                .threshold(-0.8)
+                .leak(3000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, 0.8)]),
+            k(DUST, 0, 0.6, &[(GRAIN, -1.0), (TONE, 0.6)]).leak(2000.0),
         ],
         ..INIT
     },
-    // Dark, heavy noise: low hats, a wiry snare, a driven kick and toms.
+    // Thin ticks and the sparsest, highest whistling noise: frost forming.
     Kit {
-        name: "Gravel Pit",
+        name: "Ice Crackle",
         keys: [
-            k(KICK, -2, 0.0, &[(DRIVE, 0.3), (DAMPING, -0.1)]),
-            k(SNARE, -2, 0.0, &[(TONE, -0.35), (BODY, -0.3)]),
-            k(RING, -7, -0.3, &[(DRIVE, 0.2)]),
-            k(RING, -2, 0.0, &[(DRIVE, 0.2)]),
-            k(RING, 3, 0.3, &[(DRIVE, 0.2)]),
-            k(FOLD, -3, -0.4, &[(DRIVE, 0.2)]),
-            k(FOLD, 2, 0.4, &[(DRIVE, 0.2)]),
-            k(DUST, 0, 0.15, &[(TONE, -0.5), (GRAIN, -0.2)]).leak(300.0),
-            k(SPARK, 0, -0.1, &[(TONE, -0.2)]),
-            k(CLAP, 0, 0.05, &[(TONE, -0.3)]),
-            k(DUST, 0, 0.25, &[(TONE, -0.4), (GRAIN, -0.2)])
+            k(KICK, 19, 0.0, &[(DAMPING, 0.5), (SNAP, 1.0)]).leak(150.0),
+            k(SNARE, 12, 0.0, &[(TONE, 0.5), (BODY, -1.0), (SNAP, 1.0)]).leak(150.0),
+            k(SPARK, 0, -0.6, &[(TONE, 0.5), (GRAIN, -0.3)]).leak(600.0),
+            k(SPARK, 0, -0.2, &[(TONE, 0.5), (GRAIN, -0.5)]).leak(600.0),
+            k(SPARK, 0, 0.2, &[(TONE, 0.5), (GRAIN, -0.1)]).leak(600.0),
+            k(DUST, 0, 0.6, &[(TONE, 0.6), (SPREAD, 0.6), (GRAIN, -0.9)]).leak(1000.0),
+            k(DUST, 0, -0.8, &[(TONE, 0.6), (SPREAD, 0.8), (GRAIN, -1.0)]).leak(1000.0),
+            k(LOOP, 36, 0.8, &[(DAMPING, -0.5), (SPREAD, 0.3)]).leak(1500.0),
+            k(SPARK, 0, -0.3, &[(TONE, 0.5), (SNAP, 1.0)]).leak(60.0),
+            k(CLAP, 0, 0.3, &[(TONE, 1.0), (GRAIN, 1.0), (SNAP, 1.0)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (GRAIN, -0.6)])
                 .leak(100.0)
                 .hats(),
-            k(DUST, 0, 0.25, &[(TONE, -0.4), (GRAIN, -0.2)])
-                .leak(900.0)
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (GRAIN, -0.6)])
+                .leak(2500.0)
                 .hats(),
-            k(LOOP, 7, -0.3, &[(DAMPING, 0.3)]).leak(2000.0),
-            k(FOLD, 7, 0.35, &[(DRIVE, 0.2)]),
-            k(SPARK, 0, -0.35, &[(TONE, -0.1)]).leak(120.0),
-            k(DUST, 0, 0.45, &[(TONE, -0.3), (GRAIN, -0.3)]).leak(250.0),
+            k(LOOP, 46, 0.0, &[(DAMPING, -0.8), (SPREAD, 0.6)]).leak(5000.0),
+            k(LOOP, 43, 0.5, &[(DAMPING, 0.3), (SPREAD, -1.0)]).leak(200.0),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5), (GRAIN, -1.0)]).leak(1500.0),
+            k(DUST, 0, 0.6, &[(TONE, 0.6), (SPREAD, 1.0), (GRAIN, -1.0)]).leak(2000.0),
         ],
         ..INIT
     },
-    // ---- Drones: a bus powers some cells with no note ------------------------------------------
-    // Bus A holds three low rings at a chord under the drums, a bed to play over.
+    // Sparse random clicks that go on long after a hit, each its own tone, and a bus that ticks alone.
     Kit {
-        name: "Hum Bed",
-        category: Drone,
-        bus: [0.3, 0.0],
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -17, -0.3, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.4),
-            k(RING, -10, 0.0, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.4),
-            k(RING, -5, 0.3, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.4),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // A mains hum on Bus A and a hiss on Bus B that swells and fades.
-    Kit {
-        name: "Power Line",
-        category: Drone,
-        bus: [0.4, 0.2],
-        lfos: &[free(2, Sine, 0.1)],
-        routes: &[(K::Lfo2, KitTarget::BusB, 0.4)],
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -14, -0.2, &[(DAMPING, -0.3)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.4),
-            k(FOLD, -14, 0.2, &[(DRIVE, -0.2)]).bus(A).supply(0.4),
-            k(RING, 5, 0.3, &[]),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[(TONE, 0.2)]).bus(B).supply(0.4),
-        ],
-        ..INIT
-    },
-    // Driven folds on Bus A rumble and break up, the bus rising over a bar.
-    Kit {
-        name: "Engine Room",
-        category: Drone,
-        temper: 0.3,
-        coupling: 0.4,
-        bus: [0.5, 0.0],
-        seed: 307,
-        lfos: &[synced(1, Sine, Division::Whole)],
-        routes: &[(K::Lfo1, KitTarget::BusA, 0.3)],
-        keys: [
-            k(KICK, 0, 0.0, &[(DRIVE, 0.2)]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]),
-            k(RING, 0, 0.0, &[]),
-            k(RING, 5, 0.3, &[]),
-            k(FOLD, -12, -0.4, &[(DRIVE, 0.3)]).bus(A).supply(0.4),
-            k(FOLD, -7, 0.4, &[(DRIVE, 0.3)]).bus(A).supply(0.4),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Six rings on Bus A sing a chord, two of them with a slow vibrato.
-    Kit {
-        name: "Choir of Rings",
-        category: Drone,
-        bus: [0.35, 0.0],
-        lfos: &[free(2, Triangle, 0.3)],
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -12, -0.4, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.35),
-            k(RING, -5, -0.2, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.35),
-            k(RING, 0, 0.0, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.35)
-                .routes(&[(Lfo2, CellTarget::Pitch, 0.04)]),
-            k(RING, 4, 0.2, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.35),
-            k(RING, 7, 0.4, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.35)
-                .routes(&[(Lfo2, CellTarget::Pitch, -0.04)]),
-            k(RING, 12, 0.1, &[(DAMPING, -0.2)])
-                .bus(A)
-                .threshold(-0.3)
-                .supply(0.35),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Sparse chirps and crackle on Bus B, the bus jumping at random four times a bar.
-    Kit {
-        name: "Night Insects",
-        category: Drone,
+        name: "Geiger Counter",
+        category: Fx,
         bus: [0.0, 0.3],
-        seed: 401,
-        lfos: &[synced(3, SampleHold, Division::Quarter)],
-        routes: &[(K::Lfo3, KitTarget::BusB, 0.5)],
+        seed: 1489,
         keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, 0.1)]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]),
-            k(RING, 0, 0.0, &[]),
-            k(RING, 5, 0.3, &[]),
-            k(SPARK, 0, -0.4, &[(GRAIN, -0.3), (TONE, 0.3)])
+            k(KICK, 0, 0.0, &[(DAMPING, 0.4)]).leak(300.0),
+            k(SNARE, 5, 0.0, &[(BODY, -0.6), (SNAP, 0.6)]).leak(300.0),
+            k(SPARK, 0, -0.6, &[(GRAIN, -1.0), (SNAP, 1.0)])
+                .threshold(-0.8)
+                .supply(1.0)
+                .leak(10000.0)
+                .routes(&[(Random, to(TONE), 0.5)]),
+            k(SPARK, 0, -0.2, &[(GRAIN, -1.0), (SNAP, 1.0), (TONE, 0.4)])
+                .threshold(-0.8)
+                .supply(1.0)
+                .leak(10000.0)
+                .routes(&[(Random, to(TONE), 0.5)]),
+            k(SPARK, 0, 0.2, &[(GRAIN, -1.0), (SNAP, 1.0), (TONE, 0.5)])
+                .threshold(-0.8)
+                .supply(1.0)
+                .leak(10000.0)
+                .routes(&[(Random, to(TONE), 0.5)]),
+            k(SPARK, 0, 0.6, &[(GRAIN, -0.8), (TONE, -0.4)])
                 .bus(B)
-                .threshold(-0.3)
-                .supply(0.4),
-            k(SPARK, 0, 0.4, &[(GRAIN, -0.3), (TONE, 0.45)])
+                .threshold(-0.8)
+                .supply(0.5),
+            k(SPARK, 0, -0.8, &[(GRAIN, -0.8), (TONE, 0.5)])
                 .bus(B)
-                .threshold(-0.3)
-                .supply(0.4),
-            k(SPARK, 0, 0.15, &[(GRAIN, -0.3), (TONE, 0.6)])
+                .threshold(-0.8)
+                .supply(0.5),
+            k(SPARK, 0, 0.8, &[(GRAIN, -0.7), (TONE, 0.5)])
                 .bus(B)
-                .threshold(-0.3)
-                .supply(0.4),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[(GRAIN, -0.6), (TONE, 0.4)])
-                .bus(B)
-                .supply(0.4),
+                .threshold(-0.8)
+                .supply(0.5),
+            k(SPARK, 0, -0.3, &[(GRAIN, -0.5), (SNAP, 1.0)]).leak(800.0),
+            k(CLAP, 0, 0.3, &[(GRAIN, -1.0), (SPACING, 1.0)]),
+            k(DUST, 0, 0.4, &[(GRAIN, -1.0), (TONE, 0.6)])
+                .leak(150.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(GRAIN, -1.0), (TONE, 0.6)])
+                .leak(4000.0)
+                .hats(),
+            k(LOOP, 24, 0.0, &[(SPREAD, -1.0), (DAMPING, 0.5)]).leak(600.0),
+            k(FOLD, 12, 0.5, &[(DRIVE, -0.5)]).leak(300.0),
+            k(SPARK, 0, -0.5, &[(GRAIN, -1.0), (TONE, 0.5)])
+                .threshold(-0.8)
+                .leak(6000.0),
+            k(DUST, 0, 0.6, &[(GRAIN, -1.0), (SPREAD, 0.8)]).leak(3000.0),
         ],
         ..INIT
     },
-    // ---- Feedback: thresholds low, cells sustain themselves -------------------------------------
-    // Loops past their tipping point howl while their charge lasts; touch makes them scream.
+    // Ticks gated on the eighths and short high tocks: a clock, its works, its spring.
     Kit {
-        name: "Howl Room",
+        name: "Clockwork",
+        lfos: &[synced(2, Square, Division::Eighth)],
         keys: [
-            k(KICK, 0, 0.0, &[]).threshold(-0.2).touch(0.8),
-            k(SNARE, 0, 0.0, &[]),
-            k(LOOP, -5, -0.3, &[(DRIVE, 0.2)])
-                .threshold(-0.4)
-                .touch(0.9),
-            k(LOOP, 0, 0.0, &[(DRIVE, 0.2)]).threshold(-0.4).touch(0.9),
-            k(LOOP, 5, 0.3, &[(DRIVE, 0.2)]).threshold(-0.4).touch(0.9),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 9, 0.15, &[(DRIVE, 0.2)]).threshold(-0.4).touch(0.9),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).threshold(-0.3).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
+            k(KICK, 7, 0.0, &[(DAMPING, 0.7), (SNAP, 0.8)]).leak(120.0),
+            k(SNARE, 12, 0.0, &[(BODY, 0.8), (DAMPING, 0.7), (SNAP, 1.0)]).leak(100.0),
+            k(SPARK, 0, -0.6, &[(GRAIN, -0.4), (SNAP, 0.8), (TONE, 0.5)])
+                .threshold(-0.7)
+                .leak(2000.0)
+                .routes(&[(Lfo2, CellTarget::Threshold, 0.6)]),
+            k(SPARK, 0, -0.2, &[(GRAIN, -0.3), (SNAP, 0.8), (TONE, 0.5)])
+                .threshold(-0.7)
+                .leak(2000.0)
+                .routes(&[(Lfo2, CellTarget::Threshold, -0.6)]),
+            k(LOOP, 29, 0.2, &[(DAMPING, 0.6), (SPREAD, -1.0)]).leak(80.0),
+            k(LOOP, 34, 0.6, &[(DAMPING, 0.6), (SPREAD, 0.4)]).leak(80.0),
+            k(LOOP, 24, -0.8, &[(DAMPING, 0.7), (SPREAD, -0.4)]).leak(80.0),
+            k(LOOP, 39, 0.8, &[(DAMPING, 0.6), (SPREAD, -1.0)]).leak(60.0),
+            k(SPARK, 0, -0.3, &[(SNAP, 1.0), (TONE, 0.5)]).leak(40.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.8), (SNAP, 1.0), (GRAIN, -0.6)]),
+            k(SPARK, 0, 0.4, &[(TONE, 0.5), (SNAP, 1.0)])
+                .leak(30.0)
+                .hats(),
+            k(SPARK, 0, 0.4, &[(TONE, 0.5), (GRAIN, -0.6)])
+                .threshold(-0.6)
+                .leak(1500.0)
+                .hats(),
+            k(LOOP, 31, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.2)]).leak(3000.0),
+            k(FOLD, 24, 0.5, &[(DRIVE, -0.6)]).leak(80.0),
+            k(SPARK, 0, -0.5, &[(SNAP, 1.0), (TONE, 0.5)]).leak(30.0),
+            k(LOOP, 17, 0.6, &[(DAMPING, 0.9), (SNAP, -1.0)]).leak(100.0),
         ],
         ..INIT
     },
-    // The kick and toms tip into singing on a held note or a hard hit.
+    // Slow ratchets, hissing bursts and pumped thuds from a tiny pool that refills fast.
     Kit {
-        name: "Singing Skins",
-        keys: [
-            k(KICK, 0, 0.0, &[(DAMPING, -0.1)])
-                .threshold(-0.35)
-                .supply(0.6)
-                .touch(0.8)
-                .leak(1200.0),
-            k(SNARE, 0, 0.0, &[]).threshold(-0.2),
-            k(RING, -5, -0.3, &[])
-                .threshold(-0.35)
-                .supply(0.6)
-                .touch(0.8)
-                .leak(1200.0),
-            k(RING, 0, 0.0, &[])
-                .threshold(-0.35)
-                .supply(0.6)
-                .touch(0.8)
-                .leak(1200.0),
-            k(RING, 5, 0.3, &[])
-                .threshold(-0.35)
-                .supply(0.6)
-                .touch(0.8)
-                .leak(1200.0),
-            k(RING, 9, -0.4, &[]).threshold(-0.3).supply(0.6),
-            k(RING, 12, 0.4, &[]).threshold(-0.3).supply(0.6),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Howling cells coupled to each other, so one sets off the next.
-    Kit {
-        name: "Feedback Choir",
-        temper: 0.3,
-        coupling: 0.7,
-        flow: 0.3,
-        seed: 509,
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]).threshold(-0.3),
-            k(RING, 0, 0.0, &[]).threshold(-0.3),
-            k(RING, 5, 0.3, &[]).threshold(-0.3),
-            k(LOOP, 0, -0.4, &[]).threshold(-0.3),
-            k(LOOP, 5, 0.4, &[]).threshold(-0.3),
-            k(LOOP, 7, 0.15, &[]).threshold(-0.3),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).threshold(-0.3).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // A snare that rings on, a clap and a rim that fire more sparks than they should.
-    Kit {
-        name: "Hot Wires",
-        keys: [
-            k(KICK, 0, 0.0, &[(DRIVE, 0.2)]),
-            k(SNARE, 0, 0.0, &[(DRIVE, 0.3)]).threshold(-0.4),
-            k(RING, -5, -0.3, &[(DRIVE, 0.2)]).threshold(-0.15),
-            k(RING, 0, 0.0, &[(DRIVE, 0.2)]).threshold(-0.15),
-            k(RING, 5, 0.3, &[(DRIVE, 0.2)]).threshold(-0.15),
-            k(FOLD, 0, -0.4, &[(DRIVE, 0.15)]),
-            k(FOLD, 5, 0.4, &[(DRIVE, 0.15)]),
-            k(LOOP, 7, 0.15, &[(DRIVE, 0.2)]),
-            k(SPARK, 0, -0.1, &[]).threshold(-0.3),
-            k(CLAP, 0, 0.05, &[(GRAIN, 0.2)]).threshold(-0.3),
-            k(DUST, 0, 0.25, &[(GRAIN, 0.2)]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[(GRAIN, 0.2)]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[(DRIVE, 0.15)]),
-            k(SPARK, 0, -0.35, &[]).threshold(-0.2).leak(120.0),
-            k(DUST, 5, 0.45, &[(GRAIN, 0.2)]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Folds on the edge of chaos everywhere: a hit locks, a harder one breaks into noise.
-    Kit {
-        name: "Live Coil",
-        temper: 0.2,
-        seed: 601,
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(FOLD, -12, -0.4, &[(DRIVE, 0.25)])
-                .threshold(-0.4)
-                .touch(1.0),
-            k(FOLD, -7, -0.2, &[(DRIVE, 0.25)])
-                .threshold(-0.4)
-                .touch(1.0),
-            k(FOLD, -2, 0.0, &[(DRIVE, 0.25)])
-                .threshold(-0.4)
-                .touch(1.0),
-            k(FOLD, 3, 0.2, &[(DRIVE, 0.25), (SPREAD, 0.2)])
-                .threshold(-0.4)
-                .touch(1.0),
-            k(FOLD, 8, 0.4, &[(DRIVE, 0.25), (SPREAD, 0.2)])
-                .threshold(-0.4)
-                .touch(1.0),
-            k(FOLD, 13, 0.1, &[(DRIVE, 0.25), (SPREAD, -0.2)])
-                .threshold(-0.4)
-                .touch(1.0),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 18, 0.35, &[(DRIVE, 0.25)]).threshold(-0.4),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // ---- Starved: a small pool, so held notes and busy beats sag ------------------------------
-    // A quarter of the supply and slow to refill: a busy pattern dims, then recovers.
-    Kit {
-        name: "Brownout",
-        pool: 0.25,
-        recharge_ms: Some(4000.0),
-        keys: [
-            k(KICK, 0, 0.0, &[]).supply(0.7),
-            k(SNARE, 0, 0.0, &[]).supply(0.7),
-            k(RING, -5, -0.3, &[]).supply(0.7),
-            k(RING, 0, 0.0, &[]).supply(0.7),
-            k(RING, 5, 0.3, &[]).supply(0.7),
-            k(FOLD, 0, -0.4, &[]).supply(0.7),
-            k(FOLD, 5, 0.4, &[]).supply(0.7),
-            k(LOOP, 7, 0.15, &[]).supply(0.7),
-            k(SPARK, 0, -0.1, &[]).supply(0.7),
-            k(CLAP, 0, 0.05, &[]).supply(0.7),
-            k(DUST, 0, 0.25, &[]).supply(0.7).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).supply(0.7).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).supply(0.7).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]).supply(0.7),
-            k(SPARK, 0, -0.35, &[]).supply(0.7).leak(120.0),
-            k(DUST, 5, 0.45, &[]).supply(0.7).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Weaker strikes and soft hits held back: the kit sounds tired, and tires further.
-    Kit {
-        name: "Low Battery",
-        pool: 0.4,
-        recharge_ms: Some(3000.0),
-        dynamics: -0.3,
-        keys: [
-            k(KICK, 0, 0.0, &[(DROP, -0.3)]).strike(0.5).supply(0.6),
-            k(SNARE, 0, 0.0, &[]).strike(0.5).supply(0.6),
-            k(RING, -5, -0.3, &[(DROP, -0.3)]).strike(0.5).supply(0.6),
-            k(RING, 0, 0.0, &[(DROP, -0.3)]).strike(0.5).supply(0.6),
-            k(RING, 5, 0.3, &[(DROP, -0.3)]).strike(0.5).supply(0.6),
-            k(FOLD, 0, -0.4, &[]).strike(0.5).supply(0.6),
-            k(FOLD, 5, 0.4, &[]).strike(0.5).supply(0.6),
-            k(LOOP, 7, 0.15, &[]).strike(0.5).supply(0.6),
-            k(SPARK, 0, -0.1, &[]).strike(0.5),
-            k(CLAP, 0, 0.05, &[]).strike(0.5),
-            k(DUST, 0, 0.25, &[]).strike(0.5).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).strike(0.5).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).strike(0.5).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]).strike(0.5),
-            k(SPARK, 0, -0.35, &[]).strike(0.5).leak(120.0),
-            k(DUST, 5, 0.45, &[]).strike(0.5).leak(180.0),
-        ],
-        ..INIT
-    },
-    // A small pool that refills fast: held kicks and snares pump against each other.
-    Kit {
-        name: "Pump Station",
-        pool: 0.3,
-        recharge_ms: Some(230.0),
-        keys: [
-            k(KICK, 0, 0.0, &[]).supply(0.9),
-            k(SNARE, 0, 0.0, &[]).supply(0.9),
-            k(RING, -5, -0.3, &[]).supply(0.7),
-            k(RING, 0, 0.0, &[]).supply(0.7),
-            k(RING, 5, 0.3, &[]).supply(0.7),
-            k(FOLD, 0, -0.4, &[]).supply(0.6),
-            k(FOLD, 5, 0.4, &[]).supply(0.6),
-            k(LOOP, 7, 0.15, &[]).supply(0.6),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]).supply(0.6),
-            k(DUST, 0, 0.25, &[]).supply(0.6).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).supply(0.6).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).supply(0.6).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Half the pool, and charge flowing to whichever cell is emptiest.
-    Kit {
-        name: "Shared Breath",
-        temper: 0.25,
-        flow: 0.7,
-        coupling: 0.3,
-        pool: 0.5,
-        seed: 709,
-        keys: [
-            k(KICK, 0, 0.0, &[]).supply(0.6),
-            k(SNARE, 0, 0.0, &[]).supply(0.6),
-            k(RING, -5, -0.3, &[]).supply(0.6),
-            k(RING, 0, 0.0, &[]).supply(0.6),
-            k(RING, 5, 0.3, &[]).supply(0.6),
-            k(FOLD, 0, -0.4, &[]).supply(0.6),
-            k(FOLD, 5, 0.4, &[]).supply(0.6),
-            k(LOOP, 7, 0.15, &[]).supply(0.6),
-            k(SPARK, 0, -0.1, &[]).supply(0.6),
-            k(CLAP, 0, 0.05, &[]).supply(0.6),
-            k(DUST, 0, 0.25, &[]).supply(0.6).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).supply(0.6).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]).supply(0.6),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).supply(0.6).leak(180.0),
-        ],
-        ..INIT
-    },
-    // The smallest pool and a slow refill, with long tails that spend little: a bar fades as it
-    // plays.
-    Kit {
-        name: "Last Drop",
+        name: "Hydraulic",
         pool: 0.2,
-        recharge_ms: Some(6500.0),
+        recharge_ms: Some(150.0),
         keys: [
-            k(KICK, 0, 0.0, &[]).supply(0.8).hunger(0.3).leak(1200.0),
-            k(SNARE, 0, 0.0, &[]).supply(0.8).hunger(0.3).leak(700.0),
-            k(RING, -5, -0.3, &[]).supply(0.8).hunger(0.3).leak(1200.0),
-            k(RING, 0, 0.0, &[]).supply(0.8).hunger(0.3).leak(1200.0),
-            k(RING, 5, 0.3, &[]).supply(0.8).hunger(0.3).leak(1200.0),
-            k(FOLD, 0, -0.4, &[]).supply(0.8).hunger(0.3),
-            k(FOLD, 5, 0.4, &[]).supply(0.8).hunger(0.3),
-            k(LOOP, 7, 0.15, &[]).supply(0.8).hunger(0.3),
-            k(SPARK, 0, -0.1, &[]).supply(0.8),
-            k(CLAP, 0, 0.05, &[]).supply(0.8),
-            k(DUST, 0, 0.25, &[]).supply(0.8).leak(100.0).hats(),
-            k(DUST, 0, 0.25, &[]).supply(0.8).leak(1200.0).hats(),
-            k(LOOP, 12, -0.3, &[]).supply(0.8).leak(3000.0),
-            k(FOLD, 12, 0.35, &[]).supply(0.8),
-            k(SPARK, 0, -0.35, &[]).supply(0.8).leak(150.0),
-            k(DUST, 5, 0.45, &[]).supply(0.8).leak(250.0),
+            k(KICK, -3, 0.0, &[(DRIVE, 0.5), (DAMPING, 0.2)]).supply(1.0),
+            k(SNARE, -5, 0.0, &[(BODY, -1.0), (TONE, -0.8)]).supply(1.0),
+            k(LOOP, -5, -0.6, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
+            k(LOOP, 0, -0.2, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
+            k(LOOP, 5, 0.2, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
+            k(FOLD, -12, 0.6, &[(DRIVE, 0.6)]).supply(1.0),
+            k(FOLD, -7, -0.8, &[(DRIVE, 0.6)]).supply(1.0),
+            k(CLAP, 0, 0.8, &[(SPACING, 1.0), (GRAIN, -0.5), (TONE, -0.3)]).supply(1.0),
+            k(SPARK, 0, -0.3, &[(SNAP, -1.0), (TONE, -0.6)]).supply(1.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.8), (GRAIN, -0.3)]).supply(1.0),
+            k(DUST, 0, 0.4, &[(TONE, -0.4), (GRAIN, 0.8)])
+                .supply(1.0)
+                .leak(150.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, -0.4), (GRAIN, 0.8)])
+                .supply(1.0)
+                .leak(1200.0)
+                .hats(),
+            k(DUST, 0, 0.0, &[(TONE, 0.0), (GRAIN, 1.0)])
+                .supply(1.0)
+                .leak(2500.0),
+            k(FOLD, 0, 0.5, &[(DRIVE, 0.4)]).supply(1.0),
+            k(SPARK, 0, -0.6, &[(SNAP, -1.0)]).supply(1.0),
+            k(CLAP, 0, 0.6, &[(SPACING, 1.0), (TONE, 0.4)]).supply(1.0),
         ],
         ..INIT
     },
-    // ---- Moving: LFOs, velocity and randomness through the routes -----------------------------
-    // A two-bar tide: Temper swells, the kick bends and the toms open and close with it.
+    // Every tone warbling slowly and fluttering fast, crackle on top: a stretched old tape.
     Kit {
-        name: "Tidal",
-        temper: 0.15,
-        seed: 809,
-        lfos: &[synced(1, Sine, Division::TwoBars)],
-        routes: &[(K::Lfo1, KitTarget::Temper, 0.3)],
+        name: "Tape Mangle",
+        lfos: &[free(1, Triangle, 0.4), free(2, Sine, 7.0)],
         keys: [
-            k(KICK, 0, 0.0, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.1)]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]).routes(&[(Lfo1, to(DAMPING), -0.2)]),
-            k(RING, 0, 0.0, &[]).routes(&[(Lfo1, to(DAMPING), -0.2)]),
-            k(RING, 5, 0.3, &[]).routes(&[(Lfo1, to(DAMPING), -0.2)]),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[])
+            k(KICK, -2, 0.0, &[(DROP, -0.6), (DAMPING, -0.2)]).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                0.3,
+            )]),
+            k(SNARE, 0, 0.0, &[(TONE, -0.4), (BODY, 0.4)]).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                0.3,
+            )]),
+            k(LOOP, -20, -0.6, &[(DAMPING, 0.8)]).routes(&[
+                (Lfo1, CellTarget::Pitch, 0.3),
+                (Lfo2, CellTarget::Pitch, 0.06),
+            ]),
+            k(LOOP, -15, -0.2, &[(DAMPING, 0.8)]).routes(&[
+                (Lfo1, CellTarget::Pitch, 0.3),
+                (Lfo2, CellTarget::Pitch, 0.06),
+            ]),
+            k(LOOP, -10, 0.2, &[(DAMPING, 0.8)]).routes(&[
+                (Lfo1, CellTarget::Pitch, 0.3),
+                (Lfo2, CellTarget::Pitch, 0.06),
+            ]),
+            k(RING, -5, 0.6, &[(DAMPING, -0.4)]).leak(1500.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                0.3,
+            )]),
+            k(RING, 2, -0.8, &[(DAMPING, -0.4)]).leak(1500.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                0.3,
+            )]),
+            k(FOLD, -7, 0.8, &[(DRIVE, -0.4)]).routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
+            k(SPARK, 0, -0.3, &[(TONE, -0.6), (GRAIN, -0.8)]).leak(1500.0),
+            k(CLAP, 0, 0.3, &[(TONE, -0.5)]),
+            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.8)])
+                .leak(200.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.8)])
+                .leak(3000.0)
+                .hats(),
+            k(LOOP, 0, 0.0, &[(SPREAD, 0.5), (DAMPING, 0.4)])
+                .leak(4000.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
+            k(FOLD, 5, 0.5, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
+            k(SPARK, 0, -0.5, &[(GRAIN, -1.0), (TONE, -0.3)]).leak(3000.0),
+            k(DUST, 0, 0.6, &[(TONE, -0.6), (GRAIN, -0.8)]).leak(5000.0),
+        ],
+        ..INIT
+    },
+    // Whistling noise whose tone jumps on the sixteenths and at random, between chaotic folds.
+    Kit {
+        name: "Broken Radio",
+        category: Fx,
+        temper: 0.4,
+        coupling: 0.6,
+        seed: 4242,
+        lfos: &[
+            free(1, Sine, 0.13),
+            synced(3, SampleHold, Division::Sixteenth),
+        ],
+        keys: [
+            k(KICK, -4, 0.0, &[(DRIVE, 0.6), (DAMPING, 0.3)]),
+            k(SNARE, 0, 0.0, &[(BODY, -1.0), (TONE, 0.3)]).routes(&[(Lfo3, to(TONE), 0.8)]),
+            k(DUST, 0, -0.6, &[(SPREAD, 1.0), (TONE, -0.6)])
+                .leak(400.0)
+                .routes(&[(Lfo3, to(TONE), 0.6), (Random, to(TONE), 0.4)]),
+            k(DUST, 0, -0.2, &[(SPREAD, 1.0), (TONE, -0.2)])
+                .leak(400.0)
+                .routes(&[(Lfo3, to(TONE), -0.6), (Random, to(TONE), 0.4)]),
+            k(DUST, 0, 0.2, &[(SPREAD, 1.0), (TONE, 0.2)])
+                .leak(400.0)
+                .routes(&[(Lfo3, to(TONE), 0.6), (Random, to(TONE), 0.4)]),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.6)])
+                .leak(400.0)
+                .routes(&[(Lfo3, to(TONE), -0.6), (Random, to(TONE), 0.4)]),
+            k(FOLD, 12, -0.8, &[(DRIVE, 1.0), (SPREAD, 0.6)]).leak(200.0),
+            k(FOLD, 19, 0.8, &[(DRIVE, 1.0), (SPREAD, -0.6)]).leak(200.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, -0.8), (TONE, 0.5)])
+                .threshold(-0.6)
+                .leak(2000.0),
+            k(CLAP, 0, 0.3, &[(TONE, -0.5), (SPACING, 0.9), (GRAIN, -0.7)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.9)])
+                .leak(150.0)
+                .hats()
+                .routes(&[(Lfo1, to(TONE), 0.8)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.9)])
+                .leak(1500.0)
+                .hats()
+                .routes(&[(Lfo1, to(TONE), 0.8)]),
+            k(LOOP, 5, 0.0, &[(SPREAD, 1.0), (DAMPING, 0.7), (DRIVE, 0.8)])
+                .threshold(-0.5)
+                .leak(1500.0),
+            k(FOLD, -7, 0.5, &[(DRIVE, 0.9)]).routes(&[(Lfo3, CellTarget::Pitch, 1.0)]),
+            k(SPARK, 0, -0.5, &[(GRAIN, -0.8), (TONE, 0.5)]).leak(1000.0),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.6)])
+                .leak(800.0)
+                .routes(&[(Lfo1, to(TONE), -0.8)]),
+        ],
+        ..INIT
+    },
+    // Folds on every key, driven into chaos and spread over five octaves: tone torn into noise.
+    Kit {
+        name: "Chaos Folds",
+        category: Fx,
+        temper: 0.3,
+        seed: 1597,
+        keys: [
+            k(FOLD, -24, 0.0, &[(DRIVE, 0.4), (SPREAD, -0.5)]).leak(800.0),
+            k(FOLD, 12, 0.0, &[(DRIVE, 1.0), (SPREAD, 1.0)]).leak(300.0),
+            k(FOLD, -12, -0.6, &[(DRIVE, 0.8), (SPREAD, -1.0)]).threshold(-0.5),
+            k(FOLD, -5, -0.2, &[(DRIVE, 0.9), (SPREAD, 0.5)]).threshold(-0.5),
+            k(FOLD, 2, 0.2, &[(DRIVE, 1.0), (SPREAD, -0.5)]).threshold(-0.5),
+            k(FOLD, 9, 0.6, &[(DRIVE, 0.8), (SPREAD, 1.0)]).threshold(-0.5),
+            k(FOLD, 16, -0.8, &[(DRIVE, 0.9), (SPREAD, -0.8)]).threshold(-0.5),
+            k(FOLD, 23, 0.8, &[(DRIVE, 1.0), (SPREAD, 0.3)]).threshold(-0.5),
+            k(FOLD, 30, -0.3, &[(DRIVE, 1.0), (SPREAD, 1.0)]).leak(150.0),
+            k(FOLD, 36, 0.3, &[(DRIVE, 1.0), (SPREAD, -1.0)]).leak(150.0),
+            k(FOLD, 36, 0.4, &[(DRIVE, 1.0), (SPREAD, 0.7)])
+                .leak(60.0)
+                .hats(),
+            k(FOLD, 36, 0.4, &[(DRIVE, 1.0), (SPREAD, 0.7)])
+                .leak(800.0)
+                .hats(),
+            k(FOLD, 0, 0.0, &[(DRIVE, 0.6), (SPREAD, 1.0)]).leak(3000.0),
+            k(FOLD, 28, 0.5, &[(DRIVE, -0.3), (SPREAD, 0.4)]),
+            k(FOLD, 40, -0.5, &[(DRIVE, 1.0)]).leak(80.0),
+            k(FOLD, -36, 0.6, &[(DRIVE, 1.0)]).leak(1500.0),
+        ],
+        ..INIT
+    },
+    // ---- Drones: a bus powers cells with no note, and an LFO moves the bus ------------------
+    // Sparks on Bus B chirp sparsely in the dark, the bus jumping at random six times a second.
+    Kit {
+        name: "Insect Swarm",
+        category: Drone,
+        bus: [0.0, 0.6],
+        seed: 1709,
+        lfos: &[free(3, SampleHold, 6.0)],
+        routes: &[(K::Lfo3, KitTarget::BusB, 0.7)],
+        keys: [
+            k(KICK, 5, 0.0, &[(DAMPING, 0.4)]).leak(250.0),
+            k(SNARE, 7, 0.0, &[(BODY, -0.8), (TONE, 0.5)]).leak(200.0),
+            k(SPARK, 0, -0.6, &[(GRAIN, -0.7), (TONE, 0.4)])
+                .bus(B)
+                .threshold(-0.6)
+                .supply(0.5),
+            k(SPARK, 0, -0.2, &[(GRAIN, -0.5), (TONE, 0.5)])
+                .bus(B)
+                .threshold(-0.6)
+                .supply(0.5),
+            k(SPARK, 0, 0.2, &[(GRAIN, -0.3), (TONE, 0.5)])
+                .bus(B)
+                .threshold(-0.6)
+                .supply(0.5),
+            k(SPARK, 0, 0.6, &[(GRAIN, -0.6), (TONE, 0.5)])
+                .bus(B)
+                .threshold(-0.6)
+                .supply(0.5),
+            k(SPARK, 0, -0.8, &[(GRAIN, -0.2), (TONE, 0.5)])
+                .bus(B)
+                .threshold(-0.6)
+                .supply(0.5),
+            k(SPARK, 0, 0.8, &[(GRAIN, -0.4), (TONE, 0.5)])
+                .bus(B)
+                .threshold(-0.6)
+                .supply(0.5),
+            k(SPARK, 0, -0.3, &[(TONE, 0.5)]).leak(100.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 1.0), (GRAIN, -1.0)]),
+            k(DUST, 0, 0.4, &[(GRAIN, -0.9), (TONE, 0.6)])
+                .leak(100.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(GRAIN, -0.9), (TONE, 0.6)])
+                .leak(1500.0)
+                .hats(),
+            k(LOOP, 31, 0.0, &[(DAMPING, -0.5), (SPREAD, 0.8)]).leak(2000.0),
+            k(FOLD, 24, 0.5, &[(DRIVE, 0.3)]),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5)]).leak(60.0),
+            k(DUST, 0, 0.6, &[(GRAIN, -1.0), (TONE, 0.6), (SPREAD, 0.7)])
+                .bus(B)
+                .supply(0.5),
+        ],
+        ..INIT
+    },
+    // Rings on Bus A play on their own, their pitches stepping at random on the sixteenths and eighths.
+    Kit {
+        name: "Pattern Engine",
+        category: Drone,
+        bus: [0.5, 0.0],
+        seed: 1823,
+        lfos: &[
+            synced(1, SampleHold, Division::Sixteenth),
+            synced(2, SampleHold, Division::Eighth),
+        ],
+        keys: [
+            k(KICK, 0, 0.0, &[]),
+            k(SNARE, 0, 0.0, &[(BODY, 0.4)]),
+            k(RING, 0, -0.6, &[(DAMPING, 0.2)])
+                .bus(A)
+                .threshold(-0.4)
+                .supply(0.5)
+                .routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
+            k(RING, 7, -0.2, &[(DAMPING, 0.2)])
+                .bus(A)
+                .threshold(-0.4)
+                .supply(0.5)
+                .routes(&[(Lfo1, CellTarget::Pitch, -1.0)]),
+            k(RING, 12, 0.2, &[(DAMPING, 0.2)])
+                .bus(A)
+                .threshold(-0.4)
+                .supply(0.5)
+                .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(RING, 19, 0.6, &[(DAMPING, 0.2)])
+                .bus(A)
+                .threshold(-0.4)
+                .supply(0.5)
+                .routes(&[(Lfo2, CellTarget::Pitch, -1.0)]),
+            k(FOLD, 5, -0.8, &[]),
+            k(FOLD, 10, 0.8, &[]),
+            k(SPARK, 0, -0.3, &[]),
+            k(CLAP, 0, 0.3, &[]),
+            k(DUST, 0, 0.4, &[(TONE, 0.4)]).leak(80.0).hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.4)]).leak(800.0).hats(),
+            k(LOOP, 24, 0.0, &[(SPREAD, 0.5)]).leak(2000.0),
+            k(FOLD, 17, 0.5, &[]),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5)]).leak(80.0),
+            k(DUST, 0, 0.6, &[(GRAIN, -0.4)]).leak(200.0),
+        ],
+        ..INIT
+    },
+    // Both buses swell and ebb over bars in opposition: low rings breathe in as the noise breathes out.
+    Kit {
+        name: "Breathing Machine",
+        category: Drone,
+        bus: [0.6, 0.6],
+        lfos: &[
+            synced(1, Sine, Division::TwoBars),
+            synced(2, Triangle, Division::Whole),
+        ],
+        routes: &[
+            (K::Lfo1, KitTarget::BusA, 1.0),
+            (K::Lfo2, KitTarget::BusB, -1.0),
+        ],
+        keys: [
+            k(KICK, -5, 0.0, &[(DAMPING, -0.3)]),
+            k(SNARE, 0, 0.0, &[(BODY, 0.5)]),
+            k(RING, -17, -0.5, &[(DAMPING, -0.3)])
+                .bus(A)
+                .threshold(-0.4)
+                .supply(0.4),
+            k(RING, -12, 0.0, &[(DAMPING, -0.3)])
+                .bus(A)
+                .threshold(-0.4)
+                .supply(0.4),
+            k(RING, -5, 0.5, &[(DAMPING, -0.3)])
+                .bus(A)
+                .threshold(-0.4)
+                .supply(0.4),
+            k(FOLD, -12, -0.8, &[(DRIVE, -0.5)]).bus(A).supply(0.4),
+            k(FOLD, -5, 0.8, &[(DRIVE, -0.5)]).bus(A).supply(0.4),
+            k(LOOP, 7, 0.2, &[(DAMPING, 0.3)]),
+            k(SPARK, 0, -0.3, &[]),
+            k(CLAP, 0, 0.3, &[]),
+            k(DUST, 0, 0.4, &[(TONE, -0.2), (SPREAD, 0.4)])
+                .bus(B)
+                .supply(0.4)
+                .leak(300.0)
+                .hats(),
+            k(DUST, 0, -0.4, &[(TONE, 0.3), (SPREAD, 0.4)])
+                .bus(B)
+                .supply(0.4)
+                .leak(1500.0)
+                .hats(),
+            k(LOOP, 12, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.3)])
+                .bus(B)
+                .threshold(-0.5)
+                .supply(0.4),
+            k(FOLD, 12, 0.5, &[]),
+            k(SPARK, 0, -0.5, &[]),
+            k(DUST, 0, 0.6, &[(TONE, 0.6), (SPREAD, 0.6)])
+                .bus(B)
+                .supply(0.4),
+        ],
+        ..INIT
+    },
+    // Pitched, whistling noise on Bus B, its level shivering eight times a second: a summer night.
+    Kit {
+        name: "Cicada Choir",
+        category: Drone,
+        bus: [0.0, 0.5],
+        seed: 1931,
+        lfos: &[free(3, SampleHold, 8.0)],
+        routes: &[(K::Lfo3, KitTarget::BusB, 0.8)],
+        keys: [
+            k(KICK, 0, 0.0, &[(DAMPING, 0.2)]),
+            k(SNARE, 0, 0.0, &[(BODY, -0.4)]),
+            k(DUST, 0, -0.6, &[(SPREAD, 1.0), (TONE, 0.6)])
+                .bus(B)
+                .supply(0.5),
+            k(DUST, 0, -0.2, &[(SPREAD, 1.0), (TONE, 0.6)])
+                .bus(B)
+                .supply(0.5),
+            k(DUST, 0, 0.2, &[(SPREAD, 1.0), (TONE, 0.6)])
+                .bus(B)
+                .supply(0.5),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.6)])
+                .bus(B)
+                .supply(0.5),
+            k(DUST, 0, -0.8, &[(SPREAD, 0.8), (TONE, 0.6), (GRAIN, 0.5)])
+                .bus(B)
+                .supply(0.5),
+            k(DUST, 0, 0.8, &[(SPREAD, 0.8), (TONE, 0.5), (GRAIN, 0.5)])
+                .bus(B)
+                .supply(0.5),
+            k(SPARK, 0, -0.3, &[(GRAIN, 0.7), (TONE, 0.5)]).leak(400.0),
+            k(CLAP, 0, 0.3, &[(TONE, 0.6)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.6)]).leak(80.0).hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.6)]).leak(1000.0).hats(),
+            k(LOOP, 19, 0.0, &[(SPREAD, 0.5)]).leak(2000.0),
+            k(FOLD, 12, 0.5, &[]),
+            k(SPARK, 0, -0.5, &[(GRAIN, 0.7), (TONE, 0.5)]).leak(300.0),
+            k(DUST, 0, 0.6, &[(GRAIN, -0.5)]).leak(300.0),
+        ],
+        ..INIT
+    },
+    // Sub drones on Bus A drifting in pitch over minutes, under long, spread, bright loops.
+    Kit {
+        name: "Deep Space",
+        category: Drone,
+        bus: [0.4, 0.0],
+        lfos: &[free(1, Sine, 0.05)],
+        keys: [
+            k(KICK, -7, 0.0, &[(DAMPING, -0.6)]).leak(4000.0),
+            k(SNARE, -5, 0.0, &[(BODY, 0.6), (DAMPING, -0.5)]).leak(2000.0),
+            k(RING, -36, -0.4, &[(DAMPING, -0.5)])
+                .bus(A)
+                .threshold(-0.5)
+                .supply(0.5)
+                .routes(&[(Lfo1, CellTarget::Pitch, 0.2)]),
+            k(RING, -29, 0.4, &[(DAMPING, -0.5)])
+                .bus(A)
+                .threshold(-0.5)
+                .supply(0.5)
+                .routes(&[(Lfo1, CellTarget::Pitch, -0.2)]),
+            k(DUST, -24, 0.0, &[(TONE, -1.0), (SPREAD, 1.0)])
+                .bus(A)
+                .supply(0.5),
+            k(LOOP, 24, -0.7, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
+            k(LOOP, 31, 0.7, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
+            k(LOOP, 36, 0.2, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
+            k(SPARK, 0, -0.3, &[(TONE, 0.5), (GRAIN, -0.8)]).leak(2000.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.8), (TONE, 0.4)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (SPREAD, 0.8)])
+                .leak(200.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (SPREAD, 0.8)])
+                .leak(6000.0)
+                .hats(),
+            k(LOOP, 43, 0.0, &[(SPREAD, 0.8), (DAMPING, -1.0)]).leak(25000.0),
+            k(RING, 24, 0.5, &[(DAMPING, -1.0)]).leak(10000.0),
+            k(SPARK, 0, -0.5, &[(TONE, 0.5)]).leak(100.0),
+            k(DUST, 0, 0.6, &[(TONE, 0.5), (SPREAD, 1.0)]).leak(3000.0),
+        ],
+        ..INIT
+    },
+    // Folds driven to noise on Bus A and noise swept slowly through its band: a machine idling.
+    Kit {
+        name: "Hiss Engine",
+        category: Drone,
+        temper: 0.3,
+        bus: [0.6, 0.0],
+        seed: 2039,
+        lfos: &[free(1, Triangle, 0.15), free(2, Sine, 0.37)],
+        keys: [
+            k(KICK, -3, 0.0, &[(DRIVE, 0.4)]),
+            k(SNARE, 0, 0.0, &[(BODY, -0.6)]),
+            k(DUST, 0, -0.6, &[(SPREAD, -0.3)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo1, to(TONE), 1.0)]),
+            k(DUST, 0, 0.6, &[(SPREAD, -0.3)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo2, to(TONE), -1.0)]),
+            k(FOLD, -12, -0.2, &[(DRIVE, 1.0)]).bus(A).supply(0.4),
+            k(FOLD, -5, 0.2, &[(DRIVE, 1.0)]).bus(A).supply(0.4),
+            k(RING, -5, -0.8, &[]),
+            k(RING, 2, 0.8, &[]),
+            k(SPARK, 0, -0.3, &[(GRAIN, 0.4)]),
+            k(CLAP, 0, 0.3, &[(GRAIN, 0.6)]),
+            k(DUST, 0, 0.4, &[(GRAIN, 0.6)]).leak(80.0).hats(),
+            k(DUST, 0, 0.4, &[(GRAIN, 0.6)]).leak(900.0).hats(),
+            k(LOOP, 12, 0.0, &[(SPREAD, 0.6)]).leak(2000.0),
+            k(FOLD, 12, 0.5, &[(DRIVE, 0.6)]),
+            k(SPARK, 0, -0.5, &[]),
+            k(DUST, 0, 0.6, &[(SPREAD, 0.6)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo1, to(TONE), -0.8)]),
+        ],
+        ..INIT
+    },
+    // Wide noise on Bus A, each band sweeping at its own slow rate: air through a long pipe.
+    Kit {
+        name: "Wind Tunnel",
+        category: Drone,
+        bus: [0.4, 0.0],
+        lfos: &[
+            free(1, Sine, 0.09),
+            free(2, Triangle, 0.21),
+            free(3, Sine, 0.33),
+        ],
+        keys: [
+            k(KICK, 0, 0.0, &[(DAMPING, -0.2)]),
+            k(SNARE, 0, 0.0, &[(BODY, -0.5), (TONE, -0.3)]),
+            k(DUST, 0, -0.6, &[(SPREAD, -0.6), (TONE, -0.6)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo1, to(TONE), 0.8)]),
+            k(DUST, 0, -0.2, &[(SPREAD, -0.6), (TONE, -0.2)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo2, to(TONE), 0.8)]),
+            k(DUST, 0, 0.2, &[(SPREAD, -0.6), (TONE, 0.2)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo3, to(TONE), 0.8)]),
+            k(DUST, 0, 0.6, &[(SPREAD, 0.2), (TONE, 0.5)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo1, to(TONE), -0.8)]),
+            k(RING, -7, -0.8, &[(DAMPING, -0.3)]),
+            k(RING, 0, 0.8, &[(DAMPING, -0.3)]),
+            k(SPARK, 0, -0.3, &[(TONE, -0.3)]),
+            k(CLAP, 0, 0.3, &[(TONE, -0.3)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.3)]).leak(100.0).hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.3)]).leak(1500.0).hats(),
+            k(LOOP, 7, 0.0, &[(SPREAD, 0.7), (DAMPING, -0.3)]).leak(3000.0),
+            k(FOLD, 7, 0.5, &[]),
+            k(SPARK, 0, -0.5, &[]),
+            k(DUST, 0, 0.6, &[(SPREAD, -1.0), (TONE, -0.8)])
+                .bus(A)
+                .supply(0.4)
+                .routes(&[(Lfo2, to(TONE), -0.8)]),
+        ],
+        ..INIT
+    },
+    // Pure, locked low tones on every key, a chord of folds on Bus A swaying slowly beneath.
+    Kit {
+        name: "Magnet Hum",
+        category: Drone,
+        bus: [0.5, 0.0],
+        lfos: &[free(1, Sine, 0.2)],
+        routes: &[(K::Lfo1, KitTarget::BusA, 0.6)],
+        keys: [
+            k(KICK, -12, 0.0, &[(DAMPING, -0.6), (DROP, -1.0)]).leak(4000.0),
+            k(
+                SNARE,
+                -12,
+                0.0,
+                &[(BODY, 1.0), (TONE, -1.0), (DAMPING, -0.6)],
+            )
+            .leak(2500.0),
+            k(FOLD, -24, -0.6, &[(DRIVE, -1.0)])
+                .bus(A)
+                .threshold(-0.6)
+                .supply(0.4),
+            k(FOLD, -17, -0.2, &[(DRIVE, -1.0)])
+                .bus(A)
+                .threshold(-0.6)
+                .supply(0.4),
+            k(FOLD, -12, 0.2, &[(DRIVE, -1.0)])
+                .bus(A)
+                .threshold(-0.6)
+                .supply(0.4),
+            k(FOLD, -8, 0.6, &[(DRIVE, -1.0), (SPREAD, 0.3)])
+                .bus(A)
+                .threshold(-0.6)
+                .supply(0.4),
+            k(RING, -29, -0.8, &[(DAMPING, -0.8), (DROP, -1.0)]).leak(6000.0),
+            k(RING, -22, 0.8, &[(DAMPING, -0.8), (DROP, -1.0)]).leak(6000.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, -1.0)]).threshold(-0.6),
+            k(CLAP, 0, 0.3, &[(TONE, -1.0), (GRAIN, 0.8)]),
+            k(DUST, 0, 0.4, &[(TONE, -1.0), (SPREAD, 1.0)])
+                .leak(200.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, -1.0), (SPREAD, 1.0)])
+                .leak(2000.0)
+                .hats(),
+            k(LOOP, -24, 0.0, &[(SPREAD, -1.0), (DAMPING, -0.6)]).leak(6000.0),
+            k(FOLD, -5, 0.5, &[(DRIVE, -1.0)]),
+            k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, -0.6)]),
+            k(DUST, -12, 0.6, &[(TONE, -0.8), (SPREAD, 1.0)]).leak(1500.0),
+        ],
+        ..INIT
+    },
+    // Buzzing sparks on Bus A that flicker on the quarters like a failing tube.
+    Kit {
+        name: "Neon Buzz",
+        category: Drone,
+        bus: [0.4, 0.0],
+        lfos: &[synced(1, Square, Division::Quarter)],
+        routes: &[(K::Lfo1, KitTarget::BusA, 1.0)],
+        keys: [
+            k(KICK, 0, 0.0, &[(DAMPING, 0.2)]),
+            k(SNARE, 0, 0.0, &[(TONE, 0.4)]),
+            k(SPARK, 0, -0.6, &[(GRAIN, 1.0), (TONE, -0.4)])
+                .bus(A)
+                .threshold(-0.7)
+                .supply(0.5),
+            k(SPARK, 0, 0.0, &[(GRAIN, 1.0), (TONE, 0.2)])
+                .bus(A)
+                .threshold(-0.7)
+                .supply(0.5),
+            k(SPARK, 0, 0.6, &[(GRAIN, 1.0), (TONE, 0.5)])
+                .bus(A)
+                .threshold(-0.7)
+                .supply(0.5),
+            k(FOLD, 12, -0.8, &[(DRIVE, 0.6)]),
+            k(FOLD, 19, 0.8, &[(DRIVE, 0.6)]),
+            k(LOOP, 12, 0.2, &[]),
+            k(SPARK, 0, -0.3, &[(GRAIN, 0.6)]),
+            k(CLAP, 0, 0.3, &[(GRAIN, 0.6)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.6)]).leak(80.0).hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.6)]).leak(800.0).hats(),
+            k(LOOP, 24, 0.0, &[(SPREAD, 0.6)]).leak(1600.0),
+            k(FOLD, 24, 0.5, &[(DRIVE, 0.6)]),
+            k(SPARK, 0, -0.5, &[(GRAIN, 1.0)]),
+            k(DUST, 0, 0.6, &[(SPREAD, 0.8), (TONE, 0.6)])
+                .bus(A)
+                .supply(0.5),
+        ],
+        ..INIT
+    },
+    // Low noise on Bus A rolling in waves over twelve seconds, long low rings calling under it.
+    Kit {
+        name: "Ocean Floor",
+        category: Drone,
+        bus: [0.5, 0.0],
+        lfos: &[free(1, Sine, 0.08)],
+        routes: &[(K::Lfo1, KitTarget::BusA, 1.0)],
+        keys: [
+            k(KICK, -9, 0.0, &[(DAMPING, -0.5)]).leak(3000.0),
+            k(SNARE, -7, 0.0, &[(TONE, -0.7), (BODY, -0.3)]),
+            k(DUST, -12, -0.6, &[(TONE, -0.8), (GRAIN, 0.5)])
+                .bus(A)
+                .supply(0.4),
+            k(DUST, -12, 0.6, &[(TONE, -0.6), (GRAIN, 0.5), (SPREAD, 0.3)])
+                .bus(A)
+                .supply(0.4),
+            k(RING, -24, -0.2, &[(DAMPING, -0.8), (DROP, 0.4)]).leak(6000.0),
+            k(RING, -19, 0.2, &[(DAMPING, -0.8), (DROP, 0.4)]).leak(6000.0),
+            k(LOOP, -24, -0.8, &[(SPREAD, 0.6), (DAMPING, 0.3)]).leak(5000.0),
+            k(LOOP, -17, 0.8, &[(SPREAD, 0.6), (DAMPING, 0.3)]).leak(5000.0),
+            k(SPARK, 0, -0.3, &[(TONE, -0.8)]),
+            k(CLAP, 0, 0.3, &[(TONE, -0.6), (SPACING, 0.6)]),
+            k(DUST, 0, 0.4, &[(TONE, -0.4)]).leak(150.0).hats(),
+            k(DUST, 0, 0.4, &[(TONE, -0.4)]).leak(3000.0).hats(),
+            k(LOOP, -12, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.5)]).leak(12000.0),
+            k(RING, -14, 0.5, &[(DAMPING, -0.9)]).leak(8000.0),
+            k(SPARK, 0, -0.5, &[(TONE, -0.5)]),
+            k(DUST, -12, 0.6, &[(TONE, -0.9), (SPREAD, 0.8)])
+                .bus(A)
+                .supply(0.4),
+        ],
+        ..INIT
+    },
+    // ---- Moving and wild: modulation everywhere, Temper high ----------------------------------
+    // Every tone lands an octave either side of where it is set, at random, hit by hit.
+    Kit {
+        name: "Pitch Rain",
+        seed: 2141,
+        keys: [
+            k(KICK, 0, 0.0, &[(DROP, 0.5)]).routes(&[(Random, CellTarget::Pitch, 0.4)]),
+            k(SNARE, 0, 0.0, &[(BODY, 0.6)]).routes(&[(Random, to(TONE), 0.8)]),
+            k(RING, 0, -0.6, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(RING, 5, -0.2, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(RING, 12, 0.2, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(FOLD, 7, 0.6, &[(SPREAD, 0.3)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(FOLD, 14, -0.8, &[(SPREAD, -0.3)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(LOOP, 12, 0.8, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(SPARK, 0, -0.3, &[]).routes(&[(Random, to(TONE), 1.0)]),
+            k(CLAP, 0, 0.3, &[]).routes(&[(Random, to(SPACING), 1.0)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.6)])
+                .leak(100.0)
+                .hats()
+                .routes(&[(Random, to(TONE), 1.0)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.6)])
+                .leak(1000.0)
+                .hats()
+                .routes(&[(Random, to(TONE), 1.0)]),
+            k(LOOP, 24, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.4)])
+                .leak(2000.0)
+                .routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(RING, 19, 0.5, &[(DAMPING, -0.2)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(SPARK, 0, -0.5, &[]).routes(&[(Random, to(GRAIN), 1.0)]),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Random, to(TONE), 1.0)]),
+        ],
+        ..INIT
+    },
+    // Pitch shaken at twenty, thirteen and seventeen cycles a second: tones turned to growls.
+    Kit {
+        name: "FM Growl",
+        lfos: &[
+            free(1, Sine, 20.0),
+            free(2, Triangle, 13.0),
+            free(3, Square, 17.0),
+        ],
+        keys: [
+            k(KICK, -5, 0.0, &[(DAMPING, -0.3)]).routes(&[(Lfo1, CellTarget::Pitch, 0.8)]),
+            k(SNARE, 0, 0.0, &[(BODY, 0.6)]).routes(&[(Lfo2, CellTarget::Pitch, 0.6)]),
+            k(RING, -12, -0.6, &[])
+                .threshold(-0.3)
+                .routes(&[(Lfo1, CellTarget::Pitch, 0.8)]),
+            k(RING, -5, -0.2, &[])
+                .threshold(-0.3)
+                .routes(&[(Lfo2, CellTarget::Pitch, 0.8)]),
+            k(RING, 2, 0.2, &[])
+                .threshold(-0.3)
+                .routes(&[(Lfo1, CellTarget::Pitch, -0.8)]),
+            k(FOLD, -7, 0.6, &[]).routes(&[(Lfo2, CellTarget::Pitch, 0.5)]),
+            k(FOLD, 0, -0.8, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.5)]),
+            k(LOOP, 0, 0.8, &[(DAMPING, -0.3)]).routes(&[(Lfo2, CellTarget::Pitch, 0.5)]),
+            k(SPARK, 0, -0.3, &[]).routes(&[(Lfo3, to(TONE), 1.0)]),
+            k(CLAP, 0, 0.3, &[]).routes(&[(Lfo3, to(TONE), 1.0)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+                .leak(150.0)
+                .hats()
+                .routes(&[(Lfo3, to(TONE), 1.0)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+                .leak(1500.0)
+                .hats()
+                .routes(&[(Lfo3, to(TONE), 1.0)]),
+            k(LOOP, 12, 0.0, &[(SPREAD, 0.5)]).leak(2500.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                0.4,
+            )]),
+            k(FOLD, 12, 0.5, &[]).routes(&[(Lfo2, CellTarget::Pitch, 0.8)]),
+            k(SPARK, 0, -0.5, &[]).routes(&[(Lfo3, to(GRAIN), 1.0)]),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Lfo1, to(TONE), 1.0)]),
+        ],
+        ..INIT
+    },
+    // Low rings tipped into sustaining, their pitch wobbling on the eighths: a kit that wubs.
+    Kit {
+        name: "Wobble Bass",
+        lfos: &[
+            synced(2, Sine, Division::Eighth),
+            synced(3, Triangle, Division::Quarter),
+        ],
+        keys: [
+            k(KICK, -12, 0.0, &[(DAMPING, -0.3)])
+                .threshold(-0.5)
+                .supply(0.8)
+                .routes(&[(Lfo2, CellTarget::Pitch, 0.6)]),
+            k(SNARE, -5, 0.0, &[(BODY, 0.8)]).routes(&[(Lfo3, to(TONE), 0.6)]),
+            k(RING, -12, -0.6, &[])
+                .threshold(-0.5)
+                .supply(0.8)
+                .routes(&[(Lfo2, CellTarget::Pitch, 0.6)]),
+            k(RING, -7, -0.2, &[])
+                .threshold(-0.5)
+                .supply(0.8)
+                .routes(&[(Lfo2, CellTarget::Pitch, -0.6)]),
+            k(RING, -5, 0.2, &[]).threshold(-0.5).supply(0.8).routes(&[(
+                Lfo3,
+                CellTarget::Pitch,
+                0.6,
+            )]),
+            k(FOLD, -12, 0.6, &[(DRIVE, 0.4)])
+                .supply(0.8)
+                .routes(&[(Lfo2, to(DRIVE), 0.8)]),
+            k(FOLD, -5, -0.8, &[(DRIVE, 0.4)])
+                .supply(0.8)
+                .routes(&[(Lfo3, to(DRIVE), 0.8)]),
+            k(LOOP, -12, 0.8, &[(DAMPING, 0.4)])
+                .threshold(-0.4)
+                .routes(&[(Lfo2, to(DAMPING), 0.8)]),
+            k(SPARK, 0, -0.3, &[]),
+            k(CLAP, 0, 0.3, &[]),
+            k(DUST, 0, 0.4, &[]).leak(85.0).hats(),
+            k(DUST, 0, 0.4, &[])
                 .leak(775.0)
                 .hats()
-                .routes(&[(Lfo1, to(TONE), 0.2)]),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
+                .routes(&[(Lfo2, to(TONE), 0.6)]),
+            k(LOOP, 0, 0.0, &[(SPREAD, 0.5)]).leak(1600.0),
+            k(FOLD, 0, 0.5, &[(DRIVE, 0.4)]).routes(&[(Lfo3, to(DRIVE), 0.8)]),
+            k(SPARK, 0, -0.5, &[]),
+            k(DUST, 0, 0.6, &[]).leak(180.0),
         ],
         ..INIT
     },
-    // Hats whose tone wobbles on the beat, a snare whose body flips on the eighths.
+    // Bloops and rising chirps, and sparse popping noise on Bus B: a bath of bubbles.
     Kit {
-        name: "Wobble Grid",
+        name: "Bubble Bath",
+        bus: [0.0, 0.3],
+        seed: 2251,
+        lfos: &[synced(1, RampUp, Division::Sixteenth)],
+        keys: [
+            k(KICK, 12, 0.0, &[(DROP, 1.0), (DAMPING, 0.6)]).leak(200.0),
+            k(SNARE, 12, 0.0, &[(BODY, 1.0), (DROP, 1.0), (DAMPING, 0.4)]).leak(200.0),
+            k(RING, 24, -0.6, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
+            k(RING, 28, -0.2, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
+            k(RING, 33, 0.2, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
+            k(FOLD, 24, 0.6, &[(DRIVE, -0.6)]).leak(150.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                0.8,
+            )]),
+            k(FOLD, 29, -0.8, &[(DRIVE, -0.6)]).leak(150.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                0.8,
+            )]),
+            k(RING, 36, 0.8, &[(DAMPING, 0.5), (DROP, 0.8)]).leak(120.0),
+            k(SPARK, 0, -0.3, &[(TONE, -0.4), (GRAIN, -0.6)]).leak(300.0),
+            k(CLAP, 0, 0.3, &[(SPACING, 0.8), (TONE, 0.2)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 1.0), (TONE, 0.3), (GRAIN, -1.0)])
+                .leak(200.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(SPREAD, 1.0), (TONE, 0.3), (GRAIN, -1.0)])
+                .leak(2000.0)
+                .hats(),
+            k(LOOP, 24, 0.0, &[(DAMPING, 0.4), (SPREAD, -1.0)]).leak(300.0),
+            k(RING, 40, 0.5, &[(DAMPING, 0.6), (DROP, 1.0)]).leak(100.0),
+            k(SPARK, 0, -0.5, &[(GRAIN, -0.8)]).leak(500.0),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.1), (GRAIN, -1.0)])
+                .bus(B)
+                .supply(0.5),
+        ],
+        ..INIT
+    },
+    // Falling rings and metal, each hit thrown to a random place in the stereo field.
+    Kit {
+        name: "Ricochet",
+        seed: 2357,
+        keys: [
+            k(KICK, 0, 0.0, &[(DROP, 0.6)]).routes(&[(Random, CellTarget::Pan, 0.4)]),
+            k(SNARE, 5, 0.0, &[(DROP, 0.6)]).routes(&[(Random, CellTarget::Pan, 0.6)]),
+            k(RING, 12, 0.0, &[(DROP, 1.0), (DAMPING, -0.3)]).routes(&[(
+                Random,
+                CellTarget::Pan,
+                1.0,
+            )]),
+            k(RING, 17, 0.0, &[(DROP, 1.0), (DAMPING, -0.3)]).routes(&[(
+                Random,
+                CellTarget::Pan,
+                1.0,
+            )]),
+            k(RING, 22, 0.0, &[(DROP, 1.0), (DAMPING, -0.3)]).routes(&[(
+                Random,
+                CellTarget::Pan,
+                1.0,
+            )]),
+            k(LOOP, 12, 0.0, &[(SPREAD, 0.8), (DAMPING, 0.2)]).routes(&[(
+                Random,
+                CellTarget::Pan,
+                1.0,
+            )]),
+            k(LOOP, 19, 0.0, &[(SPREAD, 0.8), (DAMPING, 0.2)]).routes(&[(
+                Random,
+                CellTarget::Pan,
+                1.0,
+            )]),
+            k(RING, 29, 0.0, &[(DROP, 1.0), (DAMPING, 0.2)]).routes(&[(
+                Random,
+                CellTarget::Pan,
+                1.0,
+            )]),
+            k(SPARK, 0, 0.0, &[(TONE, 0.5)]).routes(&[(Random, CellTarget::Pan, 1.0)]),
+            k(CLAP, 0, 0.0, &[(SPACING, -0.4)]).routes(&[(Random, CellTarget::Pan, 1.0)]),
+            k(DUST, 0, 0.0, &[(TONE, 0.6)])
+                .leak(100.0)
+                .hats()
+                .routes(&[(Random, CellTarget::Pan, 1.0)]),
+            k(DUST, 0, 0.0, &[(TONE, 0.6)])
+                .leak(1000.0)
+                .hats()
+                .routes(&[(Random, CellTarget::Pan, 1.0)]),
+            k(LOOP, 31, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.4)])
+                .leak(3000.0)
+                .routes(&[(Random, CellTarget::Pan, 1.0)]),
+            k(RING, 36, 0.0, &[(DROP, 1.0), (DAMPING, 0.4)]).routes(&[(
+                Random,
+                CellTarget::Pan,
+                1.0,
+            )]),
+            k(SPARK, 0, 0.0, &[(TONE, 0.5)]).routes(&[(Random, CellTarget::Pan, 1.0)]),
+            k(DUST, 0, 0.0, &[(SPREAD, 0.8)]).routes(&[(Random, CellTarget::Pan, 1.0)]),
+        ],
+        ..INIT
+    },
+    // Pitch and tone stepping at random on the thirty-seconds: every hit stutters through registers.
+    Kit {
+        name: "Glitch Kit",
+        category: Fx,
+        seed: 2459,
         lfos: &[
-            synced(1, Sine, Division::Whole),
-            synced(2, Triangle, Division::Quarter),
+            synced(1, SampleHold, Division::ThirtySecond),
+            synced(2, SampleHold, Division::SixteenthTriplet),
+        ],
+        keys: [
+            k(KICK, 0, 0.0, &[(DAMPING, 0.2)]).routes(&[(Lfo1, CellTarget::Pitch, 0.6)]),
+            k(SNARE, 0, 0.0, &[(BODY, 0.2)]).routes(&[(Lfo2, to(TONE), 1.0)]),
+            k(RING, 0, -0.6, &[(DAMPING, -0.3)]).routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
+            k(RING, 7, -0.2, &[(DAMPING, -0.3)]).routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(RING, 14, 0.2, &[(DAMPING, -0.3)]).routes(&[(Lfo1, CellTarget::Pitch, -1.0)]),
+            k(FOLD, 5, 0.6, &[(DRIVE, 0.5)])
+                .routes(&[(Lfo1, CellTarget::Pitch, 1.0), (Lfo2, to(DRIVE), 1.0)]),
+            k(FOLD, 12, -0.8, &[(DRIVE, 0.5)])
+                .routes(&[(Lfo2, CellTarget::Pitch, 1.0), (Lfo1, to(SPREAD), 1.0)]),
+            k(LOOP, 12, 0.8, &[(SPREAD, 0.5)])
+                .routes(&[(Lfo1, CellTarget::Pitch, 1.0), (Lfo2, to(DAMPING), 0.8)]),
+            k(SPARK, 0, -0.3, &[]).routes(&[(Lfo1, to(TONE), 1.0), (Lfo2, to(GRAIN), 1.0)]),
+            k(CLAP, 0, 0.3, &[]).routes(&[(Lfo2, to(TONE), 1.0)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+                .leak(100.0)
+                .hats()
+                .routes(&[(Lfo1, to(TONE), 1.0)]),
+            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+                .leak(1200.0)
+                .hats()
+                .routes(&[(Lfo2, to(TONE), 1.0)]),
+            k(LOOP, 24, 0.0, &[(SPREAD, 0.8)]).leak(2000.0).routes(&[(
+                Lfo1,
+                CellTarget::Pitch,
+                1.0,
+            )]),
+            k(FOLD, 19, 0.5, &[(DRIVE, 0.6)]).routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(SPARK, 0, -0.5, &[]).routes(&[(Lfo1, to(GRAIN), 1.0)]),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Lfo2, to(TONE), 1.0)]),
+        ],
+        ..INIT
+    },
+    // Buzzing sparks gated by squares at three rates, so one hit taps out a code for seconds.
+    Kit {
+        name: "Morse Field",
+        lfos: &[
+            synced(1, Square, Division::Sixteenth),
+            synced(2, Square, Division::EighthTriplet),
             synced(3, Square, Division::Eighth),
         ],
         keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]).routes(&[(Lfo3, to(BODY), 0.3)]),
-            k(RING, -5, -0.3, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.05)]),
-            k(RING, 0, 0.0, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.05)]),
-            k(RING, 5, 0.3, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.05)]),
-            k(FOLD, 0, -0.4, &[]).routes(&[(Lfo2, to(SPREAD), 0.2)]),
-            k(FOLD, 5, 0.4, &[]).routes(&[(Lfo2, to(SPREAD), -0.2)]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[])
-                .leak(85.0)
-                .hats()
-                .routes(&[(Lfo2, to(TONE), 0.3)]),
-            k(DUST, 0, 0.25, &[])
-                .leak(775.0)
-                .hats()
-                .routes(&[(Lfo2, to(TONE), 0.3)]),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[])
-                .leak(180.0)
-                .routes(&[(Lfo2, to(TONE), -0.3)]),
+            k(KICK, 0, 0.0, &[(DAMPING, 0.3)]),
+            k(SNARE, 0, 0.0, &[(BODY, 0.6)]),
+            k(SPARK, 0, -0.6, &[(GRAIN, 1.0), (TONE, -0.3)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(4000.0)
+                .routes(&[(Lfo1, CellTarget::Threshold, 1.0)]),
+            k(SPARK, 0, -0.2, &[(GRAIN, 1.0), (TONE, 0.1)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(4000.0)
+                .routes(&[(Lfo2, CellTarget::Threshold, 1.0)]),
+            k(SPARK, 0, 0.2, &[(GRAIN, 1.0), (TONE, 0.5)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(4000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, 1.0)]),
+            k(SPARK, 0, 0.6, &[(GRAIN, 0.9), (TONE, 0.5)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(4000.0)
+                .routes(&[(Lfo1, CellTarget::Threshold, -1.0)]),
+            k(SPARK, 0, -0.8, &[(GRAIN, 0.9), (TONE, -0.6)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(4000.0)
+                .routes(&[(Lfo2, CellTarget::Threshold, -1.0)]),
+            k(SPARK, 0, 0.8, &[(GRAIN, 0.9), (TONE, 0.3)])
+                .threshold(-0.8)
+                .hunger(0.1)
+                .leak(4000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, -1.0)]),
+            k(SPARK, 0, -0.3, &[(GRAIN, 0.8)]).leak(200.0),
+            k(CLAP, 0, 0.3, &[(SPACING, -0.5)]),
+            k(DUST, 0, 0.4, &[(TONE, 0.5)]).leak(80.0).hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.5)]).leak(800.0).hats(),
+            k(LOOP, 24, 0.0, &[(SPREAD, -1.0)]).leak(1600.0),
+            k(FOLD, 24, 0.5, &[(DRIVE, -0.8)])
+                .threshold(-0.6)
+                .leak(3000.0)
+                .routes(&[(Lfo1, CellTarget::Threshold, 1.0)]),
+            k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, 0.5)])
+                .threshold(-0.8)
+                .leak(4000.0)
+                .routes(&[(Lfo3, CellTarget::Threshold, 1.0)]),
+            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.6)]).leak(300.0),
         ],
         ..INIT
     },
-    // Every hit draws its own pitch and tone from the seed: no two alike, every bounce the same.
+    // A zapping kick, bursting clap and sparks on a fully coupled, nearly wild grid.
     Kit {
-        name: "Random Walk",
-        seed: 777,
-        keys: [
-            k(KICK, 0, 0.0, &[]).routes(&[(Random, CellTarget::Pitch, 0.05)]),
-            k(SNARE, 0, 0.0, &[]).routes(&[(Random, to(TONE), 0.2)]),
-            k(RING, -5, -0.3, &[]).routes(&[(Random, CellTarget::Pitch, 0.1)]),
-            k(RING, 0, 0.0, &[]).routes(&[(Random, CellTarget::Pitch, 0.1)]),
-            k(RING, 5, 0.3, &[]).routes(&[(Random, CellTarget::Pitch, 0.1)]),
-            k(FOLD, 0, -0.4, &[]).routes(&[(Random, CellTarget::Pitch, 0.1)]),
-            k(FOLD, 5, 0.4, &[]).routes(&[(Random, CellTarget::Pitch, 0.1)]),
-            k(LOOP, 7, 0.15, &[]).routes(&[(Random, CellTarget::Pitch, 0.1)]),
-            k(SPARK, 0, -0.1, &[]).routes(&[(Random, to(TONE), 0.15)]),
-            k(CLAP, 0, 0.05, &[]).routes(&[(Random, to(SPACING), 0.2)]),
-            k(DUST, 0, 0.25, &[])
-                .leak(85.0)
-                .hats()
-                .routes(&[(Random, to(TONE), 0.2)]),
-            k(DUST, 0, 0.25, &[])
-                .leak(775.0)
-                .hats()
-                .routes(&[(Random, to(TONE), 0.2)]),
-            k(LOOP, 12, -0.3, &[])
-                .leak(1600.0)
-                .routes(&[(Random, to(SPREAD), 0.3)]),
-            k(FOLD, 12, 0.35, &[]).routes(&[(Random, CellTarget::Pitch, 0.1)]),
-            k(SPARK, 0, -0.35, &[])
-                .leak(120.0)
-                .routes(&[(Random, to(TONE), 0.15)]),
-            k(DUST, 5, 0.45, &[])
-                .leak(180.0)
-                .routes(&[(Random, to(TONE), 0.2)]),
-        ],
-        ..INIT
-    },
-    // Velocity plays more than loudness: harder is higher toms, a longer kick drop, brighter hats.
-    Kit {
-        name: "Velocity Ladder",
-        dynamics: 0.2,
-        keys: [
-            k(KICK, 0, 0.0, &[]).routes(&[(Velocity, to(DROP), 0.4)]),
-            k(SNARE, 0, 0.0, &[]).routes(&[(Velocity, to(SNAP), 0.4)]),
-            k(RING, -5, -0.3, &[]).routes(&[(Velocity, CellTarget::Pitch, 0.3)]),
-            k(RING, 0, 0.0, &[]).routes(&[(Velocity, CellTarget::Pitch, 0.3)]),
-            k(RING, 5, 0.3, &[]).routes(&[(Velocity, CellTarget::Pitch, 0.3)]),
-            k(FOLD, 0, -0.4, &[]).routes(&[(Velocity, to(DRIVE), 0.3)]),
-            k(FOLD, 5, 0.4, &[]).routes(&[(Velocity, to(DRIVE), 0.3)]),
-            k(LOOP, 7, 0.15, &[]).routes(&[(Velocity, to(DAMPING), -0.3)]),
-            k(SPARK, 0, -0.1, &[]).routes(&[(Velocity, to(TONE), 0.2)]),
-            k(CLAP, 0, 0.05, &[]).routes(&[(Velocity, to(GRAIN), 0.3)]),
-            k(DUST, 0, 0.25, &[])
-                .leak(85.0)
-                .hats()
-                .routes(&[(Velocity, to(TONE), 0.3)]),
-            k(DUST, 0, 0.25, &[])
-                .leak(775.0)
-                .hats()
-                .routes(&[(Velocity, to(TONE), 0.3)]),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]).routes(&[(Velocity, to(DRIVE), 0.3)]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[])
-                .leak(180.0)
-                .routes(&[(Velocity, to(GRAIN), 0.3)]),
-        ],
-        ..INIT
-    },
-    // The mod wheel takes the kit from steady to wild; pressure powers the toms on Bus A.
-    Kit {
-        name: "Wheel Bender",
-        seed: 1009,
-        routes: &[
-            (K::Wheel, KitTarget::Temper, 0.8),
-            (K::Wheel, KitTarget::Coupling, 0.5),
-            (K::Pressure, KitTarget::BusA, 0.5),
-        ],
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]).bus(A).threshold(-0.2),
-            k(RING, 0, 0.0, &[]).bus(A).threshold(-0.2),
-            k(RING, 5, 0.3, &[]).bus(A).threshold(-0.2),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // ---- Wild: Temper high, the grid feeding and draining itself ------------------------------
-    // Three quarters of the way to wild: a beat that breaks into weather.
-    Kit {
-        name: "Storm Cell",
-        category: Fx,
-        temper: 0.75,
-        flow: 0.8,
-        coupling: 0.7,
-        seed: 1201,
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]),
-            k(RING, 0, 0.0, &[]),
-            k(RING, 5, 0.3, &[]),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Full coupling and sparks near their tipping point: every hit arcs across the grid.
-    Kit {
-        name: "Arc Flash",
-        category: Fx,
-        temper: 0.9,
-        flow: 0.3,
-        coupling: 1.0,
-        seed: 1777,
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]),
-            k(SPARK, 0, 0.0, &[(TONE, -0.1)]).threshold(-0.2),
-            k(RING, 5, 0.3, &[]),
-            k(SPARK, 0, -0.4, &[(TONE, 0.1)]).threshold(-0.2),
-            k(FOLD, 5, 0.4, &[]),
-            k(SPARK, 0, 0.15, &[(TONE, 0.25)]).threshold(-0.2),
-            k(SPARK, 0, -0.1, &[]).threshold(-0.2),
-            k(CLAP, 0, 0.05, &[]).threshold(-0.2),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).threshold(-0.2).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Strong coupling and rings near singing: one hit sets off its neighbours, and theirs.
-    Kit {
-        name: "Chain Reaction",
-        category: Fx,
-        temper: 0.65,
-        flow: 0.4,
-        coupling: 0.9,
-        seed: 2048,
-        keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]).threshold(-0.15),
-            k(RING, 0, 0.0, &[]).threshold(-0.15),
-            k(RING, 5, 0.3, &[]).threshold(-0.15),
-            k(RING, 9, -0.4, &[]).threshold(-0.15),
-            k(RING, 12, 0.4, &[]).threshold(-0.15),
-            k(LOOP, 7, 0.15, &[]),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(RING, 16, 0.35, &[]).threshold(-0.15),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
-        ],
-        ..INIT
-    },
-    // Driven folds and howling loops, Temper jumping at random each beat: the kit melts and sets.
-    Kit {
-        name: "Melt",
+        name: "Lightning Rod",
         category: Fx,
         temper: 0.8,
-        flow: 0.6,
-        coupling: 0.6,
-        seed: 3141,
-        lfos: &[synced(3, SampleHold, Division::Quarter)],
-        routes: &[(K::Lfo3, KitTarget::Temper, 0.2)],
+        flow: 0.4,
+        coupling: 1.0,
+        seed: 2633,
         keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(LOOP, -5, -0.3, &[]).threshold(-0.3),
-            k(LOOP, 0, 0.0, &[]).threshold(-0.3),
-            k(LOOP, 5, 0.3, &[]).threshold(-0.3),
-            k(FOLD, 0, -0.4, &[(DRIVE, 0.3)]),
-            k(FOLD, 5, 0.4, &[(DRIVE, 0.3)]),
-            k(LOOP, 7, 0.15, &[]).threshold(-0.3),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).leak(1600.0),
-            k(FOLD, 12, 0.35, &[(DRIVE, 0.3)]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[]).leak(180.0),
+            k(KICK, 36, 0.0, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(300.0),
+            k(SNARE, 12, 0.0, &[(BODY, -0.8), (TONE, 0.5), (SNAP, 1.0)]).threshold(-0.5),
+            k(RING, 24, -0.6, &[(DROP, 1.0)]).threshold(-0.3),
+            k(SPARK, 0, -0.2, &[(GRAIN, 1.0)]).threshold(-0.8),
+            k(RING, 36, 0.2, &[(DROP, 1.0)]).threshold(-0.3),
+            k(SPARK, 0, 0.6, &[(GRAIN, 1.0), (TONE, 0.5)]).threshold(-0.8),
+            k(FOLD, 24, -0.8, &[(DRIVE, 1.0)]),
+            k(SPARK, 0, 0.8, &[(GRAIN, 1.0), (TONE, -0.6)]).threshold(-0.8),
+            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, 0.5)]).threshold(-0.8),
+            k(CLAP, 0, 0.3, &[(GRAIN, 1.0), (SPACING, -1.0)]).threshold(-0.8),
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (GRAIN, 1.0)])
+                .leak(60.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(TONE, 0.6), (GRAIN, 1.0)])
+                .leak(800.0)
+                .hats(),
+            k(LOOP, 31, 0.0, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+                .threshold(-0.5)
+                .leak(2000.0),
+            k(RING, 48, 0.5, &[(DROP, 1.0), (DAMPING, 0.5)]),
+            k(SPARK, 0, -0.5, &[(GRAIN, 1.0)]).threshold(-0.8),
+            k(DUST, 0, 0.6, &[(TONE, 0.6), (SPREAD, 0.8)]).leak(300.0),
         ],
         ..INIT
     },
-    // Everything at full: Temper, Flow and Coupling all the way, every ring and loop near onset.
+    // Full Temper, Flow and Coupling on the smallest pool, Temper jumping each beat: it caves in.
     Kit {
-        name: "White Heat",
+        name: "Collapsing Star",
         category: Fx,
         temper: 1.0,
         flow: 1.0,
         coupling: 1.0,
-        seed: 9001,
-        lfos: &[free(2, RampDown, 0.25)],
+        pool: 0.15,
+        recharge_ms: Some(3000.0),
+        seed: 2731,
+        lfos: &[synced(3, SampleHold, Division::Quarter)],
+        routes: &[(K::Lfo3, KitTarget::Temper, -0.5)],
         keys: [
-            k(KICK, 0, 0.0, &[]),
-            k(SNARE, 0, 0.0, &[]),
-            k(RING, -5, -0.3, &[]).threshold(-0.2),
-            k(RING, 0, 0.0, &[]).threshold(-0.2),
-            k(RING, 5, 0.3, &[]).threshold(-0.2),
-            k(FOLD, 0, -0.4, &[]),
-            k(FOLD, 5, 0.4, &[]),
-            k(LOOP, 7, 0.15, &[]).threshold(-0.2),
-            k(SPARK, 0, -0.1, &[]),
-            k(CLAP, 0, 0.05, &[]),
-            k(DUST, 0, 0.25, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.25, &[]).leak(775.0).hats(),
-            k(LOOP, 12, -0.3, &[]).threshold(-0.2).leak(1600.0),
-            k(FOLD, 12, 0.35, &[]),
-            k(SPARK, 0, -0.35, &[]).leak(120.0),
-            k(DUST, 5, 0.45, &[])
-                .leak(180.0)
-                .routes(&[(Lfo2, to(TONE), 0.3)]),
+            k(KICK, -5, 0.0, &[(DROP, 0.6)]).threshold(-0.5).strike(1.0),
+            k(SNARE, 0, 0.0, &[]).threshold(-0.5).strike(1.0),
+            k(RING, -12, -0.6, &[]).threshold(-0.5).strike(1.0),
+            k(RING, -5, -0.2, &[]).threshold(-0.5).strike(1.0),
+            k(RING, 2, 0.2, &[]).threshold(-0.5).strike(1.0),
+            k(FOLD, -7, 0.6, &[(DRIVE, 0.4)])
+                .threshold(-0.5)
+                .strike(1.0),
+            k(LOOP, 0, -0.8, &[(SPREAD, 0.6)])
+                .threshold(-0.5)
+                .strike(1.0),
+            k(LOOP, 7, 0.8, &[(SPREAD, 0.6)])
+                .threshold(-0.5)
+                .strike(1.0),
+            k(SPARK, 0, -0.3, &[]).threshold(-0.5).strike(1.0),
+            k(CLAP, 0, 0.3, &[]).threshold(-0.5).strike(1.0),
+            k(DUST, 0, 0.4, &[]).strike(1.0).leak(100.0).hats(),
+            k(DUST, 0, 0.4, &[]).strike(1.0).leak(1500.0).hats(),
+            k(LOOP, 12, 0.0, &[(SPREAD, 1.0)])
+                .threshold(-0.5)
+                .strike(1.0)
+                .leak(4000.0),
+            k(FOLD, 12, 0.5, &[(DRIVE, 0.4)])
+                .threshold(-0.5)
+                .strike(1.0),
+            k(SPARK, 0, -0.5, &[]).threshold(-0.5).strike(1.0),
+            k(DUST, 0, 0.6, &[(SPREAD, 0.6)]).strike(1.0),
+        ],
+        ..INIT
+    },
+    // Everything at its most: full Temper, Flow and Coupling, driven past onset, both buses on.
+    Kit {
+        name: "Supernova",
+        category: Fx,
+        temper: 1.0,
+        flow: 1.0,
+        coupling: 1.0,
+        bus: [0.3, 0.3],
+        seed: 9001,
+        lfos: &[free(1, Sine, 0.3), free(2, RampDown, 0.25)],
+        routes: &[
+            (K::Lfo1, KitTarget::BusA, 0.5),
+            (K::Lfo2, KitTarget::BusB, 0.5),
+        ],
+        keys: [
+            k(KICK, -5, 0.0, &[(DRIVE, 1.0), (DROP, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .touch(1.0),
+            k(SNARE, 0, 0.0, &[(DRIVE, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .touch(1.0),
+            k(RING, -12, -0.6, &[(DRIVE, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .bus(A),
+            k(RING, 0, -0.2, &[(DRIVE, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .touch(1.0),
+            k(RING, 12, 0.2, &[(DRIVE, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .bus(B),
+            k(FOLD, 0, 0.6, &[(DRIVE, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .touch(1.0),
+            k(LOOP, 0, -0.8, &[(DRIVE, 1.0), (SPREAD, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .bus(A),
+            k(LOOP, 12, 0.8, &[(DRIVE, 1.0), (SPREAD, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .touch(1.0),
+            k(SPARK, 0, -0.3, &[(GRAIN, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .bus(B),
+            k(CLAP, 0, 0.3, &[(GRAIN, 1.0)]).threshold(-0.8).strike(1.0),
+            k(DUST, 0, 0.4, &[(GRAIN, 1.0)])
+                .strike(1.0)
+                .leak(150.0)
+                .hats(),
+            k(DUST, 0, 0.4, &[(GRAIN, 1.0)])
+                .strike(1.0)
+                .leak(3000.0)
+                .hats(),
+            k(LOOP, 24, 0.0, &[(DRIVE, 1.0), (SPREAD, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .leak(8000.0),
+            k(FOLD, 24, 0.5, &[(DRIVE, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0)
+                .bus(A),
+            k(SPARK, 0, -0.5, &[(GRAIN, 1.0)])
+                .threshold(-0.8)
+                .strike(1.0),
+            k(DUST, 0, 0.6, &[(GRAIN, 1.0), (SPREAD, 1.0)])
+                .strike(1.0)
+                .bus(B),
         ],
         ..INIT
     },
@@ -1988,19 +2703,31 @@ const HOP: usize = 1024;
 const BANDS: std::ops::RangeInclusive<i32> = -15..=12;
 /// The Level a cell may take: the parameter's range.
 const LEVEL_DB: (f32, f32) = (-60.0, 6.0);
+/// The least two kits may differ by ([`distance`]): two kits nearer than this sound alike.
+const ALIKE_DB: f32 = 10.0;
 /// How far under the others a noise cell or a droning one sits.
 const UNDER_DB: f32 = 6.0;
 /// How far every Level may come down together so a quiet cell can reach its balance under the
 /// Level's ceiling: the kick then sits this far under 0 dB at most.
 const MAKE_ROOM_DB: f32 = 6.0;
 
+/// The stretches of a hit its fingerprint is taken over, in seconds from the strike: the attack,
+/// the body and the tail.
+const STRETCHES: [f64; 3] = [0.1, 0.5, f64::INFINITY];
+/// The fingerprint's floor, under the hit's own loudest band.
+const PRINT_FLOOR_DB: f32 = -60.0;
+const PRINT: usize = STRETCHES.len() * 28;
+
 /// One cell's hit, measured.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 struct Hit {
     /// The highest short-term power any band reaches, in dB: the pink-noise measure.
     band_db: f64,
     /// The highest short-term power over all bands, K-weighted, in dB: the loudness measure.
     loudness_db: f64,
+    /// **What it sounds like, whatever its level**: each band's energy over each stretch, in dB under
+    /// the loudest of them, floored at [`PRINT_FLOOR_DB`].
+    print: [f32; PRINT],
 }
 
 /// Each cell of the kit `params` holds, struck alone from rest as a sequencer plays it, before its
@@ -2074,6 +2801,7 @@ fn measure(x: &[f64]) -> Hit {
         })
         .collect();
     let mut peak = vec![0.0f64; BANDS.count()];
+    let mut energies = vec![vec![0.0f64; BANDS.count()]; STRETCHES.len()];
     let mut loudest = 0.0f64;
     // Silence before the hit, so its attack is in the middle of a window as well as at the end.
     let padded: Vec<f64> = std::iter::repeat_n(0.0, WINDOW / 2)
@@ -2096,16 +2824,43 @@ fn measure(x: &[f64]) -> Hit {
             }
             weighted += power * weight;
         }
+        // The window's centre, in the hit's own time.
+        let at = start as f64 / f64::from(RATE);
+        let stretch = STRETCHES.iter().position(|end| at < *end).unwrap_or(0);
+        for (energy, band) in energies[stretch].iter_mut().zip(&bands) {
+            *energy += band;
+        }
         for (peak, band) in peak.iter_mut().zip(bands) {
             *peak = peak.max(band);
         }
         loudest = loudest.max(weighted);
     }
     let db = |power: f64| 10.0 * power.max(1e-30).log10();
+    let top = energies.iter().flatten().copied().fold(0.0, f64::max);
+    let mut print = [PRINT_FLOOR_DB; PRINT];
+    for (slot, energy) in print.iter_mut().zip(energies.iter().flatten()) {
+        *slot = ((db(*energy) - db(top)) as f32).max(PRINT_FLOOR_DB);
+    }
     Hit {
         band_db: db(peak.iter().copied().fold(0.0, f64::max)),
         loudness_db: db(loudest),
+        print,
     }
+}
+
+/// How far apart two kits sound: the mean over their cells of the RMS difference, in dB, of each
+/// cell's fingerprint. Key by key, since one beat plays every kit.
+fn distance(a: &[Hit; CELLS], b: &[Hit; CELLS]) -> f32 {
+    let cell = |x: &Hit, y: &Hit| {
+        let sum: f32 = x
+            .print
+            .iter()
+            .zip(&y.print)
+            .map(|(p, q)| (p - q) * (p - q))
+            .sum();
+        (sum / PRINT as f32).sqrt()
+    };
+    a.iter().zip(b).map(|(x, y)| cell(x, y)).sum::<f32>() / CELLS as f32
 }
 
 /// The K-weighting's power gain at `hz`: BS.1770-4's two 48 kHz biquads, a high shelf for the head
@@ -2461,4 +3216,39 @@ fn every_cell_of_every_kit_sounds() {
         }
     }
     assert!(silent.is_empty(), "{silent:#?}");
+}
+
+/// **No two kits sound alike, and none like Init**: every pair of the bank, Init included, at least
+/// [`ALIKE_DB`] apart by [`distance`]. Prints the closest pairs and each kit's nearest neighbour.
+/// Ignored, as it measures 816 hits.
+///
+/// `cargo test -p mxm-chaos-drums --release --lib no_two_kits_sound_alike -- --ignored --nocapture`
+#[test]
+#[ignore = "measures every cell of every kit"]
+fn no_two_kits_sound_alike() {
+    let mut bank = vec![("Init".to_owned(), measured(&MxmChaosDrumsParams::default()))];
+    for preset in FILES.iter() {
+        let params = MxmChaosDrumsParams::default();
+        apply(&params, preset);
+        bank.push((preset.name.clone(), measured(&params)));
+    }
+    let mut pairs = Vec::new();
+    for (i, (a, x)) in bank.iter().enumerate() {
+        for (b, y) in &bank[i + 1..] {
+            pairs.push((distance(x, y), a.as_str(), b.as_str()));
+        }
+    }
+    pairs.sort_by(|p, q| p.0.total_cmp(&q.0));
+    let median = pairs[pairs.len() / 2].0;
+    println!("{} pairs, median {median:.1} dB; the closest:", pairs.len());
+    for (d, a, b) in pairs.iter().take(12) {
+        println!("  {d:5.1} dB  {a} / {b}");
+    }
+    assert!(
+        pairs[0].0 >= ALIKE_DB,
+        "{} and {} are only {:.1} dB apart",
+        pairs[0].1,
+        pairs[0].2,
+        pairs[0].0
+    );
 }

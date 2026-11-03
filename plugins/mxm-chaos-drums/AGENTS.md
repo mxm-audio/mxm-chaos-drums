@@ -65,8 +65,11 @@ still to come.
   Its Levels are the brief's balance (`kits::balance`): equal loudness per hit, the noise cells
   6 dB under it, the whole kit down as far as 6 dB where a quiet cell needs the room. A balance is a preset's Levels, never a change to a model's sound (the owner,
   2026-11-03).
-- **The fifty factory kits** (`kits`, the owner, 2026-11-03) are on Init's role map, every closed
-  hat cutting its open hat, each cell moving only what its model reads; each file is complete, so
+- **The fifty factory kits** (`kits`, the owner, 2026-11-03) are abstract and far apart ("this is
+  abstract sounds. So go wild"): no two of them, nor any and Init, nearer than `ALIKE_DB` by
+  `distance`, each cell's level-free spectral fingerprint over its attack, body and tail
+  (`no_two_kits_sound_alike`). They keep Init's keys, the cells on 46 and 47 cutting each other,
+  each cell moving only what its model reads; each file is complete, so
   no default reaches a shipped kit, and balanced as Init is, a droning cell 6 dB under too. Change a
   kit in the design and rerun the generator; a change to a model or a default shows as a kit to
   regenerate (`the_shipped_kits_are_their_designs`, `init_and_every_kit_are_balanced`).
@@ -106,6 +109,7 @@ clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 38 passed, 6 s
 MXM_FLOORS=1 cargo test -p mxm-chaos-drums --lib tree_checks -- --nocapture   # every card's floor
 cargo test -p mxm-chaos-drums --release --lib write_the_factory_kits -- --ignored   # rewrites presets/
 cargo test -p mxm-chaos-drums --release --lib init_and_every_kit_are_balanced -- --ignored --nocapture
+cargo test -p mxm-chaos-drums --release --lib no_two_kits_sound_alike -- --ignored --nocapture
 ```
 
 # Child DOX Index

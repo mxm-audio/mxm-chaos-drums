@@ -87,6 +87,10 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   up at Temper 0; jitter, Flow and Coupling hard at full. The engines clamp what they cannot take,
   and `every_model_stays_finite_and_under_the_declared_peak_whatever_drives_it` drives the whole
   range. Narrow a range only on the owner's listening.
+- **Known: three Tone tops fall silent** (found balancing the factory kits, 2026-11-03). A spark's
+  Tone above about +0.5 puts its click's high-pass corner past the band, so it hardly sounds; a
+  snare's above +0.5 and a dust's above +0.6 move their band above 16 kHz. The kits stay under
+  them; the reach is the owner's to settle.
 - `cpu_cost` measured 7.5–14.5% of one core for sixteen busy cells at 96 kHz (2026-11-02); a change
   that moves it says so.
 
