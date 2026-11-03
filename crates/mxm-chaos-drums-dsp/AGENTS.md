@@ -46,7 +46,8 @@ twenty-five models render.
   kicked by the circle map), Loop (`strand.rs`, a nonlinear delay loop) and Dust (velvet noise), and
   the band two of them ring through.
 - `src/model.rs`: the permanent model IDs, the twenty-five kinds, and the available models with their
-  controls and notes.
+  controls and notes. `every_model_keeps_its_permanent_id` holds each ID to its label: a new model
+  appends a line to its golden list, and no line changes.
 - `src/fmath.rs`: `exp2`, semitones and the sine, in basic operations.
 - `examples/charge_grid.rs`: P1's listening grids. `examples/cpu_cost.rs`: sixteen busy cells at
   96 kHz, as a share of real time. `examples/capture_cost.rs`: Resample's capture, tame and at its
@@ -132,7 +133,9 @@ twenty-five models render.
   `GUIRO_TONE_UP`, `BRUSH_TONE_UP`, a grain law's `tone_up`): to 16 kHz at most.
 - `cpu_cost` measured 9–16% of one core for sixteen busy cells at 96 kHz, and 17–21% for the hats
   and cymbals, the dearest (2026-11-03: a hat's six phases, a cymbal's loop and noise); a change that
-  moves it says so.
+  moves it says so. Against the drum machine's `drum_machine_cpu_cost`, whose sixteen cymbals cost
+  3.0–3.5 µs a sample (29–34% of a core at 96 kHz, 2026-11-03), the heaviest here is two-thirds of
+  its heaviest.
 
 ## Verification
 

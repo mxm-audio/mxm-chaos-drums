@@ -589,6 +589,45 @@ fn the_grid_wraps_round() {
     assert_eq!(neighbours(15), [11, 3, 14, 12]);
 }
 
+/// **No ID moved**: every model at the ID Appendix A gave it, under its label. A kit stores a
+/// cell's model by its ID, so a moved ID would load a different drum. A new model appends a line;
+/// a line already here never changes.
+#[test]
+fn every_model_keeps_its_permanent_id() {
+    const GOLDEN: [(u8, &str); 25] = [
+        (1, "Draining kick"),
+        (2, "Wired snare"),
+        (3, "Leaking closed hat"),
+        (4, "Leaking open hat"),
+        (5, "Folded hat"),
+        (6, "Falling tom"),
+        (7, "Slapped conga"),
+        (8, "Slapped bongo"),
+        (9, "Damped rim"),
+        (10, "Damped clave"),
+        (11, "Spark clap"),
+        (12, "Coupled cowbell"),
+        (13, "Loop cymbal"),
+        (14, "Loop crash"),
+        (15, "Ringing ride"),
+        (16, "Grain maraca"),
+        (17, "Jingle tambourine"),
+        (18, "Scraping guiro"),
+        (19, "Coupled bell"),
+        (20, "Swept brush"),
+        (21, "Raw ring"),
+        (22, "Raw spark"),
+        (23, "Raw fold"),
+        (24, "Raw loop"),
+        (25, "Raw dust"),
+    ];
+    let listed: Vec<(u8, &str)> = AVAILABLE_MODELS
+        .iter()
+        .map(|spec| (spec.id.raw(), spec.label))
+        .collect();
+    assert_eq!(listed, GOLDEN);
+}
+
 #[test]
 fn every_model_has_the_kind_its_label_names_and_its_own_controls() {
     for spec in AVAILABLE_MODELS {
