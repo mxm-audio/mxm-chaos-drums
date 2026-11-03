@@ -5,9 +5,9 @@ Parent: [`../AGENTS.md`](../AGENTS.md)
 # Purpose
 
 The nice-plug shell over `mxm-chaos-drums-dsp`: identity, the parameters, the host contract, note
-ownership, the outputs, presets, the cells' names and the editor. **P3 and P5** (2026-11-02): the
-first version the owner explores. Resample and Export (mxm-drum-shell's `capture` and `pack`) are
-still to come.
+ownership, the outputs, presets, the cells' names, Resample and Export, and the editor. **P3 and
+P5** (2026-11-02): the first version the owner explores; Resample and Export, P3's last part,
+2026-11-03.
 
 # Ownership
 
@@ -25,7 +25,13 @@ still to come.
   the paging, the keyboard cursor (every square's M and S included), adding and offering routes, and
   the tree checks for every card in every model.
 - `src/telemetry.rs`: what the audio thread tells the editor (each cell's charge, each edge's flow,
-  the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics.
+  the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics, and Resample's
+  signals (mxm-drum-shell's `Signals`).
+- `src/capture.rs`: Resample's `Capturer`: the patch a capture renders from (`patches`, the mix
+  neutral and the buses off) and the kit's name a pack takes. The capture thread, the bank and the
+  state machine are mxm-drum-shell's `capture`; the capture and the frozen players the DSP's.
+- `src/pack.rs`: Export's sample pack, each cell's one-shot at unity gain (mxm-drum-shell's `pack`
+  writes it).
 - `control-map.json`: Master and two LFOs on existing roles.
 - `src/kits.rs` (tests only): the fifty factory kits' sparse design, the generator that balances
   them and writes `presets/`, the balance itself (Init's too), and the checks that hold the files.
@@ -56,10 +62,18 @@ still to come.
   when Reset on play is on (its default, the owner, 2026-11-02).
 - **Layouts.** Main plus sixteen mono outputs first; stereo only second, which MXM Player takes. A
   stereo-only host folds every cell's Output to the main pair.
-- **Parameters.** 41 a cell (`cell_ids`), 32 for the kit (`KIT_IDS`): 688. Output is an instance
-  setting no preset carries; Choke group is a kit setting presets carry. Routes are stored sparsely.
+- **Parameters.** 41 a cell (`cell_ids`), 33 for the kit (`KIT_IDS`): 689. Output and Resample are
+  instance settings no preset carries; Choke group is a kit setting presets carry. Routes are stored sparsely.
   *Deviation:* four route slots a cell, as the drum machine's, so `routing_checks` does not apply.
   IDs free during pre-alpha.
+- **Resample and Export**, as the drum machine's, through mxm-drum-shell: toggling Resample is a
+  parameter edit that `process` serves (`Resample::service`, a pointer swap at most), the capture on
+  the plugin's own thread, never nice-plug's shared background one (a task left on it against a
+  destroyed instance takes the thread down for every other); engaged at activation, the kit is
+  captured then. A capture is the patch's sound, not its history (the DSP's `capture`): nothing but
+  the mix stays live while frozen, so changing anything else is Resample off, edit, on. Export needs
+  Resample engaged and writes the kit heard, under its name, to the default pack folder or one
+  chosen. The pair sits in the app bar, moving into its `…` menu when the bar is narrow.
 - **Init** is the defaults: the brief's kit on the drum machine's role map, every route Off, Temper
   0. A role whose drum P4 has not built yet plays a raw engine standing in for it (`params::INIT`).
   Its Levels are the brief's balance (`kits::balance`): equal loudness per hit, the noise cells
@@ -105,12 +119,17 @@ still to come.
 ```bash
 cargo test -p mxm-chaos-drums
 cargo xtask bundle mxm-chaos-drums --release
-clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 38 passed, 6 skipped (2026-11-02)
+clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 35 passed, 3 failed, 6 skipped (2026-11-03)
 MXM_FLOORS=1 cargo test -p mxm-chaos-drums --lib tree_checks -- --nocapture   # every card's floor
 cargo test -p mxm-chaos-drums --release --lib write_the_factory_kits -- --ignored   # rewrites presets/
 cargo test -p mxm-chaos-drums --release --lib init_and_every_kit_are_balanced -- --ignored --nocapture
 cargo test -p mxm-chaos-drums --release --lib no_two_kits_sound_alike -- --ignored --nocapture
 ```
+
+The validator's three failures are preset discovery, once the factory kits are installed: on Windows
+it wants the factory folder as `/C:\…`, a Unix path, and fails `mxm-fx-eq-n`'s installed set the
+same way. Its parameter fuzz times out if a capture is slow (Resample engaged at activation captures
+then), which `capture_cost` watches.
 
 # Child DOX Index
 

@@ -1,5 +1,6 @@
 //! What the audio thread tells the editor, and what the editor asks of it: atomics, written once a
 //! block, never a lock or an allocation on the audio thread (the collection's editor contract).
+//! Resample's signals are mxm-kit's `mxm_drum_shell::signals`, held here.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -18,6 +19,8 @@ pub struct Telemetry {
     pool: AtomicU32,
     /// The cells the editor asked to hear, one bit each, struck at the next block.
     audition: AtomicU32,
+    /// Resample's capture requests, its frozen state and the last export's outcome.
+    pub signals: mxm_drum_shell::signals::Signals,
 }
 
 impl Default for Telemetry {
@@ -29,7 +32,14 @@ impl Default for Telemetry {
             flows: std::array::from_fn(|_| AtomicU32::new(0)),
             pool: AtomicU32::new(0),
             audition: AtomicU32::new(0),
+            signals: mxm_drum_shell::signals::Signals::new(),
         }
+    }
+}
+
+impl AsRef<mxm_drum_shell::signals::Signals> for Telemetry {
+    fn as_ref(&self) -> &mxm_drum_shell::signals::Signals {
+        &self.signals
     }
 }
 

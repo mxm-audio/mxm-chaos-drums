@@ -5,8 +5,12 @@
 //! # A capture is a function of the patch
 //!
 //! Each cell is struck alone from rest at [`CAPTURE_VELOCITY`], held for [`CAPTURE_GATE_S`], its
-//! neighbours at rest but coupled, and recorded before its Level until the whole kit rests, or
-//! [`MAX_CAPTURE_SECONDS`] pass and its tail is faded and reported truncated. The pool and the LFOs
+//! neighbours at rest but coupled, and recorded before its Level until it falls silent: the kit at
+//! rest, or the cell [`QUIET_DB`] under its own peak for [`QUIET_HOLD_SECONDS`], the inaudible rest of
+//! its tail left out. One still sounding at [`MAX_CAPTURE_SECONDS`] is faded there and reported
+//! truncated. A capture blocks activation when Resample is on, so it has to be quick: a full kit's
+//! takes a few hundred milliseconds, every cell sustaining itself at the cap a few seconds
+//! (`examples/capture_cost.rs`). The pool and the LFOs
 //! start from reset, so the capture is the patch's sound, not its history (the plan's *Resample for
 //! a lattice*). **The buses are off while it renders**: a frozen cell plays its hit, and a bus has no
 //! hit to give; a droning cell captures what a strike adds to it.
@@ -29,8 +33,14 @@ use crate::kit::{CELLS, Event, EventKind, Kit, KitParams};
 pub const CAPTURE_VELOCITY: f32 = 1.0;
 /// How long a capture's note is held: half a sixteenth at 120 BPM, a sequencer's gate.
 pub const CAPTURE_GATE_S: f32 = 0.0625;
-/// The longest one-shot: a tail still sounding here is faded out and reported truncated.
-pub const MAX_CAPTURE_SECONDS: f32 = 8.0;
+/// The longest one-shot: a tail still sounding here is faded out and reported truncated. Half the
+/// drum machine's, as a cell that sustains itself would otherwise make every capture that long.
+pub const MAX_CAPTURE_SECONDS: f32 = 4.0;
+/// A cell this far under its own peak has gone quiet: 80 dB, under a 16-bit file's floor.
+pub const QUIET_DB: f32 = -80.0;
+/// How long a cell must stay quiet before its capture ends: long enough that a sparse crackle's gap
+/// between two grains is not taken for the end.
+pub const QUIET_HOLD_SECONDS: f32 = 0.25;
 /// The fade on a truncated tail, long enough not to click.
 pub const TRUNCATION_FADE_SECONDS: f32 = 0.010;
 /// How long a one-shot takes to fade when a new strike, a choke or a reset ends it.
@@ -116,6 +126,9 @@ pub struct KitCaptureInProgress {
     cell: usize,
     engine: Option<Box<Kit>>,
     recorded: Vec<f32>,
+    /// The cell's loudest sample so far, and where its present quiet began, if it is quiet.
+    peak: f32,
+    quiet_from: Option<usize>,
     done: [Vec<f32>; CELLS],
     truncated: [bool; CELLS],
 }
@@ -131,6 +144,8 @@ impl KitCaptureInProgress {
             cell: 0,
             engine: None,
             recorded: Vec::new(),
+            peak: 0.0,
+            quiet_from: None,
             done: std::array::from_fn(|_| Vec::new()),
             truncated: [false; CELLS],
         }
@@ -145,13 +160,24 @@ impl KitCaptureInProgress {
         self.cell >= CELLS
     }
 
-    /// Renders up to `budget` frames of the cell under way, finishing it when it rests or reaches
-    /// the cap; returns the frames it rendered.
+    /// Renders up to `budget` frames of the cell under way, finishing it when it falls silent or
+    /// reaches the cap; returns the frames it rendered.
     fn render_cell(&mut self, budget: usize) -> usize {
         let rate = self.sample_rate;
         let cell = self.cell;
         let max = (MAX_CAPTURE_SECONDS * rate) as usize;
         let gate = ((CAPTURE_GATE_S * rate) as usize).max(1);
+        let hold = (QUIET_HOLD_SECONDS * rate) as usize;
+        let quiet = crate::fmath::exp2(QUIET_DB / 20.0 * core::f32::consts::LOG2_10);
+        // Each new sample: the loudest so far, and where the present quiet began.
+        let note = |peak: &mut f32, quiet_from: &mut Option<usize>, at: usize, x: f32| {
+            *peak = peak.max(x.abs());
+            if x.abs() > *peak * quiet {
+                *quiet_from = None;
+            } else if quiet_from.is_none() {
+                *quiet_from = Some(at);
+            }
+        };
         let engine = self.engine.get_or_insert_with(|| {
             let mut kit = Box::new(Kit::new(rate, self.kit, self.cells));
             let mut first = vec![[0.0; CELLS]; gate];
@@ -169,6 +195,11 @@ impl KitCaptureInProgress {
                 kind: EventKind::Release { cell },
             }]);
             self.recorded = first.iter().map(|frame| frame[cell]).collect();
+            self.peak = 0.0;
+            self.quiet_from = None;
+            for (at, &x) in self.recorded.iter().enumerate() {
+                note(&mut self.peak, &mut self.quiet_from, at, x);
+            }
             kit
         });
         let mut rendered = 0;
@@ -180,13 +211,23 @@ impl KitCaptureInProgress {
             if engine.cells_rest() {
                 break false;
             }
+            if let Some(from) = self.quiet_from
+                && self.recorded.len() >= from + hold
+            {
+                // Silent since `from`: what follows is under the floor, and left out.
+                self.recorded.truncate(from);
+                break false;
+            }
             if rendered >= budget {
                 return rendered;
             }
             let n = REST_CHECK_FRAMES.min(max - self.recorded.len());
             engine.process_raw(&[], &mut chunk[..n]);
-            self.recorded
-                .extend(chunk[..n].iter().map(|frame| frame[cell]));
+            for frame in &chunk[..n] {
+                let at = self.recorded.len();
+                self.recorded.push(frame[cell]);
+                note(&mut self.peak, &mut self.quiet_from, at, frame[cell]);
+            }
             rendered += n;
         };
         let mut shot = core::mem::take(&mut self.recorded);

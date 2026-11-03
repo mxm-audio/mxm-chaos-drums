@@ -37,6 +37,10 @@ const REFERENCE: (u32, u32) = (1346, 791);
 const MINIMUM: (u32, u32) = (444, 320);
 /// The keyboard cursor's card for the app bar's Master, outside the paging keys.
 const MASTER_CARD: u64 = 64;
+/// The keyboard cursor's card for the app bar's Resample, beside Master's.
+const RESAMPLE_CARD: u64 = 65;
+/// What Resample does, on hover.
+const RESAMPLE_HELP: &str = "Plays every cell from a recording of itself, struck from rest; Level, Pan, Mute, Solo and the output still work. To change anything else, turn this off, edit, and turn it on again.";
 /// What the Controls card says for a model that reads none.
 const NO_CONTROLS: &str = "This model has no controls of its own.";
 /// The Pool's bar under the grid.
@@ -86,17 +90,20 @@ pub type MxmChaosDrumsEditor = mxm_editor::Editor<App>;
 
 /// Wakes a host that has let the plugin sleep, so a cell asked to be heard sounds now.
 pub type Wake = Arc<dyn Fn() + Send + Sync>;
+/// Hands the plugin a task: Export's pack, for Resample's capture thread.
+pub type Spawn = Arc<dyn Fn(crate::Task) + Send + Sync>;
 
 pub fn create(
     params: Arc<MxmChaosDrumsParams>,
     telemetry: Arc<Telemetry>,
     wake: Wake,
+    spawn: Spawn,
 ) -> Option<MxmChaosDrumsEditor> {
     mxm_editor::create(
         crate::NAME,
         REFERENCE,
         MINIMUM,
-        App::new(params, telemetry, wake),
+        App::new(params, telemetry, wake, spawn),
     )
 }
 
@@ -104,6 +111,7 @@ pub struct App {
     params: Arc<MxmChaosDrumsParams>,
     telemetry: Arc<Telemetry>,
     wake: Wake,
+    spawn: Spawn,
     selected: usize,
     text_entry: HashMap<&'static str, Option<String>>,
     presets: PresetUi,
@@ -111,12 +119,18 @@ pub struct App {
 }
 
 impl App {
-    fn new(params: Arc<MxmChaosDrumsParams>, telemetry: Arc<Telemetry>, wake: Wake) -> Self {
+    fn new(
+        params: Arc<MxmChaosDrumsParams>,
+        telemetry: Arc<Telemetry>,
+        wake: Wake,
+        spawn: Spawn,
+    ) -> Self {
         let presets = PresetUi::new(params.as_ref());
         Self {
             params,
             telemetry,
             wake,
+            spawn,
             selected: 0,
             text_entry: HashMap::new(),
             presets,
@@ -141,6 +155,7 @@ impl mxm_editor::Panel for App {
             &mut self.text_entry,
             &mut self.presets,
             &mut self.nav,
+            Some(&self.spawn),
             &audition,
         );
         // A name emptied by a kit load or Init: the host hears of it.
@@ -166,14 +181,36 @@ pub fn panel(
     text_entry: &mut HashMap<&'static str, Option<String>>,
     presets: &mut PresetUi,
     nav: &mut mxm_ui::navigation::State,
+    spawn: Option<&Spawn>,
     audition: &dyn Fn(usize),
 ) {
     let tokens = tokens_for(ui);
     ui.ctx()
         .request_repaint_after(std::time::Duration::from_millis(33));
+    // The app bar's Resample and Export (`mxm_drum_shell::editor`): a pack asked for goes to the
+    // capture thread, through the plugin's task. No capture starts here: `process` asks for one, so
+    // a kit with its editor closed still re-renders when a parameter moves.
+    let export_pack = spawn.map(|spawn| {
+        move |sample_rate, destination| {
+            spawn(crate::Task::ExportPack {
+                sample_rate,
+                destination: Some(destination),
+            });
+        }
+    });
+    let bar = mxm_drum_shell::editor::Bar {
+        resample: &params.resample,
+        help: RESAMPLE_HELP,
+        card: RESAMPLE_CARD,
+        signals: &telemetry.signals,
+        export: export_pack
+            .as_ref()
+            .map(|export| export as &dyn Fn(f32, std::path::PathBuf)),
+        ids: mxm_drum_shell::editor::Ids::new(crate::NAME),
+    };
     let busy = presets.holds_the_keyboard() || text_entry.values().any(Option::is_some);
     mxm_ui::paging::editor::hold(ui.ctx(), busy);
-    mxm_ui::navigation::paged_with_bar(ui.ctx(), nav, busy, &[MASTER_CARD]);
+    mxm_ui::navigation::paged_with_bar(ui.ctx(), nav, busy, &[RESAMPLE_CARD, MASTER_CARD]);
 
     mxm_ui::AppBar::new(crate::NAME).show_with(
         ui,
@@ -195,8 +232,36 @@ pub fn panel(
             });
             mxm_ui::shell::zoom_control(ui);
             mxm_ui::shell::editor_theme_control(ui);
+            // Kit-wide, so in the bar, added last so the right-to-left group puts it at its left
+            // edge; past every other compact step it moves into the `…` menu, as the drum
+            // machine's, and its cursor card leaves with it.
+            let items = mxm_drum_shell::editor::menu_items(ui.ctx(), &bar);
+            if mxm_ui::shell::product_actions(ui, items, |ui| {
+                mxm_drum_shell::editor::pair(ui, &tokens, &bar, setter);
+            })
+            .is_none()
+            {
+                mxm_ui::navigation::bar_card_absent(ui.ctx(), RESAMPLE_CARD);
+            }
         },
     );
+    match mxm_ui::shell::take_product_action(ui.ctx()) {
+        Some(mxm_drum_shell::editor::RESAMPLE_ITEM) => {
+            let engaged = params.resample.value();
+            binding::set_together(
+                setter,
+                &[(
+                    &params.resample as &dyn ErasedParam,
+                    if engaged { 0.0 } else { 1.0 },
+                )],
+            );
+        }
+        Some(mxm_drum_shell::editor::EXPORT_ITEM) => {
+            mxm_drum_shell::editor::start_export(ui.ctx(), &bar);
+        }
+        _ => {}
+    }
+    mxm_drum_shell::editor::collect_export(ui.ctx(), &bar);
     mxm_preset::ui::overlays(ui, &tokens, params, setter, presets);
 
     let cell = (*selected).min(CELLS - 1);
@@ -1660,6 +1725,7 @@ mod tests {
                 entries,
                 presets,
                 nav,
+                None,
                 &|cell| telemetry.request_audition(cell),
             );
         }

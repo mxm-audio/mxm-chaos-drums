@@ -42,9 +42,10 @@ impl Instrument for MxmChaosDrumsParams {
         )
     }
 
-    /// Where a cell is heard is the instance's, as in the drum machine; no kit moves it.
+    /// Where a cell is heard, and Resample, are the instance's, as in the drum machine; no kit moves
+    /// them.
     fn is_instance_setting(&self, id: &str) -> bool {
-        id.starts_with("output_")
+        id.starts_with("output_") || id == "resample"
     }
 
     /// A kit load or Init: the drums changed, so every cell goes back to the name it is given.

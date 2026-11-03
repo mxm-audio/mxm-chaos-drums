@@ -15,7 +15,9 @@ macro_rules! plugin_name {
 pub const NAME: &str = plugin_name!();
 pub const CLAP_ID: &str = concat!("dk.mxm.", plugin_name!());
 
+pub mod capture;
 pub mod editor;
+pub mod pack;
 pub mod params;
 pub mod preset;
 pub mod routes;
@@ -43,11 +45,18 @@ use telemetry::Telemetry;
 /// machine's audition.
 pub const AUDITION_VELOCITY: f32 = 100.0 / 127.0;
 
-/// The editor's one task: wake a host that has let the plugin sleep, so a cell asked to be heard
-/// sounds now.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// What the editor asks for, through a GUI task.
+#[derive(Debug, Clone, PartialEq)]
 pub enum Task {
+    /// Nothing to do: wakes a host that has let the plugin sleep, so a cell asked to be heard
+    /// sounds now.
     Wake,
+    /// Write the frozen kit as a sample pack into `destination`, or the default folder: handed to
+    /// Resample's capture thread, which renders it from the patch heard (`capture`).
+    ExportPack {
+        sample_rate: f32,
+        destination: Option<std::path::PathBuf>,
+    },
 }
 
 /// The key cell 1 answers on; cell `n` on `FIRST_KEY + n`.
@@ -386,6 +395,9 @@ pub struct MxmChaosDrums {
     notes: Notes,
     multi_output: bool,
     play: PlayStart,
+    /// Resample: the engage count, the capture thread, its bank and its gate, this kit's capture
+    /// behind them (`mxm_drum_shell::capture::Resample`, `capture::Capture`).
+    resample: mxm_drum_shell::capture::Resample<capture::Capture>,
 }
 
 /// A start of the host's transport, reset in the callback that sees it: at its first sample, or, in
@@ -407,8 +419,10 @@ impl PlayStart {
 
 impl Default for MxmChaosDrums {
     fn default() -> Self {
+        let params = Arc::new(MxmChaosDrumsParams::default());
         Self {
-            params: Arc::new(MxmChaosDrumsParams::default()),
+            resample: mxm_drum_shell::capture::Resample::new(capture::Capture(Arc::clone(&params))),
+            params,
             telemetry: Telemetry::shared(),
             kit: None,
             frames: Vec::new(),
@@ -469,7 +483,9 @@ impl Plugin for MxmChaosDrums {
     type SysExMessage = ();
     type BackgroundTask = Task;
 
-    /// Nothing runs on nice-plug's shared background thread: the one task only wakes the host.
+    /// Nothing runs on nice-plug's shared background thread: a task queued there against an instance
+    /// since destroyed takes the thread down for every other (`mxm_drum_shell::capture`). Captures
+    /// and packs run on Resample's own thread; Wake only wakes the host.
     fn task_executor(&mut self) -> TaskExecutor<Self> {
         Box::new(|_task| {})
     }
@@ -484,8 +500,30 @@ impl Plugin for MxmChaosDrums {
     }
 
     fn editor(&mut self, async_executor: AsyncExecutor<Self>) -> Option<Self::Editor> {
+        // Resample itself is a parameter, which `process` serves; Export is a person pressing a
+        // button, handed to the same capture thread. No folder chosen is the default one, and a
+        // platform with none says so rather than the button doing nothing.
+        let spawn: editor::Spawn = {
+            let gate = self.resample.gate.clone();
+            let telemetry = self.telemetry.clone();
+            Arc::new(move |task| {
+                let Task::ExportPack {
+                    sample_rate,
+                    destination,
+                } = task
+                else {
+                    return;
+                };
+                match destination.or_else(pack::root) {
+                    Some(root) => gate.request_export(sample_rate, root),
+                    None => telemetry
+                        .signals
+                        .publish_export(mxm_drum_shell::signals::Export::NoDestination),
+                }
+            })
+        };
         let wake: editor::Wake = Arc::new(move || async_executor.execute_gui(Task::Wake));
-        editor::create(self.params.clone(), self.telemetry.clone(), wake)
+        editor::create(self.params.clone(), self.telemetry.clone(), wake, spawn)
     }
 
     fn activate(
@@ -506,6 +544,16 @@ impl Plugin for MxmChaosDrums {
         self.kit = Some(Box::new(Kit::new(sample_rate, kit, self.cell_settings())));
         self.notes = Notes::new();
         self.play = PlayStart::default();
+        // A new engage: the kit captured now when Resample is on, kept when its patch has not
+        // moved, and the capture thread spawned the first time (`Resample::activate`).
+        if let Some(kit) = self.kit.as_mut() {
+            self.resample.activate(
+                kit,
+                self.params.resample.value(),
+                &self.telemetry,
+                sample_rate,
+            );
+        }
         true
     }
 
@@ -553,6 +601,14 @@ impl Plugin for MxmChaosDrums {
         for (cell, settings) in cells.into_iter().enumerate() {
             kit.set_cell(cell, settings);
         }
+        // Resample: a pointer swap at most, the capture asked of its own thread (`Resample::service`).
+        let rate = kit.sample_rate();
+        self.resample.service(
+            kit,
+            self.params.resample.value(),
+            &self.telemetry.signals,
+            rate,
+        );
 
         let samples = buffer.samples().min(self.frames.len());
         let frames = &mut self.frames[..samples];

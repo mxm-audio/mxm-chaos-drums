@@ -30,7 +30,8 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
   controls and notes.
 - `src/fmath.rs`: `exp2`, semitones and the sine, in basic operations.
 - `examples/charge_grid.rs`: P1's listening grids. `examples/cpu_cost.rs`: sixteen busy cells at
-  96 kHz, as a share of real time.
+  96 kHz, as a share of real time. `examples/capture_cost.rs`: Resample's capture, tame and at its
+  worst.
 - `tests/charge.rs`: the contracts below; `tests/capture.rs`: Resample's.
 
 ## Local Contracts
@@ -79,7 +80,11 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
 - **Resample freezes the patch, not the history** (the plan's *Resample for a lattice*). A capture
   is each cell struck alone from rest at full strength for a sequencer's gate, its neighbours at
   rest but coupled, the buses off (a frozen cell plays its hit, and a bus has none), recorded before
-  Level until the kit rests or 8 s pass, then faded and said. Its settings with the mix neutral are
+  Level until it falls silent (the kit at rest, or the cell 80 dB under its peak for a quarter
+  second) or 4 s pass, then faded and said. It blocks activation when Resample is on, so its cost is
+  watched: a tame kit about half a second at 48 kHz, every cell sustaining itself at the cap under
+  three (`examples/capture_cost.rs`, 2026-11-03); the exact rest alone took twice as long, and the
+  validator's parameter fuzz timed out on it. Its settings with the mix neutral are
   its key (`capture_patches`), so Level, Pan, Mute, Solo, the output and Master, routes onto them
   included, stay live. A frozen strike plays its one-shot at its velocity's gain through Dynamics, a
   capture played quieter rather than struck softer; a new strike, a choke, a group's choke and a

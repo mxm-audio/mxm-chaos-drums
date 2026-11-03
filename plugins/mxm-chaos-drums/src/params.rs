@@ -376,6 +376,10 @@ pub struct MxmChaosDrumsParams {
     pub lfo3_sync: BoolParam,
     #[nested]
     pub kit_routes: Box<KitRoutes>,
+    /// Resample: every cell played from a recording of itself (`mxm_chaos_drums_dsp::capture`). An
+    /// instance setting, as the drum machine's: no kit turns it on or off.
+    #[id = "resample"]
+    pub resample: BoolParam,
     #[persist = "preset"]
     pub preset: RwLock<mxm_preset::PresetIdentity>,
     /// The names typed over the cells' made-up ones, one a cell, empty where none is
@@ -420,6 +424,7 @@ impl Default for MxmChaosDrumsParams {
             lfo3_shape: EnumParam::new("LFO 3 shape", LfoShapeChoice::Sine),
             lfo3_sync: BoolParam::new("LFO 3 sync", false),
             kit_routes: Box::default(),
+            resample: BoolParam::new("Resample", false),
             preset: RwLock::new(mxm_preset::PresetIdentity::default()),
             slot_names: RwLock::new(mxm_drum_shell::slot_names::empty()),
             names_written: AtomicBool::new(false),
@@ -494,6 +499,7 @@ impl MxmChaosDrumsParams {
                 &route.amount,
             ]);
         }
+        out.push(&self.resample);
         out
     }
 }
@@ -564,6 +570,7 @@ pub static KIT_IDS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
             out.push(Box::leak(format!("kroute{r}_{field}").into_boxed_str()));
         }
     }
+    out.push("resample");
     out
 });
 
