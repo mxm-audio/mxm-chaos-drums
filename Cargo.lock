@@ -2125,6 +2125,7 @@ dependencies = [
  "mxm-chaos-drums-dsp",
  "mxm-drum-shell",
  "mxm-editor",
+ "mxm-measure",
  "mxm-modulation-params",
  "mxm-params",
  "mxm-part-routing",
@@ -2204,6 +2205,14 @@ dependencies = [
 name = "mxm-keys"
 version = "0.4.1"
 source = "git+https://github.com/mxm-audio/mxm-kit?branch=main#38217a97188b8cfc8aee3a80db64e94e40c6b7a2"
+
+[[package]]
+name = "mxm-measure"
+version = "0.4.1"
+source = "git+https://github.com/mxm-audio/mxm-kit?branch=main#38217a97188b8cfc8aee3a80db64e94e40c6b7a2"
+dependencies = [
+ "mxm-rng",
+]
 
 [[package]]
 name = "mxm-modulation"

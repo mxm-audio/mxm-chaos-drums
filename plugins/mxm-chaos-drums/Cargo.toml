@@ -32,3 +32,5 @@ mxm-tempo.workspace = true
 [dev-dependencies]
 # The collection's shared headless checks (`crates/mxm-plugin-test`).
 mxm-plugin-test.workspace = true
+# The FFT `examples/kit_balance.rs` measures the cells' spectra with.
+mxm-measure.workspace = true

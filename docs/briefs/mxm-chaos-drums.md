@@ -337,6 +337,13 @@ Flow and Coupling sit at their defaults but do nothing until Temper rises. No bu
 The closed hat cuts the open hat in Init, as a kit does. Factory kits are installed files; the fifty
 come at the end (P6).
 
+**Levels balance the kit** (the owner, 2026-11-03): every cell equally loud per hit by ITU-R
+BS.1770's K-weighting, the kick at 0 dB, then the noise cells (the hats and the maraca) 6 dB below
+that, so they sit under the kick and snare. The plugin's `examples/kit_balance.rs` measures it, and
+also prints a pink-noise balance (equal peak power per third-octave band), which a kit may take
+instead; Init does not, because it raises every high cell to the Level's ceiling. A factory kit is
+balanced the same way.
+
 ---
 
 # Appendix A — the catalogue

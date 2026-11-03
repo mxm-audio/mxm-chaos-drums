@@ -180,32 +180,38 @@ pub struct CellParams {
 }
 
 /// Init's kit, on the drum machine's role map so the same beat plays both instruments (the brief's
-/// *Init*): the model, Coarse, Leak and choke group of each cell. Until P4 builds the brief's drums,
-/// a role whose drum is not built yet plays a raw engine that stands in for it.
-const INIT: [(ModelId, i32, Option<f32>, i32); CELLS] = [
-    (ModelId::DRAINING_KICK, 0, None, 0),
-    (ModelId::WIRED_SNARE, 0, None, 0),
+/// *Init*): the model, Coarse, Leak, choke group and Level of each cell. Until P4 builds the brief's
+/// drums, a role whose drum is not built yet plays a raw engine that stands in for it.
+///
+/// **The Levels balance the kit** (the owner, 2026-11-03): each cell equally loud per hit by
+/// ITU-R BS.1770's K-weighting, the kick at 0 dB, measured by `examples/kit_balance.rs`; then the
+/// three noise cells (both hats and the maraca) 6 dB under that, so they sit below the kick and
+/// snare. The two loops would want about +9 dB and take the Level's +6 dB ceiling. Rerun the example
+/// when a model or this table changes.
+const INIT: [(ModelId, i32, Option<f32>, i32, f32); CELLS] = [
+    (ModelId::DRAINING_KICK, 0, None, 0, 0.0),
+    (ModelId::WIRED_SNARE, 0, None, 0, 4.0),
     // The three toms, and the congas and bongo, rings and folds a fourth or a fifth apart.
-    (ModelId::RAW_RING, -5, None, 0),
-    (ModelId::RAW_RING, 0, None, 0),
-    (ModelId::RAW_RING, 5, None, 0),
-    (ModelId::RAW_FOLD, 0, None, 0),
-    (ModelId::RAW_FOLD, 5, None, 0),
-    (ModelId::RAW_LOOP, 7, None, 0),
+    (ModelId::RAW_RING, -5, None, 0, -1.0),
+    (ModelId::RAW_RING, 0, None, 0, -1.5),
+    (ModelId::RAW_RING, 5, None, 0, -1.5),
+    (ModelId::RAW_FOLD, 0, None, 0, -4.5),
+    (ModelId::RAW_FOLD, 5, None, 0, -4.5),
+    (ModelId::RAW_LOOP, 7, None, 0, 6.0),
     // Rim, clap, the hats (the closed one cuts the open one), crash, cowbell, clave, maraca.
-    (ModelId::RAW_SPARK, 0, None, 0),
-    (ModelId::SPARK_CLAP, 0, None, 0),
-    (ModelId::RAW_DUST, 0, Some(0.2), 1),
-    (ModelId::RAW_DUST, 0, Some(0.5), 1),
-    (ModelId::RAW_LOOP, 12, Some(0.6), 0),
-    (ModelId::RAW_FOLD, 12, None, 0),
-    (ModelId::RAW_SPARK, 12, Some(0.25), 0),
-    (ModelId::RAW_DUST, 5, Some(0.3), 0),
+    (ModelId::RAW_SPARK, 0, None, 0, 3.0),
+    (ModelId::SPARK_CLAP, 0, None, 0, 4.0),
+    (ModelId::RAW_DUST, 0, Some(0.2), 1, -6.5),
+    (ModelId::RAW_DUST, 0, Some(0.5), 1, -9.0),
+    (ModelId::RAW_LOOP, 12, Some(0.6), 0, 6.0),
+    (ModelId::RAW_FOLD, 12, None, 0, -5.0),
+    (ModelId::RAW_SPARK, 12, Some(0.25), 0, 5.5),
+    (ModelId::RAW_DUST, 5, Some(0.3), 0, -7.5),
 ];
 
 impl CellParams {
     fn new(index: usize) -> Self {
-        let (model, coarse, leak, choke) = INIT[index];
+        let (model, coarse, leak, choke, level_db) = INIT[index];
         let defaults = dsp::CellParams::new(model);
         Self {
             model: model_param(model.raw()),
@@ -237,7 +243,7 @@ impl CellParams {
             link: amount("Link", defaults.link),
             touch: amount("Touch", defaults.touch),
             bus: EnumParam::new("Bus", BusChoice::Off),
-            level: gain("Level", 0.0),
+            level: gain("Level", level_db),
             pan: pan_param(),
             mute: BoolParam::new("Mute", false),
             solo: BoolParam::new("Solo", false),

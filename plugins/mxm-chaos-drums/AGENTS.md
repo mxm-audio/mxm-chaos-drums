@@ -27,6 +27,8 @@ still to come.
 - `src/telemetry.rs`: what the audio thread tells the editor (each cell's charge, each edge's flow,
   the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics.
 - `control-map.json`: Master and two LFOs on existing roles.
+- `examples/kit_balance.rs`: Init's cells struck alone and measured, printing a pink-noise and a
+  loudness balance of their Levels beside the ones Init has.
 
 # Local Contracts
 
@@ -58,6 +60,9 @@ still to come.
   IDs free during pre-alpha.
 - **Init** is the defaults: the brief's kit on the drum machine's role map, every route Off, Temper
   0. A role whose drum P4 has not built yet plays a raw engine standing in for it (`params::INIT`).
+  Its Levels are the brief's balance, measured by `examples/kit_balance.rs`: equal loudness per
+  hit, the noise cells 6 dB under it. Rerun it when a model or `INIT` changes; a balance is a
+  preset's Levels, never a change to a model's sound (the owner, 2026-11-03).
 - **Realtime.** The kit, its delay lines and the frame buffer are made in `activate`; `process`
   allocates nothing (one sample's events are a fixed array). At rest it runs none of the core, and it
   reports `Normal` only when no LFO reaches the performance (`Kit::lfo_reaches_performance`): a
@@ -92,6 +97,7 @@ cargo test -p mxm-chaos-drums
 cargo xtask bundle mxm-chaos-drums --release
 clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 38 passed, 6 skipped (2026-11-02)
 MXM_FLOORS=1 cargo test -p mxm-chaos-drums --lib tree_checks -- --nocapture   # every card's floor
+cargo run -p mxm-chaos-drums --example kit_balance --release   # Init's Levels against the balance
 ```
 
 # Child DOX Index
