@@ -46,20 +46,28 @@ impl Drive {
         self.controls[number - 1]
     }
 
-    /// Control `number` as a factor of `octaves` either way.
+    /// Control `number` as a factor of `octaves` either way, widened by [`CONTROL_REACH`].
     fn octaves(&self, number: usize, octaves: f32) -> f32 {
         let control = self.control(number);
         if control == 0.0 {
             1.0
         } else {
-            exp2(octaves * control)
+            exp2(CONTROL_REACH * octaves * control)
         }
     }
 }
 
-/// How far the Threshold parameter moves a threshold, and how far jitter can at full Temper.
-const THRESHOLD_REACH: f32 = 0.25;
-const JITTER_REACH: f32 = 0.15;
+/// How far every model control reaches past the drum it starts as: each `octaves` a control is
+/// written with is its drum-like span, and the control goes this many times as far, out to where the
+/// drum stops being one (the owner, 2026-11-03: the inspiration "has a more crazy range"). Every
+/// engine clamps what it cannot take (a band below 0.45 of the rate, a loop's damping and length, a
+/// ring's state), so a reach is never a stability question.
+const CONTROL_REACH: f32 = 2.5;
+
+/// How far the Threshold parameter moves a threshold: far enough that any model can be tipped into
+/// sustaining itself, or breaking up, at Temper 0. And how far jitter moves it at full Temper.
+const THRESHOLD_REACH: f32 = 0.8;
+const JITTER_REACH: f32 = 0.45;
 
 /// A threshold in charge: the model's own at Temper 0, moved toward onset by Temper.
 fn threshold(base: f32, temper_shift: f32, drive: &Drive) -> f32 {
@@ -105,9 +113,9 @@ impl RingLaw {
         ring.tick(w, eps, drive.neighbour + drive.supply)
     }
 
-    /// A hit's impulse, with Snap from control 6.
+    /// A hit's impulse, with Snap from control 6: half an octave of it either way, widened.
     fn strike(&self, ring: &mut Ring, velocity: f32, controls: &[f32; CONTROLS]) {
-        ring.strike(self.strike * velocity * (1.0 + 0.5 * controls[5]).max(0.0));
+        ring.strike(self.strike * velocity * exp2(CONTROL_REACH * 0.5 * controls[5]));
     }
 }
 
@@ -344,7 +352,7 @@ impl Voice {
             Self::Clap(clap) => clap.spark.prime(),
             Self::RawSpark(raw) => raw.spark.prime(),
             Self::RawLoop(raw) => {
-                let snap = exp2(controls[5]);
+                let snap = exp2(CONTROL_REACH * controls[5]);
                 raw.burst_left = ((LOOP_BURST_S * snap * sample_rate) as u32).max(1);
                 raw.burst_level = velocity;
             }
@@ -372,7 +380,8 @@ impl Voice {
                     * (drive.charge * (1.0 - WIRES_FOLLOW_BODY + WIRES_FOLLOW_BODY * swing)
                         + 0.3 * drive.neighbour.abs().min(1.0));
                 let wires = snare.wires.tick(density, sample_rate);
-                let mix = (SNARE_BODY_MIX + 0.3 * drive.control(2)).clamp(0.05, 0.95);
+                // Body, widened, runs from all wires to all drum.
+                let mix = (SNARE_BODY_MIX + 0.3 * CONTROL_REACH * drive.control(2)).clamp(0.0, 1.0);
                 mix * body + (1.0 - mix) * wires
             }
             Self::Clap(clap) => {
@@ -437,7 +446,7 @@ impl Voice {
                     &mut lines[0],
                     &StrandDrive {
                         age,
-                        second_age: age * LOOP_SECOND_RATIO * exp2(0.5 * spread),
+                        second_age: age * LOOP_SECOND_RATIO * exp2(CONTROL_REACH * 0.5 * spread),
                         second: 0.25 * (spread + 1.0),
                         gain: gain.clamp(0.0, LOOP_GAIN_MAX),
                         damping: LOOP_DAMPING * drive.octaves(9, 1.0),

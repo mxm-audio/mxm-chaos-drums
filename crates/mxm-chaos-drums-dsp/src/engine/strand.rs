@@ -4,8 +4,9 @@ use mxm_dsp::delay::AgeLine;
 use mxm_dsp::guard::flush;
 use mxm_dsp::shape::tanh_approx;
 
-/// The lowest pitch a loop holds, which sets its line's length.
-pub const LOWEST_HZ: f32 = 20.0;
+/// The lowest pitch a loop holds, which sets its line's length: below the raw loop's four octaves
+/// down (13.75 Hz), where it is a flutter more than a tone.
+pub const LOWEST_HZ: f32 = 10.0;
 
 /// The Karplus–Strong family (Karplus and Strong, 1983; Jaffe and Smith, 1983): a delay line fed
 /// back through a one-pole low-pass, here with a saturator in the loop. Below unity loop gain it is a

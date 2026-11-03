@@ -710,7 +710,12 @@ fn cell_stack(
         CellTarget::Control(k) => available(p.model_id())
             .and_then(|spec| spec.controls.iter().find(|c| c.number == k + 1))
             .map_or_else(
-                || (format!("Control {}", k + 1), false),
+                || {
+                    (
+                        mxm_chaos_drums_dsp::GENERAL_NAMES[usize::from(k)].to_owned(),
+                        false,
+                    )
+                },
                 |c| (c.name.to_owned(), true),
             ),
         target => (cell_target_name(cell_target_index(target)), true),
@@ -1873,7 +1878,7 @@ mod tests {
         // The Draining kick reads no control 1.
         let unused = cell_stack(&params, 0, CellTarget::Control(0));
         assert!(!unused.shown && unused.offered().is_empty());
-        assert_eq!(unused.label(), "Control 1 (unused)");
+        assert_eq!(unused.label(), "Tone (unused)");
         let drop = cell_stack(&params, 0, CellTarget::Control(2));
         assert!(drop.shown && drop.name == "Drop");
         for (r, source) in SourceChoice::SOURCES

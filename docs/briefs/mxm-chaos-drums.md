@@ -232,14 +232,14 @@ Every model has the kind its label's last word names, held by a test.
 | Suffix | Host name in cell N | Range and default |
 |---|---|---|
 | `model` | `Cell N model` | 0…255 stepped; Init's kit below |
-| `coarse` | `Cell N coarse` | −24…+24 semitones, stepped; 0 |
+| `coarse` | `Cell N coarse` | −48…+48 semitones, stepped, from a subsonic thump to a piercing tone; 0 |
 | `fine` | `Cell N fine` | −100…+100 cents; 0 |
-| `c01` … `c12` | `Cell N control 1` … `12` | bipolar; zero is the model's own setting (below) |
+| `c01` … `c12` | `Cell N tone` … `Cell N damping`, `Cell N control 10` … `12`: the general names (below) | bipolar; zero is the model's own setting, and either end reaches two and a half times the drum's own span, out past where it stops being that drum (the owner, 2026-11-03) |
 | `strike` | `Cell N strike` | the packet at full velocity, 0–100% of the ceiling; 60% *(prov.)* |
 | `supply` | `Cell N supply` | how fast a held note fills the cell at full velocity, 0–100%; 30% *(prov.)* |
 | `hunger` | `Cell N hunger` | how fast sounding spends charge, 0–100%; 50% *(prov.)* |
 | `leak` | `Cell N leak` | the time to drain at rest, 20 ms – 30 s *(prov.)*, never infinite, so every cell comes to rest; the model's default |
-| `threshold` | `Cell N threshold` | bipolar, around the model's operating point; 0 |
+| `threshold` | `Cell N threshold` | bipolar, around the model's operating point, far enough either way to tip any model into sustaining itself or breaking up at Temper 0; 0 |
 | `link` | `Cell N link` | the cell's share in Flow and Coupling, 0–100%; 100% |
 | `touch` | `Cell N touch` | how strongly its touch key acts, 0–100%; 50% *(prov.)* |
 | `bus` | `Cell N bus` | `Off`, `A`, `B`; Off |
@@ -275,8 +275,8 @@ where the general one would mislead. Shared meanings keep their number on every 
 | ID | Range and default |
 |---|---|
 | `temper` | 0–100%; 0 |
-| `flow` | how fast charge moves between neighbours, 0–100%, scaled by Temper; 50% *(prov.)* |
-| `coupling` | how much of each cell's sound reaches its neighbours, 0–100%, scaled by Temper; 50% *(prov.)* |
+| `flow` | how fast charge moves between neighbours, 0–100%, scaled by Temper; at full a full cell empties into its neighbours within a beat; 50% *(prov.)* |
+| `coupling` | how much of each cell's sound reaches its neighbours, 0–100%, scaled by Temper; at full enough to drive a quiet cell into its own regime; 50% *(prov.)* |
 | `pool` | the shared supply's capacity, 0–100%; 100% *(prov.)* |
 | `recharge` | the time the Pool takes to refill; 500 ms *(prov.)* |
 | `bus_a`, `bus_b` | each bus's level, 0–100%; 0 |

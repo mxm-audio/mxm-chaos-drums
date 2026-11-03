@@ -81,6 +81,12 @@ Spark clap) and the five raw ones; the rest of the catalogue is P4's.
 
 - The constants in `voice.rs`, `cell.rs`, `pool.rs` and `kit.rs` are starting points. The owner's
   listening settles them; change one with the grid rendered before and after.
+- **The ranges are wide on purpose** (the owner, 2026-11-03: the inspiration "has a more crazy
+  range"): Coarse ±48 semitones; every model control two and a half times its drum's own span
+  (`voice::CONTROL_REACH`); Threshold far enough to tip any model into sustaining itself or breaking
+  up at Temper 0; jitter, Flow and Coupling hard at full. The engines clamp what they cannot take,
+  and `every_model_stays_finite_and_under_the_declared_peak_whatever_drives_it` drives the whole
+  range. Narrow a range only on the owner's listening.
 - `cpu_cost` measured 7.5–14.5% of one core for sixteen busy cells at 96 kHz (2026-11-02); a change
   that moves it says so.
 

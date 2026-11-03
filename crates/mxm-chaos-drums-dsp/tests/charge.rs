@@ -173,7 +173,7 @@ fn every_model_stays_finite_and_under_the_declared_peak_whatever_drives_it() {
     for rate in [1_000.0, 44_100.0, 48_000.0, 96_000.0, 192_000.0] {
         let random_cell = |rng: &mut Xorshift32| {
             let mut cell = CellParams::new(models[rng.next_u32() as usize % models.len()]);
-            cell.coarse = (rng.bipolar_f32() * 24.0) as i8;
+            cell.coarse = (rng.bipolar_f32() * 48.0) as i8;
             cell.strike = rng.unit_f32();
             cell.supply = rng.unit_f32();
             cell.hunger = rng.unit_f32();

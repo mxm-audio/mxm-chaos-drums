@@ -156,6 +156,24 @@ impl Kind {
     }
 }
 
+/// The general controls' names, control 1 first, as the brief's table has them: what a control is
+/// called where no model names it, in the host and on a route left on a control the model does not
+/// read. Controls 10–12 are a model's own and have no general name.
+pub const GENERAL_NAMES: [&str; crate::routes::CONTROLS] = [
+    "Tone",
+    "Body",
+    "Drop",
+    "Spread",
+    "Grain",
+    "Snap",
+    "Drive",
+    "Size",
+    "Damping",
+    "Control 10",
+    "Control 11",
+    "Control 12",
+];
+
 /// A general control a model reads: its number (1…12) and the name the model shows it under.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ControlSpec {

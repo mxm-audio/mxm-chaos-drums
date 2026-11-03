@@ -47,7 +47,7 @@ pub enum Bus {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CellParams {
     pub model: ModelId,
-    /// Semitones, −24…+24.
+    /// Semitones, −48…+48: four octaves either way, from a subsonic thump to a piercing tone.
     pub coarse: i8,
     /// Cents, −100…+100.
     pub fine: f32,
@@ -373,7 +373,7 @@ impl Cell {
         {
             *out = (base + add).clamp(-1.0, 1.0);
         }
-        self.eff.semitones = f32::from(p.coarse.clamp(-24, 24))
+        self.eff.semitones = f32::from(p.coarse.clamp(-48, 48))
             + p.fine.clamp(-100.0, 100.0) / 100.0
             + mods.pitch_semitones;
         self.eff.level = p.level.max(0.0) * standard::amplitude_factor(mods.level);

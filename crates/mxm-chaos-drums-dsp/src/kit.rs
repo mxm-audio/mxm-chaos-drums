@@ -21,13 +21,16 @@ pub const SIDE: usize = 4;
 /// Every edge of the torus once: each cell to its right and its lower neighbour.
 pub const EDGES: usize = 2 * CELLS;
 
-/// Flow at full moves charge between neighbours at this rate, per second.
-const FLOW_FULL: f32 = 25.0;
+/// Flow at full moves charge between neighbours at this rate, per second: fast enough that a full
+/// cell empties into its neighbours within a beat, so cells drain each other hard (the owner,
+/// 2026-11-03).
+const FLOW_FULL: f32 = 100.0;
 /// The most one edge may move in a sample, as a share of the difference: four edges a cell at this
 /// stay under half, so Flow can never overshoot.
 const FLOW_EDGE_MAX: f32 = 0.12;
-/// Coupling at full feeds a cell this much of its neighbours' mean sound.
-const COUPLE_FULL: f32 = 2.0;
+/// Coupling at full feeds a cell this much of its neighbours' mean sound: enough to drive a quiet
+/// cell into its own regime from theirs. Every engine bounds what it is fed.
+const COUPLE_FULL: f32 = 6.0;
 
 /// The four neighbours of `cell`: above, below, left, right, wrapping round.
 #[must_use]

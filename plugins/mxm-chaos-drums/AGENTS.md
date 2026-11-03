@@ -75,7 +75,8 @@ still to come.
   the drum machine's: `‹ modulate ›` offers the sources not on the knob while a slot is free; adding
   takes a free slot (one aimed at that knob first) in one bracketed gesture; removing switches the
   source off and keeps the depth. A route aimed at a control the model does not read is drawn
-  under `Control N (unused)`, removable, never offered more. No Routes card may come back.
+  under its general name, `Tone (unused)`, removable, never offered more. No Routes card may come
+  back. The host and a route name a control by its general name (`GENERAL_NAMES`).
 - *Not yet as the brief has it:* Mute and Solo sit on the Output card, the grid showing their
   marks.
 

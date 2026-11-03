@@ -198,7 +198,7 @@ pub fn cell_target_name(index: i32) -> String {
     match cell_target(index) {
         CellTarget::Off => "Off".to_owned(),
         CellTarget::Pitch => "Pitch".to_owned(),
-        CellTarget::Control(k) => format!("Control {}", k + 1),
+        CellTarget::Control(k) => mxm_chaos_drums_dsp::GENERAL_NAMES[usize::from(k)].to_owned(),
         CellTarget::Strike => "Strike".to_owned(),
         CellTarget::Supply => "Supply".to_owned(),
         CellTarget::Hunger => "Hunger".to_owned(),

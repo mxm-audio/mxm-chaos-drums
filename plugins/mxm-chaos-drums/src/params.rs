@@ -54,7 +54,7 @@ pub struct ControlParams {
 
 impl Default for ControlParams {
     fn default() -> Self {
-        let c = |k: usize| bipolar(&format!("Control {k}"));
+        let c = |k: usize| bipolar(mxm_chaos_drums_dsp::GENERAL_NAMES[k - 1]);
         Self {
             c01: c(1),
             c02: c(2),
@@ -209,7 +209,7 @@ impl CellParams {
         let defaults = dsp::CellParams::new(model);
         Self {
             model: model_param(model.raw()),
-            coarse: IntParam::new("Coarse", coarse, IntRange::Linear { min: -24, max: 24 })
+            coarse: IntParam::new("Coarse", coarse, IntRange::Linear { min: -48, max: 48 })
                 .with_unit(" st"),
             fine: FloatParam::new(
                 "Fine",
@@ -257,7 +257,7 @@ impl CellParams {
     pub fn dsp(&self, multi_output: bool) -> dsp::CellParams {
         dsp::CellParams {
             model: self.model_id(),
-            coarse: self.coarse.value().clamp(-24, 24) as i8,
+            coarse: self.coarse.value().clamp(-48, 48) as i8,
             fine: self.fine.value(),
             controls: self.controls.all().map(FloatParam::value),
             strike: self.strike.value(),
