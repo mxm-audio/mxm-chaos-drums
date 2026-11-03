@@ -926,12 +926,12 @@
       "text": "0 st"
     },
     "coarse_13": {
-      "v": 0.9479167,
-      "text": "43 st"
+      "v": 0.8229167,
+      "text": "31 st"
     },
     "coarse_14": {
-      "v": 0.75,
-      "text": "24 st"
+      "v": 0.46875,
+      "text": "-3 st"
     },
     "coarse_15": {
       "v": 0.5,
@@ -958,16 +958,16 @@
       "text": "-24 st"
     },
     "coarse_6": {
-      "v": 0.75,
-      "text": "24 st"
+      "v": 0.59375,
+      "text": "9 st"
     },
     "coarse_7": {
-      "v": 0.8229167,
-      "text": "31 st"
+      "v": 0.6666667,
+      "text": "16 st"
     },
     "coarse_8": {
-      "v": 0.875,
-      "text": "36 st"
+      "v": 0.71875,
+      "text": "21 st"
     },
     "coarse_9": {
       "v": 0.5,
@@ -1150,12 +1150,12 @@
       "text": "2.00 s"
     },
     "leak_3": {
-      "v": 0.42,
-      "text": "432 ms"
+      "v": 0.45,
+      "text": "537 ms"
     },
     "leak_4": {
-      "v": 0.42,
-      "text": "432 ms"
+      "v": 0.45,
+      "text": "537 ms"
     },
     "leak_5": {
       "v": 0.42,
@@ -1186,20 +1186,20 @@
       "text": "-3.5 dB"
     },
     "level_11": {
-      "v": 0.66499,
-      "text": "-13.5 dB"
+      "v": 0.7620131,
+      "text": "-7.0 dB"
     },
     "level_12": {
-      "v": 0.6443778,
-      "text": "-15.0 dB"
+      "v": 0.73076564,
+      "text": "-9.0 dB"
     },
     "level_13": {
-      "v": 0.9007886,
-      "text": "1.0 dB"
+      "v": 0.78631103,
+      "text": "-5.5 dB"
     },
     "level_14": {
-      "v": 0.7231532,
-      "text": "-9.5 dB"
+      "v": 0.7620131,
+      "text": "-7.0 dB"
     },
     "level_15": {
       "v": 0.94910365,
@@ -1214,28 +1214,28 @@
       "text": "-8.0 dB"
     },
     "level_3": {
-      "v": 0.8285233,
-      "text": "-3.0 dB"
+      "v": 0.8549216,
+      "text": "-1.5 dB"
     },
     "level_4": {
-      "v": 0.7462281,
-      "text": "-8.0 dB"
+      "v": 0.77002877,
+      "text": "-6.5 dB"
     },
     "level_5": {
       "v": 0.66499,
       "text": "-13.5 dB"
     },
     "level_6": {
-      "v": 0.8821553,
-      "text": "0.0 dB"
+      "v": 0.8914235,
+      "text": "0.5 dB"
     },
     "level_7": {
-      "v": 0.8821553,
-      "text": "0.0 dB"
+      "v": 0.8914235,
+      "text": "0.5 dB"
     },
     "level_8": {
-      "v": 0.9102516,
-      "text": "1.5 dB"
+      "v": 0.8914235,
+      "text": "0.5 dB"
     },
     "level_9": {
       "v": 1.0,
@@ -1354,20 +1354,20 @@
       "text": "Spark clap"
     },
     "model_11": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.011764706,
+      "text": "Leaking closed hat"
     },
     "model_12": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.015686275,
+      "text": "Leaking open hat"
     },
     "model_13": {
-      "v": 0.09411765,
-      "text": "Raw loop"
+      "v": 0.050980393,
+      "text": "Loop cymbal"
     },
     "model_14": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.07450981,
+      "text": "Coupled bell"
     },
     "model_15": {
       "v": 0.08627451,
@@ -1382,28 +1382,28 @@
       "text": "Wired snare"
     },
     "model_3": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_4": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_5": {
       "v": 0.09803922,
       "text": "Raw dust"
     },
     "model_6": {
-      "v": 0.09411765,
-      "text": "Raw loop"
+      "v": 0.05882353,
+      "text": "Ringing ride"
     },
     "model_7": {
-      "v": 0.09411765,
-      "text": "Raw loop"
+      "v": 0.05882353,
+      "text": "Ringing ride"
     },
     "model_8": {
-      "v": 0.09411765,
-      "text": "Raw loop"
+      "v": 0.05882353,
+      "text": "Ringing ride"
     },
     "model_9": {
       "v": 0.08627451,

@@ -930,16 +930,16 @@
       "text": "31 st"
     },
     "coarse_14": {
-      "v": 1.0,
-      "text": "48 st"
+      "v": 0.5,
+      "text": "0 st"
     },
     "coarse_15": {
       "v": 0.5,
       "text": "0 st"
     },
     "coarse_16": {
-      "v": 0.5,
-      "text": "0 st"
+      "v": 0.625,
+      "text": "12 st"
     },
     "coarse_2": {
       "v": 0.625,
@@ -1134,8 +1134,8 @@
       "text": "2.00 s"
     },
     "leak_14": {
-      "v": 0.42,
-      "text": "432 ms"
+      "v": 0.2,
+      "text": "86 ms"
     },
     "leak_15": {
       "v": 0.42,
@@ -1150,16 +1150,16 @@
       "text": "373 ms"
     },
     "leak_3": {
-      "v": 0.42,
-      "text": "432 ms"
+      "v": 0.45,
+      "text": "537 ms"
     },
     "leak_4": {
       "v": 0.42,
       "text": "432 ms"
     },
     "leak_5": {
-      "v": 0.42,
-      "text": "432 ms"
+      "v": 0.45,
+      "text": "537 ms"
     },
     "leak_6": {
       "v": 0.42,
@@ -1174,72 +1174,72 @@
       "text": "432 ms"
     },
     "leak_9": {
-      "v": 0.42,
-      "text": "432 ms"
+      "v": 0.25,
+      "text": "124 ms"
     },
     "level_1": {
-      "v": 0.8285233,
-      "text": "-3.0 dB"
-    },
-    "level_10": {
-      "v": 0.9007886,
-      "text": "1.0 dB"
-    },
-    "level_11": {
-      "v": 0.8821553,
-      "text": "0.0 dB"
-    },
-    "level_12": {
-      "v": 0.8639054,
-      "text": "-1.0 dB"
-    },
-    "level_13": {
-      "v": 0.8639054,
-      "text": "-1.0 dB"
-    },
-    "level_14": {
-      "v": 0.73076564,
-      "text": "-9.0 dB"
-    },
-    "level_15": {
-      "v": 0.81137544,
-      "text": "-4.0 dB"
-    },
-    "level_16": {
       "v": 0.7781278,
       "text": "-6.0 dB"
     },
-    "level_2": {
-      "v": 1.0,
-      "text": "6.0 dB"
+    "level_10": {
+      "v": 0.84603065,
+      "text": "-2.0 dB"
     },
-    "level_3": {
-      "v": 0.77002877,
-      "text": "-6.5 dB"
+    "level_11": {
+      "v": 0.84603065,
+      "text": "-2.0 dB"
     },
-    "level_4": {
+    "level_12": {
+      "v": 0.8285233,
+      "text": "-3.0 dB"
+    },
+    "level_13": {
       "v": 0.81137544,
       "text": "-4.0 dB"
     },
-    "level_5": {
-      "v": 0.73845696,
-      "text": "-8.5 dB"
-    },
-    "level_6": {
-      "v": 0.9007886,
-      "text": "1.0 dB"
-    },
-    "level_7": {
+    "level_14": {
       "v": 0.77002877,
       "text": "-6.5 dB"
     },
+    "level_15": {
+      "v": 0.7620131,
+      "text": "-7.0 dB"
+    },
+    "level_16": {
+      "v": 1.0,
+      "text": "6.0 dB"
+    },
+    "level_2": {
+      "v": 0.9392385,
+      "text": "3.0 dB"
+    },
+    "level_3": {
+      "v": 0.7462281,
+      "text": "-8.0 dB"
+    },
+    "level_4": {
+      "v": 0.7620131,
+      "text": "-7.0 dB"
+    },
+    "level_5": {
+      "v": 0.70816135,
+      "text": "-10.5 dB"
+    },
+    "level_6": {
+      "v": 0.84603065,
+      "text": "-2.0 dB"
+    },
+    "level_7": {
+      "v": 0.7231532,
+      "text": "-9.5 dB"
+    },
     "level_8": {
-      "v": 0.80293393,
-      "text": "-4.5 dB"
+      "v": 0.7620131,
+      "text": "-7.0 dB"
     },
     "level_9": {
-      "v": 0.9007886,
-      "text": "1.0 dB"
+      "v": 0.77002877,
+      "text": "-6.5 dB"
     },
     "lfo1_rate": {
       "v": 0.4405,
@@ -1354,44 +1354,44 @@
       "text": "Spark clap"
     },
     "model_11": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.011764706,
+      "text": "Leaking closed hat"
     },
     "model_12": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.015686275,
+      "text": "Leaking open hat"
     },
     "model_13": {
       "v": 0.09411765,
       "text": "Raw loop"
     },
     "model_14": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.039215688,
+      "text": "Damped clave"
     },
     "model_15": {
       "v": 0.08627451,
       "text": "Raw spark"
     },
     "model_16": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.06666667,
+      "text": "Jingle tambourine"
     },
     "model_2": {
       "v": 0.007843138,
       "text": "Wired snare"
     },
     "model_3": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_4": {
       "v": 0.08627451,
       "text": "Raw spark"
     },
     "model_5": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_6": {
       "v": 0.08627451,
@@ -1406,8 +1406,8 @@
       "text": "Raw spark"
     },
     "model_9": {
-      "v": 0.08627451,
-      "text": "Raw spark"
+      "v": 0.0627451,
+      "text": "Grain maraca"
     },
     "mute_1": {
       "v": 0.0,

@@ -926,8 +926,8 @@
       "text": "0 st"
     },
     "coarse_13": {
-      "v": 0.8229167,
-      "text": "31 st"
+      "v": 0.5,
+      "text": "0 st"
     },
     "coarse_14": {
       "v": 0.75,
@@ -970,8 +970,8 @@
       "text": "0 st"
     },
     "coarse_9": {
-      "v": 0.5,
-      "text": "0 st"
+      "v": 0.625,
+      "text": "12 st"
     },
     "coupling": {
       "v": 0.5,
@@ -1174,8 +1174,8 @@
       "text": "432 ms"
     },
     "leak_6": {
-      "v": 0.42,
-      "text": "432 ms"
+      "v": 0.25,
+      "text": "124 ms"
     },
     "leak_7": {
       "v": 0.42,
@@ -1198,16 +1198,16 @@
       "text": "1.5 dB"
     },
     "level_11": {
-      "v": 1.0,
-      "text": "6.0 dB"
+      "v": 0.9102516,
+      "text": "1.5 dB"
     },
     "level_12": {
-      "v": 1.0,
-      "text": "6.0 dB"
+      "v": 0.8549216,
+      "text": "-1.5 dB"
     },
     "level_13": {
-      "v": 0.9294755,
-      "text": "2.5 dB"
+      "v": 0.9102516,
+      "text": "1.5 dB"
     },
     "level_14": {
       "v": 0.70078033,
@@ -1238,8 +1238,8 @@
       "text": "-10.5 dB"
     },
     "level_6": {
-      "v": 0.7540798,
-      "text": "-7.5 dB"
+      "v": 0.80293393,
+      "text": "-4.5 dB"
     },
     "level_7": {
       "v": 0.70078033,
@@ -1250,8 +1250,8 @@
       "text": "-9.5 dB"
     },
     "level_9": {
-      "v": 0.9896076,
-      "text": "5.5 dB"
+      "v": 0.7620131,
+      "text": "-7.0 dB"
     },
     "lfo1_rate": {
       "v": 0.4405,
@@ -1366,16 +1366,16 @@
       "text": "Spark clap"
     },
     "model_11": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.011764706,
+      "text": "Leaking closed hat"
     },
     "model_12": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.015686275,
+      "text": "Leaking open hat"
     },
     "model_13": {
-      "v": 0.09411765,
-      "text": "Raw loop"
+      "v": 0.06666667,
+      "text": "Jingle tambourine"
     },
     "model_14": {
       "v": 0.09019608,
@@ -1406,8 +1406,8 @@
       "text": "Raw spark"
     },
     "model_6": {
-      "v": 0.08627451,
-      "text": "Raw spark"
+      "v": 0.0627451,
+      "text": "Grain maraca"
     },
     "model_7": {
       "v": 0.08627451,
@@ -1418,8 +1418,8 @@
       "text": "Raw spark"
     },
     "model_9": {
-      "v": 0.08627451,
-      "text": "Raw spark"
+      "v": 0.03529412,
+      "text": "Damped rim"
     },
     "mute_1": {
       "v": 0.0,

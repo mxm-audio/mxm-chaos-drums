@@ -80,7 +80,9 @@ P5** (2026-11-02): the first version the owner explores; Resample and Export, P3
   under it, the whole kit down as far as 6 dB where a quiet cell needs the room. A balance is a
   preset's Levels, never a change to a model's sound (the owner, 2026-11-03).
 - **The fifty factory kits** (`kits`, the owner, 2026-11-03) are abstract and far apart ("this is
-  abstract sounds. So go wild"): no two of them, nor any and Init, nearer than `ALIKE_DB` by
+  abstract sounds. So go wild"), re-voiced across the whole catalogue once P4 had built it (the
+  owner: "With all the new models we need to redo the 50 presets"; 430 cells moved onto a P4 model,
+  the closest pair 10.2 dB apart): no two of them, nor any and Init, nearer than `ALIKE_DB` by
   `distance`, each cell's level-free spectral fingerprint over its attack, body and tail
   (`no_two_kits_sound_alike`). They keep Init's keys, the cells on 46 and 47 cutting each other,
   each cell moving only what its model reads; each file is complete, so

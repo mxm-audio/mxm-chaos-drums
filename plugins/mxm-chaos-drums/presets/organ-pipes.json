@@ -926,16 +926,16 @@
       "text": "12 st"
     },
     "coarse_13": {
-      "v": 0.75,
-      "text": "24 st"
+      "v": 0.1875,
+      "text": "-30 st"
     },
     "coarse_14": {
-      "v": 0.7916667,
-      "text": "28 st"
+      "v": 0.22916667,
+      "text": "-26 st"
     },
     "coarse_15": {
-      "v": 0.8229167,
-      "text": "31 st"
+      "v": 0.26041666,
+      "text": "-23 st"
     },
     "coarse_16": {
       "v": 0.25,
@@ -1186,12 +1186,12 @@
       "text": "-9.5 dB"
     },
     "level_11": {
-      "v": 0.77002877,
-      "text": "-6.5 dB"
+      "v": 0.9102516,
+      "text": "1.5 dB"
     },
     "level_12": {
-      "v": 0.6790865,
-      "text": "-12.5 dB"
+      "v": 0.77002877,
+      "text": "-6.5 dB"
     },
     "level_13": {
       "v": 0.7462281,
@@ -1206,16 +1206,16 @@
       "text": "-8.5 dB"
     },
     "level_16": {
-      "v": 0.9007886,
-      "text": "1.0 dB"
+      "v": 0.9102516,
+      "text": "1.5 dB"
     },
     "level_2": {
       "v": 0.7620131,
       "text": "-7.0 dB"
     },
     "level_3": {
-      "v": 0.77002877,
-      "text": "-6.5 dB"
+      "v": 0.7781278,
+      "text": "-6.0 dB"
     },
     "level_4": {
       "v": 0.7462281,
@@ -1354,56 +1354,56 @@
       "text": "Raw ring"
     },
     "model_11": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.011764706,
+      "text": "Leaking closed hat"
     },
     "model_12": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.015686275,
+      "text": "Leaking open hat"
     },
     "model_13": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.039215688,
+      "text": "Damped clave"
     },
     "model_14": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.039215688,
+      "text": "Damped clave"
     },
     "model_15": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.039215688,
+      "text": "Damped clave"
     },
     "model_16": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_2": {
       "v": 0.007843138,
       "text": "Wired snare"
     },
     "model_3": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_4": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_5": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_6": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_7": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_8": {
-      "v": 0.08235294,
-      "text": "Raw ring"
+      "v": 0.023529412,
+      "text": "Falling tom"
     },
     "model_9": {
       "v": 0.08235294,

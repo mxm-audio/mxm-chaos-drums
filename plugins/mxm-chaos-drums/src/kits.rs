@@ -52,6 +52,23 @@ const SPARK: ModelId = ModelId::RAW_SPARK;
 const FOLD: ModelId = ModelId::RAW_FOLD;
 const LOOP: ModelId = ModelId::RAW_LOOP;
 const DUST: ModelId = ModelId::RAW_DUST;
+const TOM: ModelId = ModelId::FALLING_TOM;
+const CONGA: ModelId = ModelId::SLAPPED_CONGA;
+const BONGO: ModelId = ModelId::SLAPPED_BONGO;
+const RIM: ModelId = ModelId::DAMPED_RIM;
+const CLAVE: ModelId = ModelId::DAMPED_CLAVE;
+const COWBELL: ModelId = ModelId::COUPLED_COWBELL;
+const BELL: ModelId = ModelId::COUPLED_BELL;
+const CLOSED: ModelId = ModelId::LEAKING_CLOSED_HAT;
+const OPEN: ModelId = ModelId::LEAKING_OPEN_HAT;
+const FOLDED: ModelId = ModelId::FOLDED_HAT;
+const CYMBAL: ModelId = ModelId::LOOP_CYMBAL;
+const CRASH: ModelId = ModelId::LOOP_CRASH;
+const RIDE: ModelId = ModelId::RINGING_RIDE;
+const MARACA: ModelId = ModelId::GRAIN_MARACA;
+const TAMB: ModelId = ModelId::JINGLE_TAMBOURINE;
+const GUIRO: ModelId = ModelId::SCRAPING_GUIRO;
+const BRUSH: ModelId = ModelId::SWEPT_BRUSH;
 
 /// The general controls, by number (the brief's table).
 const TONE: u8 = 1;
@@ -231,7 +248,11 @@ const INIT: Kit = Kit {
 
 /// **The fifty**, in the browser's order (the owner, 2026-11-03: "this is abstract sounds. So go
 /// wild"): every kit its own sound world, its models, pitches, regimes and motion far from Init's and
-/// each other's ([`no_two_kits_sound_alike`]). Pans are the player's view.
+/// each other's ([`no_two_kits_sound_alike`]). Pans are the player's view. Written on the raw engines
+/// before P4, then re-voiced across the whole catalogue once it rendered (the owner, 2026-11-03:
+/// "With all the new models we need to redo the 50 presets"): a cell moved onto its role's model
+/// where that model suits the kit's world, re-pitched to sound where it did, and a kit whose world
+/// is its raw engines (the folds of *Chaos Folds*, the falling rings of *Rubber Band*) kept them.
 static KITS: [Kit; 50] = [
     // ---- Struck: wild drums, each played once and left to ring -------------------------------
     // Every cell a falling ring, pitched high and swept far: a kit of laser shots.
@@ -240,22 +261,22 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 12, 0.0, &[(DROP, 1.0), (DAMPING, 0.3), (SNAP, 0.6)]).leak(250.0),
             k(SNARE, 7, 0.0, &[(DROP, 1.0), (BODY, 0.8), (TONE, 0.625)]).leak(200.0),
-            k(RING, 24, -0.6, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
-            k(RING, 31, -0.2, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
-            k(RING, 36, 0.2, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
+            k(TOM, 24, -0.6, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
+            k(TOM, 31, -0.2, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
+            k(TOM, 36, 0.2, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(180.0),
             k(RING, 19, 0.6, &[(DROP, 0.8), (DAMPING, 0.2)]).leak(300.0),
-            k(RING, 43, -0.8, &[(DROP, 1.0), (DAMPING, 0.6)]).leak(120.0),
+            k(BONGO, 24, -0.8, &[(DROP, 1.0), (DAMPING, 0.6)]).leak(120.0),
             k(RING, 12, 0.8, &[(DROP, 1.0), (DAMPING, 0.1)]).leak(400.0),
-            k(SPARK, 0, -0.3, &[(TONE, 1.0), (GRAIN, 0.6), (SNAP, 1.0)]).leak(120.0),
+            k(RIM, 12, -0.3, &[(TONE, 1.0), (SNAP, 1.0), (DROP, 1.0)]).leak(120.0),
             k(CLAP, 0, 0.3, &[(TONE, 0.9), (SPACING, -0.8), (SNAP, 0.8)]),
-            k(SPARK, 0, 0.5, &[(TONE, 1.0), (GRAIN, 0.9)])
+            k(FOLDED, 0, 0.5, &[(TONE, 1.0), (GRAIN, 0.9)])
                 .leak(120.0)
                 .hats(),
-            k(SPARK, 0, -0.5, &[(TONE, 1.0), (GRAIN, 0.9)])
+            k(FOLDED, 0, -0.5, &[(TONE, 1.0), (GRAIN, 0.9)])
                 .leak(300.0)
                 .hats(),
-            k(LOOP, 36, 0.0, &[(DAMPING, -0.6), (SPREAD, 0.5)]).leak(900.0),
-            k(RING, 48, 0.4, &[(DROP, 1.0), (DAMPING, 0.8)]).leak(120.0),
+            k(CYMBAL, 24, 0.0, &[(DAMPING, -0.6), (SPREAD, 0.5)]).leak(900.0),
+            k(CLAVE, 12, 0.4, &[(DROP, 1.0), (DAMPING, 0.8)]).leak(120.0),
             k(SPARK, 0, -0.6, &[(TONE, 1.0), (SNAP, 1.0)]).leak(120.0),
             k(DUST, 12, 0.7, &[(TONE, 1.0), (SPREAD, 1.0), (GRAIN, 0.5)]).leak(150.0),
         ],
@@ -275,30 +296,30 @@ static KITS: [Kit; 50] = [
                 &[(TONE, -0.9), (BODY, 0.6), (DAMPING, -0.4)],
             )
             .leak(1200.0),
-            k(RING, -24, -0.4, &[(DAMPING, -0.8)])
+            k(TOM, -24, -0.4, &[(DAMPING, -0.8)])
                 .hunger(0.2)
                 .leak(3000.0),
-            k(RING, -19, 0.0, &[(DAMPING, -0.8)])
+            k(TOM, -19, 0.0, &[(DAMPING, -0.8)])
                 .hunger(0.2)
                 .leak(3000.0),
-            k(RING, -17, 0.4, &[(DAMPING, -0.8)])
+            k(TOM, -17, 0.4, &[(DAMPING, -0.8)])
                 .hunger(0.2)
                 .leak(3000.0),
             k(FOLD, -24, -0.6, &[(DRIVE, -0.6), (SPREAD, -0.5)]).leak(1500.0),
             k(FOLD, -29, 0.6, &[(DRIVE, 0.5)]).leak(1500.0),
             k(LOOP, -36, 0.2, &[(DAMPING, 0.5), (DRIVE, 0.6)]).leak(1200.0),
-            k(SPARK, 0, -0.2, &[(TONE, -1.0), (SNAP, -1.0)]).leak(400.0),
+            k(RIM, -24, -0.2, &[(TONE, -1.0), (SNAP, -1.0)]).leak(400.0),
             k(CLAP, 0, 0.2, &[(TONE, -1.0), (GRAIN, -0.4), (SPACING, 0.6)]),
-            k(DUST, 0, 0.3, &[(TONE, -1.0), (GRAIN, 0.4)])
+            k(CLOSED, 0, 0.3, &[(TONE, -1.0), (GRAIN, 0.4)])
                 .leak(150.0)
                 .hats(),
-            k(DUST, 0, -0.3, &[(TONE, -0.8), (GRAIN, 0.6)])
+            k(OPEN, 0, -0.3, &[(TONE, -0.8), (GRAIN, 0.6)])
                 .leak(2000.0)
                 .hats(),
-            k(LOOP, -24, 0.0, &[(SPREAD, 0.9), (DAMPING, 0.2)]).leak(4000.0),
-            k(FOLD, -12, 0.5, &[(DRIVE, 0.8)]).leak(800.0),
+            k(CRASH, -24, 0.0, &[(SPREAD, 0.9), (DAMPING, 0.2)]).leak(4000.0),
+            k(COWBELL, -24, 0.5, &[(DRIVE, 0.8)]).leak(800.0),
             k(RING, -36, -0.5, &[(DROP, 1.0), (DAMPING, -0.3)]).leak(1000.0),
-            k(DUST, -24, 0.6, &[(TONE, -0.9), (SPREAD, 0.9)]).leak(600.0),
+            k(BRUSH, -24, 0.6, &[(TONE, -0.9), (SPREAD, 0.9)]).leak(600.0),
         ],
         ..INIT
     },
@@ -314,13 +335,13 @@ static KITS: [Kit; 50] = [
                 &[(TONE, 0.625), (BODY, 1.0), (DAMPING, -0.5)],
             )
             .leak(900.0),
-            k(LOOP, 24, -0.7, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+            k(BELL, 9, -0.7, &[(DAMPING, -0.9), (SPREAD, -1.0)])
                 .strike(0.7)
                 .leak(3000.0),
-            k(LOOP, 27, -0.4, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+            k(BELL, 12, -0.4, &[(DAMPING, -0.9), (SPREAD, -1.0)])
                 .strike(0.7)
                 .leak(3000.0),
-            k(LOOP, 31, -0.1, &[(DAMPING, -0.9), (SPREAD, -1.0)])
+            k(BELL, 16, -0.1, &[(DAMPING, -0.9), (SPREAD, -1.0)])
                 .strike(0.7)
                 .leak(3000.0),
             k(LOOP, 34, 0.2, &[(DAMPING, -0.9), (SPREAD, -1.0)])
@@ -332,18 +353,18 @@ static KITS: [Kit; 50] = [
             k(LOOP, 39, 0.8, &[(DAMPING, -0.9), (SPREAD, -1.0)])
                 .strike(0.7)
                 .leak(3000.0),
-            k(SPARK, 0, -0.2, &[(TONE, 1.0), (GRAIN, 0.4), (SNAP, 1.0)]).leak(150.0),
+            k(MARACA, 0, -0.2, &[(TONE, 1.0), (GRAIN, 0.4), (SNAP, 1.0)]).leak(150.0),
             k(CLAP, 0, 0.2, &[(TONE, 1.0), (GRAIN, 1.0), (SNAP, 1.0)]),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (SPREAD, 1.0), (GRAIN, -0.6)])
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0), (SPREAD, 1.0), (GRAIN, -0.6)])
                 .leak(150.0)
                 .hats(),
-            k(DUST, 0, -0.4, &[(TONE, 1.0), (SPREAD, 1.0), (GRAIN, -0.4)])
+            k(OPEN, 0, -0.4, &[(TONE, 1.0), (SPREAD, 1.0), (GRAIN, -0.4)])
                 .leak(2500.0)
                 .hats(),
-            k(LOOP, 43, 0.0, &[(DAMPING, -1.0), (SPREAD, 0.4)]).leak(8000.0),
+            k(RIDE, 28, 0.0, &[(DAMPING, -1.0), (SPREAD, 0.4)]).leak(8000.0),
             k(LOOP, 46, 0.3, &[(DAMPING, -0.8), (SPREAD, -1.0)]).leak(2000.0),
-            k(SPARK, 0, -0.5, &[(TONE, 1.0)]).leak(150.0),
-            k(DUST, 0, 0.6, &[(TONE, 1.0), (SPREAD, 1.0)]).leak(300.0),
+            k(CLAVE, 12, -0.5, &[(DAMPING, -0.6)]).leak(150.0),
+            k(TAMB, 0, 0.6, &[(TONE, 1.0), (SPREAD, 1.0)]).leak(300.0),
         ],
         ..INIT
     },
@@ -374,21 +395,21 @@ static KITS: [Kit; 50] = [
                 &[(DAMPING, 0.6), (SPREAD, -1.0), (SNAP, -0.6)],
             )
             .leak(700.0),
-            k(LOOP, -12, -0.7, &[(DAMPING, 0.8), (SPREAD, -0.6)]).leak(500.0),
-            k(LOOP, -7, 0.7, &[(DAMPING, 0.8), (SPREAD, -0.6)]).leak(500.0),
-            k(SPARK, 0, 0.1, &[(TONE, -1.0), (SNAP, -0.8), (GRAIN, -0.4)]).leak(300.0),
-            k(SPARK, 0, -0.3, &[(TONE, -0.9), (SNAP, -1.0)]).leak(200.0),
+            k(CONGA, -12, -0.7, &[(DAMPING, 0.8), (BODY, 0.6)]).leak(500.0),
+            k(BONGO, -12, 0.7, &[(DAMPING, 0.8), (BODY, 0.6)]).leak(500.0),
+            k(MARACA, 0, 0.1, &[(TONE, -1.0), (SNAP, -0.8), (GRAIN, -0.4)]).leak(300.0),
+            k(RIM, -12, -0.3, &[(TONE, -0.9), (SNAP, -1.0)]).leak(200.0),
             k(CLAP, 0, 0.1, &[(TONE, -0.8), (SPACING, 0.5)]),
-            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.7)])
+            k(CLOSED, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.7)])
                 .leak(100.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.7)])
+            k(OPEN, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.7)])
                 .leak(1500.0)
                 .hats(),
-            k(LOOP, -19, -0.2, &[(DAMPING, 0.8), (SPREAD, 0.5)]).leak(4000.0),
-            k(LOOP, -2, 0.5, &[(DAMPING, 1.0), (SNAP, -1.0)]).leak(300.0),
+            k(CRASH, -24, -0.2, &[(DAMPING, 0.8), (SPREAD, 0.5)]).leak(4000.0),
+            k(COWBELL, -12, 0.5, &[(DAMPING, 1.0), (SNAP, -1.0)]).leak(300.0),
             k(SPARK, 0, -0.6, &[(TONE, -0.7), (GRAIN, -0.8)]).leak(150.0),
-            k(DUST, -12, 0.6, &[(TONE, -0.9), (SPREAD, 0.6)]).leak(400.0),
+            k(BRUSH, -12, 0.6, &[(TONE, -0.9), (SPREAD, 0.6)]).leak(400.0),
         ],
         ..INIT
     },
@@ -406,50 +427,51 @@ static KITS: [Kit; 50] = [
             k(SNARE, 5, 0.0, &[(BODY, 1.0), (DROP, -1.0), (DAMPING, 0.4)])
                 .leak(250.0)
                 .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
-            k(FOLD, 12, -0.6, &[(DRIVE, -0.6)]).leak(120.0).routes(&[(
-                Lfo1,
-                CellTarget::Pitch,
-                1.0,
-            )]),
-            k(FOLD, 17, -0.2, &[(DRIVE, -0.6)]).leak(120.0).routes(&[(
-                Lfo2,
-                CellTarget::Pitch,
-                1.0,
-            )]),
-            k(FOLD, 22, 0.2, &[(DRIVE, -0.6)]).leak(120.0).routes(&[(
-                Lfo1,
-                CellTarget::Pitch,
-                1.0,
-            )]),
+            k(TOM, 12, -0.6, &[(DROP, -1.0), (DRIVE, -0.6)])
+                .leak(120.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
+            k(TOM, 17, -0.2, &[(DROP, -1.0), (DRIVE, -0.6)])
+                .leak(120.0)
+                .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(TOM, 22, 0.2, &[(DROP, -1.0), (DRIVE, -0.6)])
+                .leak(120.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
             k(FOLD, 26, 0.6, &[(DRIVE, -0.4), (SPREAD, 0.4)])
                 .leak(120.0)
                 .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
             k(FOLD, 29, -0.8, &[(DRIVE, -0.4), (SPREAD, -0.4)])
                 .leak(120.0)
                 .routes(&[(Lfo1, CellTarget::Pitch, -1.0)]),
-            k(FOLD, 31, 0.8, &[(DRIVE, -0.6)]).leak(100.0).routes(&[(
+            k(BONGO, 12, 0.8, &[(DRIVE, -0.6)]).leak(100.0).routes(&[(
                 Lfo2,
                 CellTarget::Pitch,
                 -1.0,
             )]),
             k(SPARK, 0, -0.3, &[(TONE, 0.8), (GRAIN, 0.3)]).leak(100.0),
             k(CLAP, 0, 0.3, &[(SNAP, 1.0), (SPACING, -1.0)]),
-            k(SPARK, 0, 0.5, &[(TONE, 1.0), (GRAIN, 0.4)])
+            k(CLOSED, 0, 0.5, &[(TONE, 1.0), (GRAIN, 0.4)])
                 .leak(50.0)
                 .hats(),
-            k(SPARK, 0, -0.5, &[(TONE, 1.0), (GRAIN, 0.4)])
+            k(OPEN, 0, -0.5, &[(TONE, 1.0), (GRAIN, 0.4)])
                 .leak(300.0)
                 .hats(),
-            k(LOOP, 24, 0.0, &[(SPREAD, -1.0), (DAMPING, 0.3)])
+            k(CYMBAL, 12, 0.0, &[(SPREAD, -1.0), (DAMPING, 0.3)])
                 .leak(500.0)
                 .routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
-            k(FOLD, 36, 0.4, &[(DRIVE, -1.0)])
-                .leak(80.0)
-                .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(CLAVE, -12, 0.4, &[(DRIVE, -1.0)]).leak(80.0).routes(&[(
+                Lfo2,
+                CellTarget::Pitch,
+                1.0,
+            )]),
             k(SPARK, 0, -0.6, &[(TONE, 1.0)]).leak(60.0),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.667), (GRAIN, -0.6)])
-                .leak(250.0)
-                .routes(&[(Lfo2, to(TONE), 1.0)]),
+            k(
+                BRUSH,
+                0,
+                0.6,
+                &[(SPREAD, 1.0), (TONE, 0.667), (GRAIN, -0.6)],
+            )
+            .leak(250.0)
+            .routes(&[(Lfo2, to(TONE), 1.0)]),
         ],
         ..INIT
     },
@@ -462,12 +484,12 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -2, 0.0, &[(DRIVE, 0.9), (DAMPING, 0.5)]),
             k(SNARE, -5, 0.0, &[(TONE, 0.625), (BODY, -1.0), (DRIVE, 1.0)]),
-            k(LOOP, -19, -0.5, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
-            k(LOOP, -14, -0.1, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
-            k(LOOP, -9, 0.3, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(COWBELL, -24, -0.5, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(COWBELL, -19, -0.1, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(COWBELL, -14, 0.3, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
             k(FOLD, -5, -0.7, &[(SPREAD, 1.0), (DRIVE, 0.8)]),
             k(FOLD, 0, 0.7, &[(SPREAD, -1.0), (DRIVE, 0.8)]),
-            k(LOOP, -2, 0.1, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
+            k(BELL, -17, 0.1, &[(SPREAD, 1.0), (DRIVE, 0.9)]).threshold(-0.4),
             k(
                 LOOP,
                 5,
@@ -477,22 +499,23 @@ static KITS: [Kit; 50] = [
             .leak(150.0),
             k(CLAP, 0, 0.2, &[(TONE, 0.3), (SPACING, -0.5)]),
             k(
-                LOOP,
-                12,
+                CLOSED,
+                -12,
                 0.4,
-                &[(SPREAD, 1.0), (DAMPING, 0.6), (DRIVE, 0.6)],
+                &[(SPREAD, 1.0), (DRIVE, 1.0), (BODY, 0.6)],
             )
             .leak(100.0)
             .hats(),
+            k(OPEN, -12, 0.4, &[(SPREAD, 1.0), (DRIVE, 1.0), (BODY, 0.6)])
+                .leak(1500.0)
+                .hats(),
             k(
-                LOOP,
-                12,
-                0.4,
-                &[(SPREAD, 1.0), (DAMPING, 0.3), (DRIVE, 0.6)],
+                CRASH,
+                -7,
+                -0.4,
+                &[(SPREAD, 1.0), (DAMPING, -0.4), (BODY, 0.8)],
             )
-            .leak(1500.0)
-            .hats(),
-            k(LOOP, 0, -0.4, &[(SPREAD, 1.0), (DRIVE, 0.8)]).leak(6000.0),
+            .leak(6000.0),
             k(FOLD, 5, 0.5, &[(SPREAD, 1.0), (DRIVE, 0.8)]),
             k(
                 LOOP,
@@ -501,7 +524,7 @@ static KITS: [Kit; 50] = [
                 &[(SPREAD, 0.8), (DAMPING, 0.5), (DRIVE, 0.6)],
             )
             .leak(200.0),
-            k(DUST, -12, 0.6, &[(SPREAD, 0.8), (TONE, -0.3), (GRAIN, 0.7)]).leak(300.0),
+            k(TAMB, -12, 0.6, &[(SPREAD, 0.8), (TONE, -0.3), (GRAIN, 0.7)]).leak(300.0),
         ],
         ..INIT
     },
@@ -515,7 +538,7 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -7, 0.0, &[(DAMPING, -0.8), (DROP, -0.6)]).leak(6000.0),
             k(SNARE, -2, 0.0, &[(BODY, 1.0), (DAMPING, -0.8)]).leak(3000.0),
-            k(RING, -24, -0.6, &[(DAMPING, -1.0), (DROP, -1.0)])
+            k(BELL, -36, -0.6, &[(BODY, 0.6), (DAMPING, -1.0)])
                 .threshold(-0.3)
                 .hunger(0.1)
                 .leak(15000.0),
@@ -523,7 +546,7 @@ static KITS: [Kit; 50] = [
                 .threshold(-0.3)
                 .hunger(0.1)
                 .leak(15000.0),
-            k(RING, -12, 0.0, &[(DAMPING, -1.0), (DROP, -1.0)])
+            k(BELL, -29, 0.0, &[(BODY, 0.6), (DAMPING, -1.0)])
                 .threshold(-0.3)
                 .hunger(0.1)
                 .leak(15000.0),
@@ -531,25 +554,25 @@ static KITS: [Kit; 50] = [
                 .threshold(-0.3)
                 .hunger(0.1)
                 .leak(15000.0),
-            k(RING, -5, 0.6, &[(DAMPING, -1.0), (DROP, -1.0)])
+            k(BELL, -24, 0.6, &[(BODY, 0.6), (DAMPING, -1.0)])
                 .threshold(-0.3)
                 .hunger(0.1)
                 .leak(15000.0),
-            k(LOOP, -5, -0.8, &[(SPREAD, 0.8), (DAMPING, -0.8)]).leak(8000.0),
-            k(LOOP, 7, 0.8, &[(SPREAD, 0.9), (DAMPING, -0.7)]).leak(5000.0),
+            k(CRASH, -10, -0.8, &[(SPREAD, 0.8), (DAMPING, -0.8)]).leak(8000.0),
+            k(RIDE, -8, 0.8, &[(SPREAD, 0.9), (DAMPING, -0.7)]).leak(5000.0),
             k(CLAP, 0, 0.0, &[(TONE, -0.4), (SPACING, 0.4)]),
-            k(DUST, 0, 0.3, &[(SPREAD, 0.6), (TONE, 0.5)])
+            k(CLOSED, 0, 0.3, &[(SPREAD, 0.6), (TONE, 0.5)])
                 .leak(200.0)
                 .hats(),
-            k(DUST, 0, 0.3, &[(SPREAD, 0.6), (TONE, 0.5)])
+            k(OPEN, 0, 0.3, &[(SPREAD, 0.6), (TONE, 0.5)])
                 .leak(5000.0)
                 .hats(),
-            k(LOOP, -12, 0.0, &[(SPREAD, 1.0), (DAMPING, -1.0)]).leak(30000.0),
-            k(RING, 5, -0.4, &[(DAMPING, -1.0)])
+            k(CYMBAL, -24, 0.0, &[(SPREAD, 1.0), (DAMPING, -1.0)]).leak(30000.0),
+            k(BELL, -12, -0.4, &[(DAMPING, -1.0)])
                 .hunger(0.1)
                 .leak(10000.0),
             k(SPARK, 0, 0.4, &[(TONE, -0.5)]).leak(400.0),
-            k(DUST, 0, -0.5, &[(TONE, -0.3), (SPREAD, 0.8)]).leak(3000.0),
+            k(BRUSH, 0, -0.5, &[(TONE, -0.3), (SPREAD, 0.8)]).leak(3000.0),
         ],
         ..INIT
     },
@@ -561,22 +584,22 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 24, 0.0, &[(DRIVE, 1.0), (DAMPING, 0.2)]).threshold(-0.3),
             k(SNARE, 24, 0.0, &[(DRIVE, 1.0), (TONE, 0.625)]).threshold(-0.3),
-            k(RING, 24, -0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
-            k(RING, 29, -0.2, &[(DRIVE, 1.0)]).threshold(-0.3),
-            k(RING, 34, 0.2, &[(DRIVE, 1.0)]).threshold(-0.3),
-            k(FOLD, 24, 0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
-            k(FOLD, 31, -0.8, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(TOM, 24, -0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(TOM, 29, -0.2, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(TOM, 34, 0.2, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(CONGA, 14, 0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(BONGO, 12, -0.8, &[(DRIVE, 1.0)]).threshold(-0.3),
             k(LOOP, 24, 0.8, &[(DRIVE, 1.0)]).threshold(-0.3),
-            k(SPARK, 0, -0.3, &[(TONE, 1.0)]).threshold(-0.3),
+            k(RIM, 12, -0.3, &[(TONE, 1.0)]).threshold(-0.3),
             k(CLAP, 0, 0.3, &[(TONE, 0.9)]).threshold(-0.3),
-            k(DUST, 24, 0.5, &[(TONE, 1.0)]).leak(150.0).hats(),
-            k(DUST, 24, -0.5, &[(TONE, 1.0)]).leak(500.0).hats(),
+            k(CLOSED, 12, 0.5, &[(TONE, 1.0)]).leak(150.0).hats(),
+            k(OPEN, 12, -0.5, &[(TONE, 1.0)]).leak(500.0).hats(),
             k(LOOP, 36, 0.0, &[(DRIVE, 1.0), (SPREAD, 0.5)])
                 .threshold(-0.3)
                 .leak(1200.0),
-            k(FOLD, 36, 0.4, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(COWBELL, 12, 0.4, &[(DRIVE, 1.0)]).threshold(-0.3),
             k(SPARK, 0, -0.6, &[(TONE, 1.0)]).threshold(-0.3),
-            k(RING, 40, 0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
+            k(CLAVE, -14, 0.6, &[(DRIVE, 1.0)]).threshold(-0.3),
         ],
         ..INIT
     },
@@ -586,24 +609,24 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -24, 0.0, &[(DAMPING, -0.5)]).leak(1800.0),
             k(SNARE, -24, 0.0, &[(DAMPING, -0.5), (TONE, -0.6)]).leak(1200.0),
-            k(RING, -29, -0.4, &[(DAMPING, -0.5)]).leak(1800.0),
-            k(RING, -24, 0.0, &[(DAMPING, -0.5)]).leak(1800.0),
-            k(RING, -19, 0.4, &[(DAMPING, -0.5)]).leak(1800.0),
-            k(FOLD, -24, -0.6, &[]).leak(1200.0),
-            k(FOLD, -19, 0.6, &[]).leak(1200.0),
-            k(LOOP, -17, 0.2, &[(DAMPING, -0.3)]).leak(1200.0),
-            k(SPARK, 0, -0.2, &[(TONE, -0.8), (GRAIN, -0.7)]).leak(400.0),
+            k(TOM, -29, -0.4, &[(DAMPING, -0.5)]).leak(1800.0),
+            k(TOM, -24, 0.0, &[(DAMPING, -0.5)]).leak(1800.0),
+            k(TOM, -19, 0.4, &[(DAMPING, -0.5)]).leak(1800.0),
+            k(CONGA, -24, -0.6, &[]).leak(1200.0),
+            k(CONGA, -19, 0.6, &[]).leak(1200.0),
+            k(BONGO, -24, 0.2, &[(DAMPING, -0.3)]).leak(1200.0),
+            k(RIM, -24, -0.2, &[(TONE, -0.8)]).leak(400.0),
             k(CLAP, 0, 0.1, &[(SPACING, 1.0), (TONE, -0.8), (SNAP, -1.0)]),
-            k(DUST, 0, 0.3, &[(TONE, -0.6), (GRAIN, -0.5)])
+            k(CLOSED, -24, 0.3, &[(TONE, -0.6), (GRAIN, -0.5)])
                 .leak(250.0)
                 .hats(),
-            k(DUST, 0, 0.3, &[(TONE, -0.6), (GRAIN, -0.5)])
+            k(OPEN, -24, 0.3, &[(TONE, -0.6), (GRAIN, -0.5)])
                 .leak(2400.0)
                 .hats(),
-            k(LOOP, -12, -0.3, &[(DAMPING, -0.3)]).leak(5000.0),
-            k(FOLD, -12, 0.4, &[]).leak(800.0),
-            k(SPARK, 0, -0.4, &[(TONE, -0.6), (GRAIN, -0.8)]).leak(350.0),
-            k(DUST, -19, 0.5, &[(TONE, -0.6), (GRAIN, -0.6)]).leak(550.0),
+            k(CRASH, -24, -0.3, &[(DAMPING, -0.3)]).leak(5000.0),
+            k(COWBELL, -24, 0.4, &[]).leak(800.0),
+            k(CLAVE, -24, -0.4, &[(DAMPING, -0.5)]).leak(350.0),
+            k(MARACA, -24, 0.5, &[(TONE, -0.6), (GRAIN, -0.6)]).leak(550.0),
         ],
         ..INIT
     },
@@ -613,24 +636,29 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 5, 0.0, &[(DAMPING, 0.6), (DRIVE, 0.6)]).leak(200.0),
             k(SNARE, 7, 0.0, &[(BODY, -1.0), (TONE, 0.625)]).leak(150.0),
-            k(LOOP, 5, -0.5, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
-            k(LOOP, 10, -0.1, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
-            k(LOOP, 15, 0.3, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
+            k(COWBELL, -11, -0.5, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
+            k(COWBELL, -6, -0.1, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
+            k(COWBELL, -1, 0.3, &[(SPREAD, 1.0), (DAMPING, 0.4)]).leak(250.0),
             k(FOLD, 12, -0.7, &[(DRIVE, 0.3), (SPREAD, -0.8)]).leak(200.0),
             k(FOLD, 19, 0.7, &[(DRIVE, 0.3), (SPREAD, 0.8)]).leak(200.0),
-            k(SPARK, 0, 0.1, &[(SNAP, -1.0), (TONE, -0.4)]).leak(120.0),
-            k(SPARK, 0, -0.3, &[(TONE, 0.8), (GRAIN, 0.6)]).leak(80.0),
+            k(GUIRO, 12, 0.1, &[(TONE, -0.4), (SPACING, -0.5)]).leak(120.0),
+            k(MARACA, 0, -0.3, &[(TONE, 0.8), (GRAIN, 0.6)]).leak(80.0),
             k(CLAP, 0, 0.3, &[(SPACING, 0.7), (TONE, 0.5)]),
-            k(DUST, 0, 0.5, &[(GRAIN, 0.8), (TONE, 0.667), (SPREAD, -1.0)])
-                .leak(50.0)
-                .hats(),
-            k(DUST, 0, 0.5, &[(GRAIN, 0.8), (TONE, 0.667), (SPREAD, -1.0)])
+            k(
+                CLOSED,
+                0,
+                0.5,
+                &[(GRAIN, 0.8), (TONE, 0.667), (SPREAD, -1.0)],
+            )
+            .leak(50.0)
+            .hats(),
+            k(OPEN, 0, 0.5, &[(GRAIN, 0.8), (TONE, 0.667), (SPREAD, -1.0)])
                 .leak(400.0)
                 .hats(),
-            k(LOOP, 24, -0.4, &[(SPREAD, 1.0), (DAMPING, 0.2)]).leak(700.0),
-            k(FOLD, 24, 0.4, &[(DRIVE, 0.4), (SPREAD, 1.0)]).leak(150.0),
-            k(LOOP, 34, -0.6, &[(SPREAD, 0.7), (DAMPING, 0.7)]).leak(60.0),
-            k(DUST, 7, 0.6, &[(GRAIN, -0.4), (SPREAD, 0.5)]).leak(200.0),
+            k(CYMBAL, 12, -0.4, &[(SPREAD, 1.0), (DAMPING, 0.2)]).leak(700.0),
+            k(FOLDED, 0, 0.4, &[(DRIVE, 0.4), (SPREAD, 1.0)]).leak(150.0),
+            k(TAMB, 0, -0.6, &[(SPREAD, 0.7), (DAMPING, 0.7)]).leak(60.0),
+            k(BRUSH, 0, 0.6, &[(GRAIN, -0.4), (SPREAD, 0.5)]).leak(200.0),
         ],
         ..INIT
     },
@@ -651,24 +679,24 @@ static KITS: [Kit; 50] = [
                 &[(BODY, 1.0), (TONE, 0.625), (DAMPING, -0.6)],
             )
             .leak(2500.0),
-            k(LOOP, 12, -0.6, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
-            k(LOOP, 16, -0.3, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
-            k(LOOP, 19, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
+            k(BELL, -3, -0.6, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
+            k(BELL, 1, -0.3, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
+            k(BELL, 4, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
             k(RING, 24, 0.3, &[(DAMPING, -0.8)]).leak(8000.0),
             k(RING, 28, 0.6, &[(DAMPING, -0.8)]).leak(8000.0),
             k(LOOP, 31, -0.8, &[(SPREAD, 0.6), (DAMPING, -0.9)]).leak(10000.0),
-            k(SPARK, 0, 0.8, &[(TONE, 1.0), (GRAIN, -0.5)]).leak(600.0),
+            k(MARACA, 0, 0.8, &[(TONE, 1.0), (GRAIN, -0.5)]).leak(600.0),
             k(CLAP, 0, 0.0, &[(TONE, 1.0), (SPACING, 0.3)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 1.0), (TONE, 1.0), (GRAIN, -0.8)])
+            k(CLOSED, 0, 0.4, &[(SPREAD, 1.0), (TONE, 1.0), (GRAIN, -0.8)])
                 .leak(600.0)
                 .hats(),
-            k(DUST, 0, -0.4, &[(SPREAD, 1.0), (TONE, 1.0), (GRAIN, -0.8)])
+            k(OPEN, 0, -0.4, &[(SPREAD, 1.0), (TONE, 1.0), (GRAIN, -0.8)])
                 .leak(6000.0)
                 .hats(),
-            k(LOOP, 43, 0.0, &[(DAMPING, -1.0), (SPREAD, 0.3)]).leak(20000.0),
-            k(RING, 36, 0.5, &[(DAMPING, -1.0)]).leak(12000.0),
+            k(RIDE, 28, 0.0, &[(DAMPING, -1.0), (SPREAD, 0.3)]).leak(20000.0),
+            k(CLAVE, -18, 0.5, &[(DAMPING, -1.0)]).leak(12000.0),
             k(SPARK, 0, -0.6, &[(TONE, 1.0), (GRAIN, -0.5)]).leak(600.0),
-            k(DUST, 0, 0.7, &[(SPREAD, 1.0), (TONE, 1.0)]).leak(2000.0),
+            k(TAMB, 0, 0.7, &[(SPREAD, 1.0), (TONE, 1.0)]).leak(2000.0),
         ],
         ..INIT
     },
@@ -684,32 +712,32 @@ static KITS: [Kit; 50] = [
             k(SNARE, 0, 0.0, &[(BODY, 1.0), (DRIVE, -0.4)])
                 .threshold(-0.6)
                 .supply(0.8),
-            k(RING, -12, -0.7, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(TOM, -12, -0.7, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .hunger(0.2)
                 .leak(8000.0),
-            k(RING, -5, -0.4, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(TOM, -5, -0.4, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .hunger(0.2)
                 .leak(8000.0),
-            k(RING, 0, -0.1, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(TOM, 0, -0.1, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .hunger(0.2)
                 .leak(8000.0),
-            k(RING, 4, 0.2, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(TOM, 4, 0.2, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .hunger(0.2)
                 .leak(8000.0),
-            k(RING, 7, 0.5, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(TOM, 7, 0.5, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .hunger(0.2)
                 .leak(8000.0),
-            k(RING, 12, 0.8, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(TOM, 12, 0.8, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .hunger(0.2)
@@ -724,26 +752,26 @@ static KITS: [Kit; 50] = [
                 .supply(0.8)
                 .hunger(0.2)
                 .leak(8000.0),
-            k(DUST, 12, 0.3, &[(SPREAD, 1.0), (TONE, 0.833)])
+            k(CLOSED, 12, 0.3, &[(SPREAD, 1.0), (TONE, 0.833)])
                 .leak(200.0)
                 .hats(),
-            k(DUST, 12, 0.3, &[(SPREAD, 1.0), (TONE, 0.833)])
+            k(OPEN, 12, 0.3, &[(SPREAD, 1.0), (TONE, 0.833)])
                 .supply(0.8)
                 .leak(3000.0)
                 .hats(),
-            k(RING, 24, -0.3, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(CLAVE, -30, -0.3, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .leak(8000.0),
-            k(RING, 28, 0.3, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(CLAVE, -26, 0.3, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .leak(8000.0),
-            k(RING, 31, 0.0, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(CLAVE, -23, 0.0, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .leak(8000.0),
-            k(RING, -24, 0.0, &[(DRIVE, -0.5), (DROP, -1.0)])
+            k(TOM, -24, 0.0, &[(DRIVE, -0.5), (DROP, -1.0)])
                 .threshold(-0.7)
                 .supply(0.8)
                 .leak(8000.0),
@@ -770,25 +798,25 @@ static KITS: [Kit; 50] = [
             k(LOOP, 7, 0.2, &[(DRIVE, 0.8), (DAMPING, -0.5)])
                 .threshold(-0.8)
                 .touch(1.0),
-            k(LOOP, 12, 0.6, &[(DRIVE, 0.8), (SPREAD, 0.5)])
+            k(COWBELL, -4, 0.6, &[(DRIVE, 0.8), (SPREAD, 0.5)])
                 .threshold(-0.8)
                 .touch(1.0),
-            k(LOOP, 17, -0.8, &[(DRIVE, 0.8), (SPREAD, 0.5)])
+            k(COWBELL, 1, -0.8, &[(DRIVE, 0.8), (SPREAD, 0.5)])
                 .threshold(-0.8)
                 .touch(1.0),
-            k(LOOP, 22, 0.8, &[(DRIVE, 0.8), (SPREAD, 0.8)])
+            k(BELL, 7, 0.8, &[(DRIVE, 0.8), (SPREAD, 0.8)])
                 .threshold(-0.8)
                 .touch(1.0),
-            k(SPARK, 0, -0.3, &[(GRAIN, 0.5)]).threshold(-0.8),
+            k(MARACA, 0, -0.3, &[(GRAIN, 0.5)]).threshold(-0.8),
             k(CLAP, 0, 0.3, &[(GRAIN, 0.5)]).threshold(-0.7),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.7)]).leak(100.0).hats(),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.7)]).leak(1500.0).hats(),
+            k(CLOSED, 0, 0.4, &[(SPREAD, 0.7)]).leak(100.0).hats(),
+            k(OPEN, 0, 0.4, &[(SPREAD, 0.7)]).leak(1500.0).hats(),
             k(LOOP, 29, 0.0, &[(DRIVE, 0.8), (SPREAD, 1.0)])
                 .threshold(-0.8)
                 .leak(4000.0),
-            k(FOLD, 12, 0.5, &[(DRIVE, 1.0)]).threshold(-0.6),
+            k(FOLDED, 12, 0.5, &[(DRIVE, 1.0)]).threshold(-0.6),
             k(LOOP, 34, -0.5, &[(DRIVE, 0.8)]).threshold(-0.8),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.667)]).leak(400.0),
+            k(GUIRO, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.667)]).leak(400.0),
         ],
         ..INIT
     },
@@ -807,56 +835,52 @@ static KITS: [Kit; 50] = [
                 0.4,
             )]),
             k(SNARE, 0, 0.0, &[(BODY, 1.0), (TONE, -0.4)]),
-            k(RING, -5, -0.7, &[(DAMPING, -0.5), (DROP, -0.8)])
+            k(BELL, -20, -0.7, &[(BODY, 0.5), (DAMPING, -0.5)])
                 .leak(1200.0)
                 .routes(&[
                     (Velocity, CellTarget::Pitch, 0.5),
                     (Lfo2, CellTarget::Pitch, 0.05),
                 ]),
-            k(RING, -2, -0.4, &[(DAMPING, -0.5), (DROP, -0.8)])
+            k(BELL, -17, -0.4, &[(BODY, 0.5), (DAMPING, -0.5)])
                 .leak(1200.0)
                 .routes(&[
                     (Velocity, CellTarget::Pitch, 0.5),
                     (Lfo2, CellTarget::Pitch, 0.05),
                 ]),
-            k(RING, 0, -0.1, &[(DAMPING, -0.5), (DROP, -0.8)])
+            k(BELL, -15, -0.1, &[(BODY, 0.5), (DAMPING, -0.5)])
                 .leak(1200.0)
                 .routes(&[
                     (Velocity, CellTarget::Pitch, 0.5),
                     (Lfo2, CellTarget::Pitch, -0.05),
                 ]),
-            k(RING, 2, 0.2, &[(DAMPING, -0.5), (DROP, -0.8)])
+            k(BELL, -13, 0.2, &[(BODY, 0.5), (DAMPING, -0.5)])
                 .leak(1200.0)
                 .routes(&[
                     (Velocity, CellTarget::Pitch, 0.5),
                     (Lfo2, CellTarget::Pitch, -0.05),
                 ]),
-            k(RING, 5, 0.5, &[(DAMPING, -0.5), (DROP, -0.8)])
+            k(BELL, -10, 0.5, &[(BODY, 0.5), (DAMPING, -0.5)])
                 .leak(1200.0)
                 .routes(&[
                     (Velocity, CellTarget::Pitch, 0.5),
                     (Lfo2, CellTarget::Pitch, 0.05),
                 ]),
-            k(RING, 7, 0.8, &[(DAMPING, -0.5), (DROP, -0.8)])
+            k(BELL, -8, 0.8, &[(BODY, 0.5), (DAMPING, -0.5)])
                 .leak(1200.0)
                 .routes(&[
                     (Velocity, CellTarget::Pitch, 0.5),
                     (Lfo2, CellTarget::Pitch, -0.05),
                 ]),
-            k(RING, 10, -0.3, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(600.0),
+            k(RIM, -15, -0.3, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(600.0),
             k(CLAP, 0, 0.3, &[(TONE, -0.3), (SPACING, 0.4)]),
-            k(LOOP, 19, 0.5, &[(SPREAD, 0.8), (DAMPING, 0.6)])
-                .leak(80.0)
-                .hats(),
-            k(LOOP, 19, 0.5, &[(SPREAD, 0.8), (DAMPING, 0.3)])
-                .leak(700.0)
-                .hats(),
-            k(RING, 12, -0.5, &[(DAMPING, -0.5), (DROP, -0.8)])
+            k(CLOSED, 0, 0.5, &[(SPREAD, 0.8)]).leak(80.0).hats(),
+            k(OPEN, 0, 0.5, &[(SPREAD, 0.8)]).leak(700.0).hats(),
+            k(RIDE, -3, -0.5, &[(DAMPING, -0.5)])
                 .leak(2500.0)
                 .routes(&[(Lfo2, CellTarget::Pitch, 0.05)]),
-            k(RING, -9, 0.6, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(1500.0),
-            k(RING, 14, -0.8, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(500.0),
-            k(SPARK, 0, 0.7, &[(GRAIN, 0.5), (TONE, 0.4)]).leak(150.0),
+            k(COWBELL, -12, 0.6, &[(DAMPING, -0.5)]).leak(1500.0),
+            k(CLAVE, -15, -0.8, &[(DAMPING, -0.5), (DROP, -0.8)]).leak(500.0),
+            k(TAMB, 0, 0.7, &[(GRAIN, 0.5), (TONE, 0.4)]).leak(150.0),
         ],
         ..INIT
     },
@@ -880,13 +904,13 @@ static KITS: [Kit; 50] = [
             k(RING, 12, 0.8, &[(DROP, 0.8), (DAMPING, -0.3)]).routes(&[(Velocity, to(DROP), 1.0)]),
             k(SPARK, 0, -0.3, &[(TONE, -0.3), (SNAP, -0.5)]),
             k(CLAP, 0, 0.3, &[(SPACING, 0.5)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.5)]).leak(100.0).hats(),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.5)]).leak(900.0).hats(),
-            k(LOOP, 5, 0.0, &[(DAMPING, 0.4), (SPREAD, 0.4)])
+            k(CLOSED, 0, 0.4, &[(SPREAD, 0.5)]).leak(100.0).hats(),
+            k(OPEN, 0, 0.4, &[(SPREAD, 0.5)]).leak(900.0).hats(),
+            k(CYMBAL, -6, 0.0, &[(DAMPING, 0.4), (SPREAD, 0.4)])
                 .leak(1500.0)
                 .routes(&[(Lfo2, CellTarget::Pitch, 0.15)]),
-            k(RING, 17, 0.5, &[(DROP, 1.0), (DAMPING, 0.2)]).routes(&[(Velocity, to(DROP), 1.0)]),
-            k(RING, 24, -0.5, &[(DROP, 1.0), (DAMPING, 0.5)]),
+            k(RIM, -8, 0.5, &[(DROP, 1.0), (DAMPING, 0.2)]).routes(&[(Velocity, to(DROP), 1.0)]),
+            k(CLAVE, -30, -0.5, &[(DROP, 1.0), (DAMPING, 0.5)]),
             k(DUST, 0, 0.6, &[(GRAIN, -0.3)]).leak(200.0),
         ],
         ..INIT
@@ -912,26 +936,26 @@ static KITS: [Kit; 50] = [
                 .leak(6000.0),
             k(DUST, -12, 0.6, &[(TONE, -0.8), (GRAIN, 0.6)]).leak(3000.0),
             k(
-                DUST,
+                BRUSH,
                 -12,
                 -0.8,
                 &[(TONE, -0.6), (GRAIN, 0.6), (SPREAD, 0.4)],
             )
             .leak(3000.0),
-            k(LOOP, -9, 0.8, &[(SPREAD, 1.0), (DRIVE, 0.4)])
+            k(BELL, -36, 0.8, &[(SPREAD, 1.0), (DRIVE, 0.4)])
                 .threshold(-0.3)
                 .leak(6000.0),
-            k(SPARK, 0, -0.3, &[(TONE, -1.0), (GRAIN, 0.6)]).leak(1000.0),
+            k(MARACA, 0, -0.3, &[(TONE, -1.0), (GRAIN, 0.6)]).leak(1000.0),
             k(CLAP, 0, 0.3, &[(SPACING, 0.9), (TONE, -0.6)]),
-            k(DUST, 0, 0.4, &[(TONE, -0.5), (GRAIN, 0.7)])
+            k(CLOSED, 0, 0.4, &[(TONE, -0.5), (GRAIN, 0.7)])
                 .leak(300.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, -0.5), (GRAIN, 0.7)])
+            k(OPEN, 0, 0.4, &[(TONE, -0.5), (GRAIN, 0.7)])
                 .leak(8000.0)
                 .hats(),
-            k(LOOP, -2, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.5)]).leak(15000.0),
-            k(FOLD, -12, 0.5, &[(DRIVE, 1.0)]).leak(2000.0),
-            k(RING, -30, -0.5, &[(DROP, 1.0), (DRIVE, 0.6)]).leak(3000.0),
+            k(CRASH, -7, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.5)]).leak(15000.0),
+            k(FOLDED, -12, 0.5, &[(DRIVE, 1.0)]).leak(2000.0),
+            k(TOM, -30, -0.5, &[(DROP, 1.0), (DRIVE, 0.6)]).leak(3000.0),
             k(DUST, -24, 0.6, &[(TONE, -1.0), (GRAIN, 0.8)]).leak(4000.0),
         ],
         ..INIT
@@ -954,16 +978,16 @@ static KITS: [Kit; 50] = [
             k(RING, 28, -0.1, &[(DROP, 1.0), (DAMPING, 0.3)])
                 .leak(250.0)
                 .routes(&[(Random, CellTarget::Pitch, 0.5)]),
-            k(RING, 31, 0.2, &[(DROP, 1.0), (DAMPING, 0.3)])
+            k(BONGO, 12, 0.2, &[(DROP, 1.0), (DAMPING, 0.3)])
                 .leak(250.0)
                 .routes(&[(Random, CellTarget::Pitch, 0.5)]),
-            k(RING, 34, 0.5, &[(DROP, 1.0), (DAMPING, 0.3)])
+            k(BONGO, 15, 0.5, &[(DROP, 1.0), (DAMPING, 0.3)])
                 .leak(250.0)
                 .routes(&[(Random, CellTarget::Pitch, 0.5)]),
             k(RING, 36, 0.8, &[(DROP, 1.0), (DAMPING, 0.3)])
                 .leak(250.0)
                 .routes(&[(Random, CellTarget::Pitch, 0.5)]),
-            k(SPARK, 0, -0.3, &[(TONE, 1.0), (GRAIN, -0.6)]).leak(150.0),
+            k(MARACA, 0, -0.3, &[(TONE, 1.0), (GRAIN, -0.6)]).leak(150.0),
             k(
                 LOOP,
                 24,
@@ -971,14 +995,19 @@ static KITS: [Kit; 50] = [
                 &[(DAMPING, 0.2), (SNAP, -1.0), (SPREAD, -1.0)],
             )
             .leak(400.0),
-            k(DUST, 0, 0.5, &[(TONE, 0.333), (SPREAD, 1.0), (GRAIN, -1.0)])
-                .leak(150.0)
-                .hats(),
-            k(DUST, 0, 0.5, &[(TONE, 0.333), (SPREAD, 1.0), (GRAIN, -1.0)])
+            k(
+                CLOSED,
+                0,
+                0.5,
+                &[(TONE, 0.333), (SPREAD, 1.0), (GRAIN, -1.0)],
+            )
+            .leak(150.0)
+            .hats(),
+            k(OPEN, 0, 0.5, &[(TONE, 0.333), (SPREAD, 1.0), (GRAIN, -1.0)])
                 .leak(1500.0)
                 .hats(),
-            k(LOOP, 31, -0.5, &[(DAMPING, -0.4), (SPREAD, -1.0)]).leak(2500.0),
-            k(RING, 40, 0.4, &[(DROP, 1.0), (DAMPING, 0.4)])
+            k(RIDE, 16, -0.5, &[(DAMPING, -0.4), (SPREAD, -1.0)]).leak(2500.0),
+            k(CLAVE, -14, 0.4, &[(DROP, 1.0), (DAMPING, 0.4)])
                 .leak(150.0)
                 .routes(&[(Random, CellTarget::Pitch, 0.5)]),
             k(SPARK, 0, -0.6, &[(TONE, 0.8), (GRAIN, -1.0)]).leak(400.0),
@@ -998,32 +1027,32 @@ static KITS: [Kit; 50] = [
                 .threshold(-0.6)
                 .leak(2000.0),
             k(SNARE, -12, 0.0, &[(TONE, -1.0), (BODY, -0.4), (DRIVE, 1.0)]),
-            k(RING, -24, -0.6, &[(DRIVE, 0.8)])
+            k(TOM, -24, -0.6, &[(DRIVE, 0.8)])
                 .threshold(-0.5)
                 .leak(2500.0),
-            k(RING, -19, -0.2, &[(DRIVE, 0.8)])
+            k(TOM, -19, -0.2, &[(DRIVE, 0.8)])
                 .threshold(-0.5)
                 .leak(2500.0),
-            k(RING, -12, 0.2, &[(DRIVE, 0.8)])
+            k(TOM, -12, 0.2, &[(DRIVE, 0.8)])
                 .threshold(-0.5)
                 .leak(2500.0),
             k(FOLD, -36, 0.6, &[(DRIVE, 1.0)]).leak(2000.0),
             k(FOLD, -31, -0.8, &[(DRIVE, 1.0)]).leak(2000.0),
-            k(LOOP, -30, 0.8, &[(DRIVE, 0.8), (SPREAD, 0.8)]).leak(2000.0),
-            k(SPARK, 0, -0.3, &[(TONE, -1.0), (SNAP, -1.0)]).leak(800.0),
+            k(COWBELL, -36, 0.8, &[(DRIVE, 0.8), (SPREAD, 0.8)]).leak(2000.0),
+            k(RIM, -24, -0.3, &[(TONE, -1.0), (SNAP, -1.0)]).leak(800.0),
             k(CLAP, 0, 0.3, &[(TONE, -1.0), (SPACING, 0.8)]),
-            k(DUST, 0, 0.4, &[(TONE, -1.0), (GRAIN, 0.5)])
+            k(CLOSED, 0, 0.4, &[(TONE, -1.0), (GRAIN, 0.5)])
                 .leak(300.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, -1.0), (GRAIN, 0.5)])
+            k(OPEN, 0, 0.4, &[(TONE, -1.0), (GRAIN, 0.5)])
                 .leak(4000.0)
                 .hats(),
             k(LOOP, -24, 0.0, &[(SPREAD, 1.0), (DRIVE, 1.0)])
                 .threshold(-0.4)
                 .leak(8000.0),
-            k(FOLD, -24, 0.5, &[(DRIVE, 1.0)]).leak(1500.0),
+            k(BELL, -36, 0.5, &[(DRIVE, 1.0)]).leak(1500.0),
             k(RING, -30, -0.5, &[(DROP, 1.0), (DRIVE, 0.5)]).leak(1500.0),
-            k(DUST, -12, 0.6, &[(TONE, -1.0), (GRAIN, 1.0)]).leak(3000.0),
+            k(BRUSH, -12, 0.6, &[(TONE, -1.0), (GRAIN, 1.0)]).leak(3000.0),
         ],
         ..INIT
     },
@@ -1038,17 +1067,17 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 24, 0.0, &[(DRIVE, 1.0), (DAMPING, 0.8), (SNAP, 1.0)]).leak(150.0),
             k(SNARE, 24, 0.0, &[(TONE, 0.625), (BODY, -1.0), (SNAP, 1.0)]).leak(150.0),
-            k(LOOP, 40, -0.6, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+            k(COWBELL, 24, -0.6, &[(SPREAD, 1.0), (DRIVE, 1.0)])
                 .threshold(-0.5)
                 .leak(150.0),
-            k(LOOP, 43, -0.2, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+            k(COWBELL, 27, -0.2, &[(SPREAD, 1.0), (DRIVE, 1.0)])
                 .threshold(-0.5)
                 .leak(150.0),
-            k(LOOP, 45, 0.2, &[(SPREAD, 1.0), (DRIVE, 1.0)])
+            k(COWBELL, 29, 0.2, &[(SPREAD, 1.0), (DRIVE, 1.0)])
                 .threshold(-0.5)
                 .leak(150.0),
-            k(SPARK, 0, 0.6, &[(GRAIN, 1.0), (TONE, 1.0), (SNAP, 1.0)]).leak(150.0),
-            k(DUST, 0, -0.8, &[(TONE, 1.0), (GRAIN, 0.4), (SPREAD, -0.5)]).leak(150.0),
+            k(MARACA, 0, 0.6, &[(GRAIN, 1.0), (TONE, 1.0), (SNAP, 1.0)]).leak(150.0),
+            k(TAMB, 12, -0.8, &[(TONE, 1.0), (GRAIN, 0.4), (SPREAD, -0.5)]).leak(150.0),
             k(SPARK, 0, 0.8, &[(GRAIN, 1.0), (TONE, 1.0)]).leak(150.0),
             k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, 1.0)]).leak(150.0),
             k(
@@ -1057,16 +1086,16 @@ static KITS: [Kit; 50] = [
                 0.3,
                 &[(GRAIN, 1.0), (TONE, 1.0), (SPACING, -1.0), (SNAP, 1.0)],
             ),
-            k(DUST, 0, 0.5, &[(TONE, 1.0), (GRAIN, 1.0)])
+            k(CLOSED, 0, 0.5, &[(TONE, 1.0), (GRAIN, 1.0)])
                 .leak(150.0)
                 .hats(),
-            k(DUST, 0, 0.5, &[(TONE, 1.0), (GRAIN, 1.0)])
+            k(OPEN, 0, 0.5, &[(TONE, 1.0), (GRAIN, 1.0)])
                 .leak(300.0)
                 .hats(),
             k(LOOP, 48, 0.0, &[(SPREAD, 1.0), (DRIVE, 1.0)])
                 .threshold(-0.5)
                 .leak(200.0),
-            k(FOLD, 40, 0.4, &[(DRIVE, 1.0), (SPREAD, 1.0)]).leak(150.0),
+            k(FOLDED, 24, 0.4, &[(DRIVE, 1.0), (SPREAD, 1.0)]).leak(150.0),
             k(SPARK, 0, -0.6, &[(GRAIN, 1.0), (TONE, 1.0), (SNAP, 1.0)]).leak(150.0),
             k(DUST, 24, 0.7, &[(TONE, 1.0), (GRAIN, 1.0)]).leak(150.0),
         ],
@@ -1085,28 +1114,28 @@ static KITS: [Kit; 50] = [
                 0.8,
             )]),
             k(SNARE, -5, 0.0, &[(BODY, 0.8), (TONE, -0.5)]).supply(1.0),
-            k(RING, -19, -0.5, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
-            k(RING, -14, 0.0, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
-            k(RING, -9, 0.5, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
-            k(FOLD, -12, -0.7, &[(DRIVE, -0.3)]).supply(1.0),
-            k(FOLD, -7, 0.7, &[(DRIVE, -0.3)]).supply(1.0),
-            k(LOOP, -12, 0.2, &[(DAMPING, 0.6)]).supply(1.0),
-            k(SPARK, 0, -0.3, &[(TONE, -0.7)]).supply(1.0),
+            k(TOM, -19, -0.5, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
+            k(TOM, -14, 0.0, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
+            k(TOM, -9, 0.5, &[(DROP, 0.5), (DAMPING, -0.3)]).supply(1.0),
+            k(CONGA, -22, -0.7, &[(DRIVE, -0.3)]).supply(1.0),
+            k(CONGA, -17, 0.7, &[(DRIVE, -0.3)]).supply(1.0),
+            k(BONGO, -19, 0.2, &[(DAMPING, 0.6)]).supply(1.0),
+            k(RIM, -12, -0.3, &[(TONE, -0.7)]).supply(1.0),
             k(CLAP, 0, 0.3, &[(TONE, -0.5), (SPACING, 0.4)]).supply(1.0),
-            k(DUST, 0, 0.4, &[(TONE, -0.4)])
+            k(CLOSED, 0, 0.4, &[(TONE, -0.4)])
                 .supply(1.0)
                 .leak(150.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, -0.4)])
+            k(OPEN, 0, 0.4, &[(TONE, -0.4)])
                 .supply(1.0)
                 .leak(1500.0)
                 .hats(),
-            k(LOOP, 0, -0.4, &[(SPREAD, 0.6), (DAMPING, 0.3)])
+            k(CRASH, -5, -0.4, &[(SPREAD, 0.6), (DAMPING, 0.3)])
                 .supply(1.0)
                 .leak(3000.0),
-            k(FOLD, 0, 0.4, &[]).supply(1.0),
-            k(SPARK, 0, -0.6, &[(TONE, -0.5)]).supply(1.0),
-            k(DUST, -5, 0.6, &[(TONE, -0.6), (GRAIN, -0.4)])
+            k(COWBELL, -12, 0.4, &[]).supply(1.0),
+            k(MARACA, 0, -0.6, &[(TONE, -0.5)]).supply(1.0),
+            k(BRUSH, -5, 0.6, &[(TONE, -0.6), (GRAIN, -0.4)])
                 .supply(1.0)
                 .leak(300.0),
         ],
@@ -1138,7 +1167,7 @@ static KITS: [Kit; 50] = [
                 .hunger(0.3)
                 .leak(1500.0)
                 .routes(&[(Lfo1, CellTarget::Threshold, -0.5)]),
-            k(SPARK, 0, 0.6, &[(GRAIN, 0.8), (TONE, 1.0), (SNAP, -0.8)])
+            k(MARACA, 0, 0.6, &[(GRAIN, 0.8), (TONE, 1.0), (SNAP, -0.8)])
                 .threshold(-0.7)
                 .supply(1.0)
                 .leak(1500.0),
@@ -1154,10 +1183,10 @@ static KITS: [Kit; 50] = [
                 .threshold(-0.8)
                 .leak(200.0),
             k(CLAP, 0, 0.3, &[(GRAIN, 1.0), (SPACING, -1.0), (TONE, 0.6)]).threshold(-0.6),
-            k(SPARK, 0, 0.4, &[(GRAIN, 0.9), (TONE, 1.0)])
+            k(FOLDED, 0, 0.4, &[(GRAIN, 0.9), (TONE, 1.0)])
                 .leak(120.0)
                 .hats(),
-            k(SPARK, 0, 0.4, &[(GRAIN, 0.9), (TONE, 1.0)])
+            k(OPEN, 0, 0.4, &[(GRAIN, 0.9), (TONE, 1.0)])
                 .threshold(-0.6)
                 .leak(1500.0)
                 .hats(),
@@ -1166,7 +1195,7 @@ static KITS: [Kit; 50] = [
                 .leak(2000.0),
             k(FOLD, 19, 0.5, &[(DRIVE, 1.0)]).threshold(-0.5),
             k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, 1.0)]).leak(120.0),
-            k(SPARK, 0, 0.6, &[(GRAIN, -0.5), (TONE, 1.0)])
+            k(GUIRO, 0, 0.6, &[(TONE, 1.0), (SPACING, -1.0)])
                 .threshold(-0.8)
                 .leak(800.0),
         ],
@@ -1183,28 +1212,34 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -2, 0.0, &[(DRIVE, 0.8)]),
             k(SNARE, 0, 0.0, &[(BODY, -1.0), (TONE, -0.3)]),
-            k(DUST, 0, -0.6, &[(TONE, -1.0), (SPREAD, -1.0), (GRAIN, 0.6)]).leak(800.0),
-            k(DUST, 0, -0.2, &[(TONE, -0.6), (SPREAD, 0.5), (GRAIN, -0.6)]).leak(800.0),
-            k(DUST, 0, 0.2, &[(TONE, -0.2), (SPREAD, 1.0), (GRAIN, 0.2)]).leak(800.0),
             k(
-                DUST,
+                BRUSH,
+                0,
+                -0.6,
+                &[(TONE, -1.0), (SPREAD, -1.0), (GRAIN, 0.6)],
+            )
+            .leak(800.0),
+            k(TAMB, 0, -0.2, &[(TONE, -0.6), (SPREAD, 0.5), (GRAIN, -0.6)]).leak(800.0),
+            k(CRASH, 0, 0.2, &[(TONE, -0.2), (SPREAD, 1.0), (GRAIN, 0.2)]).leak(800.0),
+            k(
+                BRUSH,
                 0,
                 0.6,
                 &[(TONE, 0.333), (SPREAD, -0.5), (GRAIN, -1.0)],
             )
             .leak(800.0),
-            k(DUST, 0, -0.8, &[(TONE, 1.0), (SPREAD, 0.8), (GRAIN, 0.5)]).leak(800.0),
+            k(CYMBAL, 0, -0.8, &[(TONE, 1.0), (SPREAD, 0.8), (GRAIN, 0.5)]).leak(800.0),
             k(DUST, 0, 0.8, &[(TONE, 1.0), (SPREAD, -0.2), (GRAIN, -0.3)]).leak(800.0),
-            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, -0.5)]).leak(400.0),
+            k(MARACA, 0, -0.3, &[(GRAIN, 1.0), (TONE, -0.5)]).leak(400.0),
             k(CLAP, 0, 0.3, &[(GRAIN, 1.0), (SPACING, -0.6)]),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (GRAIN, 1.0)])
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0), (GRAIN, 1.0)])
                 .leak(80.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, 0.833), (GRAIN, 1.0)])
+            k(OPEN, 0, 0.4, &[(TONE, 0.833), (GRAIN, 1.0)])
                 .leak(2000.0)
                 .hats(),
-            k(DUST, 0, 0.0, &[(TONE, 0.667), (SPREAD, 1.0)]).leak(4000.0),
-            k(FOLD, 0, 0.5, &[(DRIVE, 1.0)]),
+            k(RIDE, 0, 0.0, &[(TONE, 0.667), (SPREAD, 1.0)]).leak(4000.0),
+            k(FOLDED, 0, 0.5, &[(DRIVE, 1.0)]),
             k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, 1.0)]).leak(200.0),
             k(DUST, 0, 0.6, &[(GRAIN, -1.0), (TONE, 0.5)]).leak(1500.0),
         ],
@@ -1238,7 +1273,7 @@ static KITS: [Kit; 50] = [
                 .hunger(0.1)
                 .leak(6000.0)
                 .routes(&[(Lfo3, CellTarget::Threshold, -0.6)]),
-            k(SPARK, 0, -0.8, &[(GRAIN, -0.9), (TONE, 1.0), (SNAP, -1.0)])
+            k(MARACA, 0, -0.8, &[(GRAIN, -0.9), (TONE, 1.0), (SNAP, -1.0)])
                 .threshold(-0.8)
                 .hunger(0.1)
                 .leak(6000.0),
@@ -1250,11 +1285,11 @@ static KITS: [Kit; 50] = [
                 .threshold(-0.6)
                 .leak(1500.0),
             k(CLAP, 0, 0.3, &[(SPACING, 0.4)]).threshold(-0.6),
-            k(DUST, 0, 0.4, &[(GRAIN, -0.8)]).leak(100.0).hats(),
-            k(DUST, 0, 0.4, &[(GRAIN, -0.8)]).leak(3000.0).hats(),
-            k(LOOP, 12, 0.0, &[(SPREAD, 0.5)]).leak(1600.0),
-            k(FOLD, 12, 0.5, &[(DRIVE, 0.5)]),
-            k(SPARK, 0, -0.5, &[(TONE, 1.0)])
+            k(CLOSED, 0, 0.4, &[(GRAIN, -0.8)]).leak(100.0).hats(),
+            k(OPEN, 0, 0.4, &[(GRAIN, -0.8)]).leak(3000.0).hats(),
+            k(CYMBAL, 12, 0.0, &[(SPREAD, 0.5)]).leak(1600.0),
+            k(COWBELL, 0, 0.5, &[(DRIVE, 0.5)]),
+            k(GUIRO, 0, -0.5, &[(TONE, 1.0)])
                 .threshold(-0.8)
                 .leak(3000.0)
                 .routes(&[(Lfo3, CellTarget::Threshold, 0.8)]),
@@ -1269,23 +1304,23 @@ static KITS: [Kit; 50] = [
             k(KICK, 19, 0.0, &[(DAMPING, 0.5), (SNAP, 1.0)]).leak(150.0),
             k(SNARE, 12, 0.0, &[(TONE, 0.625), (BODY, -1.0), (SNAP, 1.0)]).leak(150.0),
             k(SPARK, 0, -0.6, &[(TONE, 1.0), (GRAIN, -0.3)]).leak(600.0),
-            k(SPARK, 0, -0.2, &[(TONE, 1.0), (GRAIN, -0.5)]).leak(600.0),
+            k(MARACA, 0, -0.2, &[(TONE, 1.0), (GRAIN, -0.5)]).leak(600.0),
             k(SPARK, 0, 0.2, &[(TONE, 1.0), (GRAIN, -0.1)]).leak(600.0),
-            k(DUST, 0, 0.6, &[(TONE, 1.0), (SPREAD, 0.6), (GRAIN, -0.9)]).leak(1000.0),
+            k(TAMB, 0, 0.6, &[(TONE, 1.0), (SPREAD, 0.6), (GRAIN, -0.9)]).leak(1000.0),
             k(DUST, 0, -0.8, &[(TONE, 1.0), (SPREAD, 0.8), (GRAIN, -1.0)]).leak(1000.0),
-            k(LOOP, 36, 0.8, &[(DAMPING, -0.5), (SPREAD, 0.3)]).leak(1500.0),
-            k(SPARK, 0, -0.3, &[(TONE, 1.0), (SNAP, 1.0)]).leak(60.0),
+            k(BELL, 21, 0.8, &[(DAMPING, -0.5), (SPREAD, 0.3)]).leak(1500.0),
+            k(RIM, 24, -0.3, &[(TONE, 1.0), (SNAP, 1.0)]).leak(60.0),
             k(CLAP, 0, 0.3, &[(TONE, 1.0), (GRAIN, 1.0), (SNAP, 1.0)]),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (GRAIN, -0.6)])
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0), (GRAIN, -0.6)])
                 .leak(100.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (GRAIN, -0.6)])
+            k(OPEN, 0, 0.4, &[(TONE, 1.0), (GRAIN, -0.6)])
                 .leak(2500.0)
                 .hats(),
-            k(LOOP, 46, 0.0, &[(DAMPING, -0.8), (SPREAD, 0.6)]).leak(5000.0),
+            k(RIDE, 31, 0.0, &[(DAMPING, -0.8), (SPREAD, 0.6)]).leak(5000.0),
             k(LOOP, 43, 0.5, &[(DAMPING, 0.3), (SPREAD, -1.0)]).leak(200.0),
             k(SPARK, 0, -0.5, &[(TONE, 1.0), (GRAIN, -1.0)]).leak(1500.0),
-            k(DUST, 0, 0.6, &[(TONE, 1.0), (SPREAD, 1.0), (GRAIN, -1.0)]).leak(2000.0),
+            k(TAMB, 0, 0.6, &[(TONE, 1.0), (SPREAD, 1.0), (GRAIN, -1.0)]).leak(2000.0),
         ],
         ..INIT
     },
@@ -1308,7 +1343,7 @@ static KITS: [Kit; 50] = [
                 .supply(1.0)
                 .leak(10000.0)
                 .routes(&[(Random, to(TONE), 0.5)]),
-            k(SPARK, 0, 0.2, &[(GRAIN, -1.0), (SNAP, 1.0), (TONE, 1.0)])
+            k(MARACA, 0, 0.2, &[(GRAIN, -1.0), (SNAP, 1.0), (TONE, 1.0)])
                 .threshold(-0.8)
                 .supply(1.0)
                 .leak(10000.0)
@@ -1327,18 +1362,18 @@ static KITS: [Kit; 50] = [
                 .supply(0.5),
             k(SPARK, 0, -0.3, &[(GRAIN, -0.5), (SNAP, 1.0)]).leak(800.0),
             k(CLAP, 0, 0.3, &[(GRAIN, -1.0), (SPACING, 1.0)]),
-            k(DUST, 0, 0.4, &[(GRAIN, -1.0), (TONE, 1.0)])
+            k(CLOSED, 0, 0.4, &[(GRAIN, -1.0), (TONE, 1.0)])
                 .leak(150.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(GRAIN, -1.0), (TONE, 1.0)])
+            k(OPEN, 0, 0.4, &[(GRAIN, -1.0), (TONE, 1.0)])
                 .leak(4000.0)
                 .hats(),
-            k(LOOP, 24, 0.0, &[(SPREAD, -1.0), (DAMPING, 0.5)]).leak(600.0),
-            k(FOLD, 12, 0.5, &[(DRIVE, -0.5)]).leak(300.0),
+            k(CYMBAL, 12, 0.0, &[(SPREAD, -1.0), (DAMPING, 0.5)]).leak(600.0),
+            k(CLAVE, -12, 0.5, &[(DRIVE, -0.5)]).leak(300.0),
             k(SPARK, 0, -0.5, &[(GRAIN, -1.0), (TONE, 1.0)])
                 .threshold(-0.8)
                 .leak(6000.0),
-            k(DUST, 0, 0.6, &[(GRAIN, -1.0), (SPREAD, 0.8)]).leak(3000.0),
+            k(BRUSH, 0, 0.6, &[(GRAIN, -1.0), (SPREAD, 0.8)]).leak(3000.0),
         ],
         ..INIT
     },
@@ -1358,22 +1393,22 @@ static KITS: [Kit; 50] = [
                 .leak(2000.0)
                 .routes(&[(Lfo2, CellTarget::Threshold, -0.6)]),
             k(LOOP, 29, 0.2, &[(DAMPING, 0.6), (SPREAD, -1.0)]).leak(80.0),
-            k(LOOP, 34, 0.6, &[(DAMPING, 0.6), (SPREAD, 0.4)]).leak(80.0),
-            k(LOOP, 24, -0.8, &[(DAMPING, 0.7), (SPREAD, -0.4)]).leak(80.0),
-            k(LOOP, 39, 0.8, &[(DAMPING, 0.6), (SPREAD, -1.0)]).leak(60.0),
-            k(SPARK, 0, -0.3, &[(SNAP, 1.0), (TONE, 1.0)]).leak(40.0),
+            k(COWBELL, 19, 0.6, &[(DAMPING, 0.6), (SPREAD, 0.4)]).leak(80.0),
+            k(CLAVE, -12, -0.8, &[(DAMPING, 0.7)]).leak(80.0),
+            k(COWBELL, 24, 0.8, &[(DAMPING, 0.6), (SPREAD, -1.0)]).leak(60.0),
+            k(RIM, 24, -0.3, &[(SNAP, 1.0), (TONE, 1.0)]).leak(40.0),
             k(CLAP, 0, 0.3, &[(SPACING, 0.8), (SNAP, 1.0), (GRAIN, -0.6)]),
-            k(SPARK, 0, 0.4, &[(TONE, 1.0), (SNAP, 1.0)])
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0), (BODY, 0.8)])
                 .leak(30.0)
                 .hats(),
-            k(SPARK, 0, 0.4, &[(TONE, 1.0), (GRAIN, -0.6)])
+            k(OPEN, 0, 0.4, &[(TONE, 1.0), (GRAIN, -0.6)])
                 .threshold(-0.6)
                 .leak(1500.0)
                 .hats(),
-            k(LOOP, 31, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.2)]).leak(3000.0),
+            k(RIDE, 16, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.2)]).leak(3000.0),
             k(FOLD, 24, 0.5, &[(DRIVE, -0.6)]).leak(80.0),
             k(SPARK, 0, -0.5, &[(SNAP, 1.0), (TONE, 1.0)]).leak(30.0),
-            k(LOOP, 17, 0.6, &[(DAMPING, 0.9), (SNAP, -1.0)]).leak(100.0),
+            k(GUIRO, 0, 0.6, &[(DAMPING, 0.9), (SPACING, 0.6)]).leak(100.0),
         ],
         ..INIT
     },
@@ -1385,28 +1420,28 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -3, 0.0, &[(DRIVE, 0.5), (DAMPING, 0.2)]).supply(1.0),
             k(SNARE, -5, 0.0, &[(BODY, -1.0), (TONE, -0.8)]).supply(1.0),
-            k(LOOP, -5, -0.6, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
-            k(LOOP, 0, -0.2, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
-            k(LOOP, 5, 0.2, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
+            k(TOM, 7, -0.6, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
+            k(TOM, 12, -0.2, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
+            k(TOM, 17, 0.2, &[(DAMPING, 0.8), (SNAP, 1.0)]).supply(1.0),
             k(FOLD, -12, 0.6, &[(DRIVE, 0.6)]).supply(1.0),
             k(FOLD, -7, -0.8, &[(DRIVE, 0.6)]).supply(1.0),
-            k(CLAP, 0, 0.8, &[(SPACING, 1.0), (GRAIN, -0.5), (TONE, -0.3)]).supply(1.0),
-            k(SPARK, 0, -0.3, &[(SNAP, -1.0), (TONE, -0.6)]).supply(1.0),
+            k(GUIRO, -12, 0.8, &[(SPACING, 1.0), (TONE, -0.3)]).supply(1.0),
+            k(RIM, -12, -0.3, &[(SNAP, -1.0), (TONE, -0.6)]).supply(1.0),
             k(CLAP, 0, 0.3, &[(SPACING, 0.8), (GRAIN, -0.3)]).supply(1.0),
-            k(DUST, 0, 0.4, &[(TONE, -0.4), (GRAIN, 0.8)])
+            k(CLOSED, 0, 0.4, &[(TONE, -0.4), (GRAIN, 0.8)])
                 .supply(1.0)
                 .leak(150.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, -0.4), (GRAIN, 0.8)])
+            k(OPEN, 0, 0.4, &[(TONE, -0.4), (GRAIN, 0.8)])
                 .supply(1.0)
                 .leak(1200.0)
                 .hats(),
-            k(DUST, 0, 0.0, &[(TONE, 0.0), (GRAIN, 1.0)])
+            k(BRUSH, 0, 0.0, &[(TONE, 0.0), (GRAIN, 1.0)])
                 .supply(1.0)
                 .leak(2500.0),
-            k(FOLD, 0, 0.5, &[(DRIVE, 0.4)]).supply(1.0),
-            k(SPARK, 0, -0.6, &[(SNAP, -1.0)]).supply(1.0),
-            k(CLAP, 0, 0.6, &[(SPACING, 1.0), (TONE, 0.4)]).supply(1.0),
+            k(COWBELL, -12, 0.5, &[(DRIVE, 0.4)]).supply(1.0),
+            k(MARACA, 0, -0.6, &[(SNAP, -1.0)]).supply(1.0),
+            k(GUIRO, 0, 0.6, &[(SPACING, 1.0), (TONE, 0.4)]).supply(1.0),
         ],
         ..INIT
     },
@@ -1425,41 +1460,37 @@ static KITS: [Kit; 50] = [
                 CellTarget::Pitch,
                 0.3,
             )]),
-            k(LOOP, -20, -0.6, &[(DAMPING, 0.8)]).routes(&[
+            k(TOM, -8, -0.6, &[(DAMPING, 0.8)]).routes(&[
                 (Lfo1, CellTarget::Pitch, 0.3),
                 (Lfo2, CellTarget::Pitch, 0.06),
             ]),
-            k(LOOP, -15, -0.2, &[(DAMPING, 0.8)]).routes(&[
+            k(TOM, -3, -0.2, &[(DAMPING, 0.8)]).routes(&[
                 (Lfo1, CellTarget::Pitch, 0.3),
                 (Lfo2, CellTarget::Pitch, 0.06),
             ]),
-            k(LOOP, -10, 0.2, &[(DAMPING, 0.8)]).routes(&[
+            k(TOM, 2, 0.2, &[(DAMPING, 0.8)]).routes(&[
                 (Lfo1, CellTarget::Pitch, 0.3),
                 (Lfo2, CellTarget::Pitch, 0.06),
             ]),
-            k(RING, -5, 0.6, &[(DAMPING, -0.4)]).leak(1500.0).routes(&[(
-                Lfo1,
-                CellTarget::Pitch,
-                0.3,
-            )]),
-            k(RING, 2, -0.8, &[(DAMPING, -0.4)]).leak(1500.0).routes(&[(
-                Lfo1,
-                CellTarget::Pitch,
-                0.3,
-            )]),
-            k(FOLD, -7, 0.8, &[(DRIVE, -0.4)]).routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
-            k(SPARK, 0, -0.3, &[(TONE, -0.6), (GRAIN, -0.8)]).leak(1500.0),
+            k(CONGA, -15, 0.6, &[(DAMPING, -0.4)])
+                .leak(1500.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
+            k(CONGA, -8, -0.8, &[(DAMPING, -0.4)])
+                .leak(1500.0)
+                .routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
+            k(BONGO, -26, 0.8, &[(DRIVE, -0.4)]).routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
+            k(MARACA, 0, -0.3, &[(TONE, -0.6), (GRAIN, -0.8)]).leak(1500.0),
             k(CLAP, 0, 0.3, &[(TONE, -0.5)]),
-            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.8)])
+            k(CLOSED, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.8)])
                 .leak(200.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.8)])
+            k(OPEN, 0, 0.4, &[(TONE, -0.6), (GRAIN, -0.8)])
                 .leak(3000.0)
                 .hats(),
-            k(LOOP, 0, 0.0, &[(SPREAD, 0.5), (DAMPING, 0.4)])
+            k(CRASH, -5, 0.0, &[(SPREAD, 0.5), (DAMPING, 0.4)])
                 .leak(4000.0)
                 .routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
-            k(FOLD, 5, 0.5, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
+            k(COWBELL, -7, 0.5, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.3)]),
             k(SPARK, 0, -0.5, &[(GRAIN, -1.0), (TONE, -0.3)]).leak(3000.0),
             k(DUST, 0, 0.6, &[(TONE, -0.6), (GRAIN, -0.8)]).leak(5000.0),
         ],
@@ -1488,29 +1519,29 @@ static KITS: [Kit; 50] = [
             k(DUST, 0, 0.2, &[(SPREAD, 1.0), (TONE, 0.333)])
                 .leak(400.0)
                 .routes(&[(Lfo3, to(TONE), 0.6), (Random, to(TONE), 0.4)]),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)])
+            k(TAMB, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)])
                 .leak(400.0)
                 .routes(&[(Lfo3, to(TONE), -0.6), (Random, to(TONE), 0.4)]),
-            k(FOLD, 12, -0.8, &[(DRIVE, 1.0), (SPREAD, 0.6)]).leak(200.0),
+            k(FOLDED, 0, -0.8, &[(DRIVE, 1.0), (SPREAD, 0.6)]).leak(200.0),
             k(FOLD, 19, 0.8, &[(DRIVE, 1.0), (SPREAD, -0.6)]).leak(200.0),
             k(SPARK, 0, -0.3, &[(GRAIN, -0.8), (TONE, 1.0)])
                 .threshold(-0.6)
                 .leak(2000.0),
             k(CLAP, 0, 0.3, &[(TONE, -0.5), (SPACING, 0.9), (GRAIN, -0.7)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.9)])
+            k(CLOSED, 0, 0.4, &[(SPREAD, 0.9)])
                 .leak(150.0)
                 .hats()
                 .routes(&[(Lfo1, to(TONE), 0.8)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.9)])
+            k(OPEN, 0, 0.4, &[(SPREAD, 0.9)])
                 .leak(1500.0)
                 .hats()
                 .routes(&[(Lfo1, to(TONE), 0.8)]),
             k(LOOP, 5, 0.0, &[(SPREAD, 1.0), (DAMPING, 0.7), (DRIVE, 0.8)])
                 .threshold(-0.5)
                 .leak(1500.0),
-            k(FOLD, -7, 0.5, &[(DRIVE, 0.9)]).routes(&[(Lfo3, CellTarget::Pitch, 1.0)]),
+            k(COWBELL, -19, 0.5, &[(DRIVE, 0.9)]).routes(&[(Lfo3, CellTarget::Pitch, 1.0)]),
             k(SPARK, 0, -0.5, &[(GRAIN, -0.8), (TONE, 1.0)]).leak(1000.0),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)])
+            k(GUIRO, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)])
                 .leak(800.0)
                 .routes(&[(Lfo1, to(TONE), -0.8)]),
         ],
@@ -1533,10 +1564,10 @@ static KITS: [Kit; 50] = [
             k(FOLD, 23, 0.8, &[(DRIVE, 1.0), (SPREAD, 0.3)]).threshold(-0.5),
             k(FOLD, 30, -0.3, &[(DRIVE, 1.0), (SPREAD, 1.0)]).leak(150.0),
             k(FOLD, 36, 0.3, &[(DRIVE, 1.0), (SPREAD, -1.0)]).leak(150.0),
-            k(FOLD, 36, 0.4, &[(DRIVE, 1.0), (SPREAD, 0.7)])
+            k(FOLDED, 36, 0.4, &[(DRIVE, 1.0), (SPREAD, 0.7)])
                 .leak(60.0)
                 .hats(),
-            k(FOLD, 36, 0.4, &[(DRIVE, 1.0), (SPREAD, 0.7)])
+            k(FOLDED, 36, 0.4, &[(DRIVE, 1.0), (SPREAD, 0.7)])
                 .leak(800.0)
                 .hats(),
             k(FOLD, 0, 0.0, &[(DRIVE, 0.6), (SPREAD, 1.0)]).leak(3000.0),
@@ -1570,7 +1601,7 @@ static KITS: [Kit; 50] = [
                 .bus(B)
                 .threshold(-0.6)
                 .supply(0.5),
-            k(SPARK, 0, 0.6, &[(GRAIN, -0.6), (TONE, 1.0)])
+            k(MARACA, 0, 0.6, &[(GRAIN, -0.6), (TONE, 1.0)])
                 .bus(B)
                 .threshold(-0.6)
                 .supply(0.5),
@@ -1582,15 +1613,15 @@ static KITS: [Kit; 50] = [
                 .bus(B)
                 .threshold(-0.6)
                 .supply(0.5),
-            k(SPARK, 0, -0.3, &[(TONE, 1.0)]).leak(100.0),
+            k(RIM, 12, -0.3, &[(TONE, 1.0)]).leak(100.0),
             k(CLAP, 0, 0.3, &[(SPACING, 1.0), (GRAIN, -1.0)]),
-            k(DUST, 0, 0.4, &[(GRAIN, -0.9), (TONE, 1.0)])
+            k(CLOSED, 0, 0.4, &[(GRAIN, -0.9), (TONE, 1.0)])
                 .leak(100.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(GRAIN, -0.9), (TONE, 1.0)])
+            k(OPEN, 0, 0.4, &[(GRAIN, -0.9), (TONE, 1.0)])
                 .leak(1500.0)
                 .hats(),
-            k(LOOP, 31, 0.0, &[(DAMPING, -0.5), (SPREAD, 0.8)]).leak(2000.0),
+            k(TAMB, 0, 0.0, &[(DAMPING, -0.5), (SPREAD, 0.8)]).leak(2000.0),
             k(FOLD, 24, 0.5, &[(DRIVE, 0.3)]),
             k(SPARK, 0, -0.5, &[(TONE, 1.0)]).leak(60.0),
             k(DUST, 0, 0.6, &[(GRAIN, -1.0), (TONE, 1.0), (SPREAD, 0.7)])
@@ -1612,32 +1643,32 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 0, 0.0, &[]),
             k(SNARE, 0, 0.0, &[(BODY, 0.4)]),
-            k(RING, 0, -0.6, &[(DAMPING, 0.2)])
+            k(TOM, 0, -0.6, &[(DAMPING, 0.2)])
                 .bus(A)
                 .threshold(-0.4)
                 .supply(0.5)
                 .routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
-            k(RING, 7, -0.2, &[(DAMPING, 0.2)])
+            k(TOM, 7, -0.2, &[(DAMPING, 0.2)])
                 .bus(A)
                 .threshold(-0.4)
                 .supply(0.5)
                 .routes(&[(Lfo1, CellTarget::Pitch, -1.0)]),
-            k(RING, 12, 0.2, &[(DAMPING, 0.2)])
+            k(CONGA, 2, 0.2, &[(DAMPING, 0.2)])
                 .bus(A)
                 .threshold(-0.4)
                 .supply(0.5)
                 .routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
-            k(RING, 19, 0.6, &[(DAMPING, 0.2)])
+            k(CONGA, 9, 0.6, &[(DAMPING, 0.2)])
                 .bus(A)
                 .threshold(-0.4)
                 .supply(0.5)
                 .routes(&[(Lfo2, CellTarget::Pitch, -1.0)]),
-            k(FOLD, 5, -0.8, &[]),
+            k(BONGO, -14, -0.8, &[]),
             k(FOLD, 10, 0.8, &[]),
             k(SPARK, 0, -0.3, &[]),
             k(CLAP, 0, 0.3, &[]),
-            k(DUST, 0, 0.4, &[(TONE, 0.667)]).leak(80.0).hats(),
-            k(DUST, 0, 0.4, &[(TONE, 0.667)]).leak(800.0).hats(),
+            k(CLOSED, 0, 0.4, &[(TONE, 0.667)]).leak(80.0).hats(),
+            k(OPEN, 0, 0.4, &[(TONE, 0.667)]).leak(800.0).hats(),
             k(LOOP, 24, 0.0, &[(SPREAD, 0.5)]).leak(2000.0),
             k(FOLD, 17, 0.5, &[]),
             k(SPARK, 0, -0.5, &[(TONE, 1.0)]).leak(80.0),
@@ -1661,40 +1692,40 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -5, 0.0, &[(DAMPING, -0.3)]),
             k(SNARE, 0, 0.0, &[(BODY, 0.5)]),
-            k(RING, -17, -0.5, &[(DAMPING, -0.3)])
+            k(TOM, -17, -0.5, &[(DAMPING, -0.3)])
                 .bus(A)
                 .threshold(-0.4)
                 .supply(0.4),
-            k(RING, -12, 0.0, &[(DAMPING, -0.3)])
+            k(TOM, -12, 0.0, &[(DAMPING, -0.3)])
                 .bus(A)
                 .threshold(-0.4)
                 .supply(0.4),
-            k(RING, -5, 0.5, &[(DAMPING, -0.3)])
+            k(TOM, -5, 0.5, &[(DAMPING, -0.3)])
                 .bus(A)
                 .threshold(-0.4)
                 .supply(0.4),
             k(FOLD, -12, -0.8, &[(DRIVE, -0.5)]).bus(A).supply(0.4),
             k(FOLD, -5, 0.8, &[(DRIVE, -0.5)]).bus(A).supply(0.4),
-            k(LOOP, 7, 0.2, &[(DAMPING, 0.3)]),
+            k(BONGO, 0, 0.2, &[(DAMPING, 0.3)]),
             k(SPARK, 0, -0.3, &[]),
             k(CLAP, 0, 0.3, &[]),
-            k(DUST, 0, 0.4, &[(TONE, -0.2), (SPREAD, 0.4)])
+            k(CLOSED, 0, 0.4, &[(TONE, -0.2), (SPREAD, 0.4)])
                 .bus(B)
                 .supply(0.4)
                 .leak(300.0)
                 .hats(),
-            k(DUST, 0, -0.4, &[(TONE, 0.5), (SPREAD, 0.4)])
+            k(OPEN, 0, -0.4, &[(TONE, 0.5), (SPREAD, 0.4)])
                 .bus(B)
                 .supply(0.4)
                 .leak(1500.0)
                 .hats(),
-            k(LOOP, 12, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.3)])
+            k(CRASH, 7, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.3)])
                 .bus(B)
                 .threshold(-0.5)
                 .supply(0.4),
             k(FOLD, 12, 0.5, &[]),
             k(SPARK, 0, -0.5, &[]),
-            k(DUST, 0, 0.6, &[(TONE, 1.0), (SPREAD, 0.6)])
+            k(BRUSH, 0, 0.6, &[(TONE, 1.0), (SPREAD, 0.6)])
                 .bus(B)
                 .supply(0.4),
         ],
@@ -1717,10 +1748,10 @@ static KITS: [Kit; 50] = [
             k(DUST, 0, -0.2, &[(SPREAD, 1.0), (TONE, 1.0)])
                 .bus(B)
                 .supply(0.5),
-            k(DUST, 0, 0.2, &[(SPREAD, 1.0), (TONE, 1.0)])
+            k(GUIRO, 0, 0.2, &[(SPREAD, 1.0), (TONE, 1.0)])
                 .bus(B)
                 .supply(0.5),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)])
+            k(GUIRO, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)])
                 .bus(B)
                 .supply(0.5),
             k(DUST, 0, -0.8, &[(SPREAD, 0.8), (TONE, 1.0), (GRAIN, 0.5)])
@@ -1729,14 +1760,14 @@ static KITS: [Kit; 50] = [
             k(DUST, 0, 0.8, &[(SPREAD, 0.8), (TONE, 0.833), (GRAIN, 0.5)])
                 .bus(B)
                 .supply(0.5),
-            k(SPARK, 0, -0.3, &[(GRAIN, 0.7), (TONE, 1.0)]).leak(400.0),
+            k(MARACA, 0, -0.3, &[(GRAIN, 0.7), (TONE, 1.0)]).leak(400.0),
             k(CLAP, 0, 0.3, &[(TONE, 0.6)]),
-            k(DUST, 0, 0.4, &[(TONE, 1.0)]).leak(80.0).hats(),
-            k(DUST, 0, 0.4, &[(TONE, 1.0)]).leak(1000.0).hats(),
-            k(LOOP, 19, 0.0, &[(SPREAD, 0.5)]).leak(2000.0),
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0)]).leak(80.0).hats(),
+            k(OPEN, 0, 0.4, &[(TONE, 1.0)]).leak(1000.0).hats(),
+            k(CYMBAL, 7, 0.0, &[(SPREAD, 0.5)]).leak(2000.0),
             k(FOLD, 12, 0.5, &[]),
             k(SPARK, 0, -0.5, &[(GRAIN, 0.7), (TONE, 1.0)]).leak(300.0),
-            k(DUST, 0, 0.6, &[(GRAIN, -0.5)]).leak(300.0),
+            k(MARACA, 0, 0.6, &[(GRAIN, -0.5)]).leak(300.0),
         ],
         ..INIT
     },
@@ -1749,12 +1780,12 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -7, 0.0, &[(DAMPING, -0.6)]).leak(4000.0),
             k(SNARE, -5, 0.0, &[(BODY, 0.6), (DAMPING, -0.5)]).leak(2000.0),
-            k(RING, -36, -0.4, &[(DAMPING, -0.5)])
+            k(TOM, -36, -0.4, &[(DAMPING, -0.5)])
                 .bus(A)
                 .threshold(-0.5)
                 .supply(0.5)
                 .routes(&[(Lfo1, CellTarget::Pitch, 0.2)]),
-            k(RING, -29, 0.4, &[(DAMPING, -0.5)])
+            k(TOM, -29, 0.4, &[(DAMPING, -0.5)])
                 .bus(A)
                 .threshold(-0.5)
                 .supply(0.5)
@@ -1762,19 +1793,19 @@ static KITS: [Kit; 50] = [
             k(DUST, -24, 0.0, &[(TONE, -1.0), (SPREAD, 1.0)])
                 .bus(A)
                 .supply(0.5),
-            k(LOOP, 24, -0.7, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
-            k(LOOP, 31, 0.7, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
-            k(LOOP, 36, 0.2, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
+            k(RIDE, 9, -0.7, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
+            k(RIDE, 16, 0.7, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
+            k(RIDE, 21, 0.2, &[(SPREAD, 1.0), (DAMPING, -0.9)]).leak(12000.0),
             k(SPARK, 0, -0.3, &[(TONE, 1.0), (GRAIN, -0.8)]).leak(2000.0),
             k(CLAP, 0, 0.3, &[(SPACING, 0.8), (TONE, 0.4)]),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (SPREAD, 0.8)])
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0), (SPREAD, 0.8)])
                 .leak(200.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (SPREAD, 0.8)])
+            k(OPEN, 0, 0.4, &[(TONE, 1.0), (SPREAD, 0.8)])
                 .leak(6000.0)
                 .hats(),
-            k(LOOP, 43, 0.0, &[(SPREAD, 0.8), (DAMPING, -1.0)]).leak(25000.0),
-            k(RING, 24, 0.5, &[(DAMPING, -1.0)]).leak(10000.0),
+            k(CYMBAL, 31, 0.0, &[(SPREAD, 0.8), (DAMPING, -1.0)]).leak(25000.0),
+            k(BELL, -3, 0.5, &[(DAMPING, -1.0)]).leak(10000.0),
             k(SPARK, 0, -0.5, &[(TONE, 1.0)]).leak(100.0),
             k(DUST, 0, 0.6, &[(TONE, 0.833), (SPREAD, 1.0)]).leak(3000.0),
         ],
@@ -1791,7 +1822,7 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -3, 0.0, &[(DRIVE, 0.4)]),
             k(SNARE, 0, 0.0, &[(BODY, -0.6)]),
-            k(DUST, 0, -0.6, &[(SPREAD, -0.3)])
+            k(BRUSH, 0, -0.6, &[(SPREAD, -0.3)])
                 .bus(A)
                 .supply(0.4)
                 .routes(&[(Lfo1, to(TONE), 1.0)]),
@@ -1799,15 +1830,15 @@ static KITS: [Kit; 50] = [
                 .bus(A)
                 .supply(0.4)
                 .routes(&[(Lfo2, to(TONE), -1.0)]),
-            k(FOLD, -12, -0.2, &[(DRIVE, 1.0)]).bus(A).supply(0.4),
+            k(FOLDED, -12, -0.2, &[(DRIVE, 1.0)]).bus(A).supply(0.4),
             k(FOLD, -5, 0.2, &[(DRIVE, 1.0)]).bus(A).supply(0.4),
-            k(RING, -5, -0.8, &[]),
-            k(RING, 2, 0.8, &[]),
-            k(SPARK, 0, -0.3, &[(GRAIN, 0.4)]),
+            k(TOM, -5, -0.8, &[]),
+            k(CONGA, -8, 0.8, &[]),
+            k(MARACA, 0, -0.3, &[(GRAIN, 0.4)]),
             k(CLAP, 0, 0.3, &[(GRAIN, 0.6)]),
-            k(DUST, 0, 0.4, &[(GRAIN, 0.6)]).leak(80.0).hats(),
-            k(DUST, 0, 0.4, &[(GRAIN, 0.6)]).leak(900.0).hats(),
-            k(LOOP, 12, 0.0, &[(SPREAD, 0.6)]).leak(2000.0),
+            k(CLOSED, 0, 0.4, &[(GRAIN, 0.6)]).leak(80.0).hats(),
+            k(OPEN, 0, 0.4, &[(GRAIN, 0.6)]).leak(900.0).hats(),
+            k(CRASH, 7, 0.0, &[(SPREAD, 0.6)]).leak(2000.0),
             k(FOLD, 12, 0.5, &[(DRIVE, 0.6)]),
             k(SPARK, 0, -0.5, &[]),
             k(DUST, 0, 0.6, &[(SPREAD, 0.6)])
@@ -1830,7 +1861,7 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 0, 0.0, &[(DAMPING, -0.2)]),
             k(SNARE, 0, 0.0, &[(BODY, -0.5), (TONE, -0.3)]),
-            k(DUST, 0, -0.6, &[(SPREAD, -0.6), (TONE, -0.6)])
+            k(BRUSH, 0, -0.6, &[(SPREAD, -0.6), (TONE, -0.6)])
                 .bus(A)
                 .supply(0.4)
                 .routes(&[(Lfo1, to(TONE), 0.8)]),
@@ -1838,7 +1869,7 @@ static KITS: [Kit; 50] = [
                 .bus(A)
                 .supply(0.4)
                 .routes(&[(Lfo2, to(TONE), 0.8)]),
-            k(DUST, 0, 0.2, &[(SPREAD, -0.6), (TONE, 0.333)])
+            k(BRUSH, 0, 0.2, &[(SPREAD, -0.6), (TONE, 0.333)])
                 .bus(A)
                 .supply(0.4)
                 .routes(&[(Lfo3, to(TONE), 0.8)]),
@@ -1846,14 +1877,14 @@ static KITS: [Kit; 50] = [
                 .bus(A)
                 .supply(0.4)
                 .routes(&[(Lfo1, to(TONE), -0.8)]),
-            k(RING, -7, -0.8, &[(DAMPING, -0.3)]),
-            k(RING, 0, 0.8, &[(DAMPING, -0.3)]),
-            k(SPARK, 0, -0.3, &[(TONE, -0.3)]),
+            k(TOM, -7, -0.8, &[(DAMPING, -0.3)]),
+            k(TOM, 0, 0.8, &[(DAMPING, -0.3)]),
+            k(RIM, 0, -0.3, &[(TONE, -0.3)]),
             k(CLAP, 0, 0.3, &[(TONE, -0.3)]),
-            k(DUST, 0, 0.4, &[(TONE, 0.5)]).leak(100.0).hats(),
-            k(DUST, 0, 0.4, &[(TONE, 0.5)]).leak(1500.0).hats(),
-            k(LOOP, 7, 0.0, &[(SPREAD, 0.7), (DAMPING, -0.3)]).leak(3000.0),
-            k(FOLD, 7, 0.5, &[]),
+            k(CLOSED, 0, 0.4, &[(TONE, 0.5)]).leak(100.0).hats(),
+            k(OPEN, 0, 0.4, &[(TONE, 0.5)]).leak(1500.0).hats(),
+            k(CRASH, 2, 0.0, &[(SPREAD, 0.7), (DAMPING, -0.3)]).leak(3000.0),
+            k(COWBELL, -5, 0.5, &[]),
             k(SPARK, 0, -0.5, &[]),
             k(DUST, 0, 0.6, &[(SPREAD, -1.0), (TONE, -0.8)])
                 .bus(A)
@@ -1894,20 +1925,20 @@ static KITS: [Kit; 50] = [
                 .bus(A)
                 .threshold(-0.6)
                 .supply(0.4),
-            k(RING, -29, -0.8, &[(DAMPING, -0.8), (DROP, -1.0)]).leak(6000.0),
-            k(RING, -22, 0.8, &[(DAMPING, -0.8), (DROP, -1.0)]).leak(6000.0),
-            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, -1.0)]).threshold(-0.6),
+            k(TOM, -29, -0.8, &[(DAMPING, -0.8), (DROP, -1.0)]).leak(6000.0),
+            k(TOM, -22, 0.8, &[(DAMPING, -0.8), (DROP, -1.0)]).leak(6000.0),
+            k(MARACA, 0, -0.3, &[(GRAIN, 1.0), (TONE, -1.0)]).threshold(-0.6),
             k(CLAP, 0, 0.3, &[(TONE, -1.0), (GRAIN, 0.8)]),
-            k(DUST, 0, 0.4, &[(TONE, -1.0), (SPREAD, 1.0)])
+            k(CLOSED, 0, 0.4, &[(TONE, -1.0), (SPREAD, 1.0)])
                 .leak(200.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, -1.0), (SPREAD, 1.0)])
+            k(OPEN, 0, 0.4, &[(TONE, -1.0), (SPREAD, 1.0)])
                 .leak(2000.0)
                 .hats(),
-            k(LOOP, -24, 0.0, &[(SPREAD, -1.0), (DAMPING, -0.6)]).leak(6000.0),
-            k(FOLD, -5, 0.5, &[(DRIVE, -1.0)]),
+            k(BELL, -39, 0.0, &[(SPREAD, -1.0), (DAMPING, -0.6)]).leak(6000.0),
+            k(COWBELL, -24, 0.5, &[(DRIVE, -1.0)]),
             k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, -0.6)]),
-            k(DUST, -12, 0.6, &[(TONE, -0.8), (SPREAD, 1.0)]).leak(1500.0),
+            k(BRUSH, -12, 0.6, &[(TONE, -0.8), (SPREAD, 1.0)]).leak(1500.0),
         ],
         ..INIT
     },
@@ -1925,7 +1956,7 @@ static KITS: [Kit; 50] = [
                 .bus(A)
                 .threshold(-0.7)
                 .supply(0.5),
-            k(SPARK, 0, 0.0, &[(GRAIN, 1.0), (TONE, 0.4)])
+            k(MARACA, 0, 0.0, &[(GRAIN, 1.0), (TONE, 0.4)])
                 .bus(A)
                 .threshold(-0.7)
                 .supply(0.5),
@@ -1933,17 +1964,17 @@ static KITS: [Kit; 50] = [
                 .bus(A)
                 .threshold(-0.7)
                 .supply(0.5),
-            k(FOLD, 12, -0.8, &[(DRIVE, 0.6)]),
+            k(FOLDED, 0, -0.8, &[(DRIVE, 0.6)]),
             k(FOLD, 19, 0.8, &[(DRIVE, 0.6)]),
-            k(LOOP, 12, 0.2, &[]),
+            k(COWBELL, -3, 0.2, &[]),
             k(SPARK, 0, -0.3, &[(GRAIN, 0.6)]),
             k(CLAP, 0, 0.3, &[(GRAIN, 0.6)]),
-            k(DUST, 0, 0.4, &[(TONE, 1.0)]).leak(80.0).hats(),
-            k(DUST, 0, 0.4, &[(TONE, 1.0)]).leak(800.0).hats(),
-            k(LOOP, 24, 0.0, &[(SPREAD, 0.6)]).leak(1600.0),
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0)]).leak(80.0).hats(),
+            k(OPEN, 0, 0.4, &[(TONE, 1.0)]).leak(800.0).hats(),
+            k(CYMBAL, 12, 0.0, &[(SPREAD, 0.6)]).leak(1600.0),
             k(FOLD, 24, 0.5, &[(DRIVE, 0.6)]),
             k(SPARK, 0, -0.5, &[(GRAIN, 1.0)]),
-            k(DUST, 0, 0.6, &[(SPREAD, 0.8), (TONE, 1.0)])
+            k(GUIRO, 0, 0.6, &[(SPREAD, 0.8), (TONE, 1.0)])
                 .bus(A)
                 .supply(0.5),
         ],
@@ -1959,21 +1990,26 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -9, 0.0, &[(DAMPING, -0.5)]).leak(3000.0),
             k(SNARE, -7, 0.0, &[(TONE, -0.7), (BODY, -0.3)]),
-            k(DUST, -12, -0.6, &[(TONE, -0.8), (GRAIN, 0.5)])
+            k(BRUSH, -12, -0.6, &[(TONE, -0.8), (GRAIN, 0.5)])
                 .bus(A)
                 .supply(0.4),
-            k(DUST, -12, 0.6, &[(TONE, -0.6), (GRAIN, 0.5), (SPREAD, 0.3)])
-                .bus(A)
-                .supply(0.4),
-            k(RING, -24, -0.2, &[(DAMPING, -0.8), (DROP, 0.4)]).leak(6000.0),
-            k(RING, -19, 0.2, &[(DAMPING, -0.8), (DROP, 0.4)]).leak(6000.0),
-            k(LOOP, -24, -0.8, &[(SPREAD, 0.6), (DAMPING, 0.3)]).leak(5000.0),
-            k(LOOP, -17, 0.8, &[(SPREAD, 0.6), (DAMPING, 0.3)]).leak(5000.0),
+            k(
+                BRUSH,
+                -12,
+                0.6,
+                &[(TONE, -0.6), (GRAIN, 0.5), (SPREAD, 0.3)],
+            )
+            .bus(A)
+            .supply(0.4),
+            k(TOM, -24, -0.2, &[(DAMPING, -0.8), (DROP, 0.4)]).leak(6000.0),
+            k(TOM, -19, 0.2, &[(DAMPING, -0.8), (DROP, 0.4)]).leak(6000.0),
+            k(CRASH, -29, -0.8, &[(SPREAD, 0.6), (DAMPING, 0.3)]).leak(5000.0),
+            k(BELL, -32, 0.8, &[(SPREAD, 0.6), (DAMPING, 0.3)]).leak(5000.0),
             k(SPARK, 0, -0.3, &[(TONE, -0.8)]),
             k(CLAP, 0, 0.3, &[(TONE, -0.6), (SPACING, 0.6)]),
-            k(DUST, 0, 0.4, &[(TONE, -0.4)]).leak(150.0).hats(),
-            k(DUST, 0, 0.4, &[(TONE, -0.4)]).leak(3000.0).hats(),
-            k(LOOP, -12, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.5)]).leak(12000.0),
+            k(CLOSED, 0, 0.4, &[(TONE, -0.4)]).leak(150.0).hats(),
+            k(OPEN, 0, 0.4, &[(TONE, -0.4)]).leak(3000.0).hats(),
+            k(CYMBAL, -24, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.5)]).leak(12000.0),
             k(RING, -14, 0.5, &[(DAMPING, -0.9)]).leak(8000.0),
             k(SPARK, 0, -0.5, &[(TONE, -0.5)]),
             k(DUST, -12, 0.6, &[(TONE, -0.9), (SPREAD, 0.8)])
@@ -1990,28 +2026,28 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 0, 0.0, &[(DROP, 0.5)]).routes(&[(Random, CellTarget::Pitch, 0.4)]),
             k(SNARE, 0, 0.0, &[(BODY, 0.6)]).routes(&[(Random, to(TONE), 0.8)]),
-            k(RING, 0, -0.6, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(RING, 5, -0.2, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(RING, 12, 0.2, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(FOLD, 7, 0.6, &[(SPREAD, 0.3)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(FOLD, 14, -0.8, &[(SPREAD, -0.3)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(LOOP, 12, 0.8, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(SPARK, 0, -0.3, &[]).routes(&[(Random, to(TONE), 1.0)]),
+            k(TOM, 0, -0.6, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(TOM, 5, -0.2, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(TOM, 12, 0.2, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(COWBELL, -21, 0.6, &[(SPREAD, 0.3)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(COWBELL, -14, -0.8, &[(SPREAD, -0.3)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(BONGO, 5, 0.8, &[(DAMPING, -0.4)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(RIM, 0, -0.3, &[]).routes(&[(Random, to(TONE), 1.0)]),
             k(CLAP, 0, 0.3, &[]).routes(&[(Random, to(SPACING), 1.0)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.6)])
+            k(CLOSED, 0, 0.4, &[(SPREAD, 0.6)])
                 .leak(100.0)
                 .hats()
                 .routes(&[(Random, to(TONE), 1.0)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.6)])
+            k(OPEN, 0, 0.4, &[(SPREAD, 0.6)])
                 .leak(1000.0)
                 .hats()
                 .routes(&[(Random, to(TONE), 1.0)]),
-            k(LOOP, 24, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.4)])
+            k(RIDE, 9, 0.0, &[(SPREAD, 0.6), (DAMPING, -0.4)])
                 .leak(2000.0)
                 .routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(RING, 19, 0.5, &[(DAMPING, -0.2)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
-            k(SPARK, 0, -0.5, &[]).routes(&[(Random, to(GRAIN), 1.0)]),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Random, to(TONE), 1.0)]),
+            k(CLAVE, -24, 0.5, &[(DAMPING, -0.2)]).routes(&[(Random, CellTarget::Pitch, 1.0)]),
+            k(MARACA, 0, -0.5, &[]).routes(&[(Random, to(GRAIN), 1.0)]),
+            k(TAMB, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Random, to(TONE), 1.0)]),
         ],
         ..INIT
     },
@@ -2026,34 +2062,34 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -5, 0.0, &[(DAMPING, -0.3)]).routes(&[(Lfo1, CellTarget::Pitch, 0.8)]),
             k(SNARE, 0, 0.0, &[(BODY, 0.6)]).routes(&[(Lfo2, CellTarget::Pitch, 0.6)]),
-            k(RING, -12, -0.6, &[])
+            k(TOM, -12, -0.6, &[])
                 .threshold(-0.3)
                 .routes(&[(Lfo1, CellTarget::Pitch, 0.8)]),
-            k(RING, -5, -0.2, &[])
+            k(TOM, -5, -0.2, &[])
                 .threshold(-0.3)
                 .routes(&[(Lfo2, CellTarget::Pitch, 0.8)]),
-            k(RING, 2, 0.2, &[])
+            k(TOM, 2, 0.2, &[])
                 .threshold(-0.3)
                 .routes(&[(Lfo1, CellTarget::Pitch, -0.8)]),
-            k(FOLD, -7, 0.6, &[]).routes(&[(Lfo2, CellTarget::Pitch, 0.5)]),
-            k(FOLD, 0, -0.8, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.5)]),
-            k(LOOP, 0, 0.8, &[(DAMPING, -0.3)]).routes(&[(Lfo2, CellTarget::Pitch, 0.5)]),
-            k(SPARK, 0, -0.3, &[]).routes(&[(Lfo3, to(TONE), 1.0)]),
+            k(CONGA, -17, 0.6, &[]).routes(&[(Lfo2, CellTarget::Pitch, 0.5)]),
+            k(CONGA, -10, -0.8, &[]).routes(&[(Lfo1, CellTarget::Pitch, 0.5)]),
+            k(BONGO, -7, 0.8, &[(DAMPING, -0.3)]).routes(&[(Lfo2, CellTarget::Pitch, 0.5)]),
+            k(RIM, 0, -0.3, &[]).routes(&[(Lfo3, to(TONE), 1.0)]),
             k(CLAP, 0, 0.3, &[]).routes(&[(Lfo3, to(TONE), 1.0)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+            k(CLOSED, 0, 0.4, &[(SPREAD, 0.8)])
                 .leak(150.0)
                 .hats()
                 .routes(&[(Lfo3, to(TONE), 1.0)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+            k(OPEN, 0, 0.4, &[(SPREAD, 0.8)])
                 .leak(1500.0)
                 .hats()
                 .routes(&[(Lfo3, to(TONE), 1.0)]),
-            k(LOOP, 12, 0.0, &[(SPREAD, 0.5)]).leak(2500.0).routes(&[(
+            k(BELL, -3, 0.0, &[(SPREAD, 0.5)]).leak(2500.0).routes(&[(
                 Lfo1,
                 CellTarget::Pitch,
                 0.4,
             )]),
-            k(FOLD, 12, 0.5, &[]).routes(&[(Lfo2, CellTarget::Pitch, 0.8)]),
+            k(COWBELL, -12, 0.5, &[]).routes(&[(Lfo2, CellTarget::Pitch, 0.8)]),
             k(SPARK, 0, -0.5, &[]).routes(&[(Lfo3, to(GRAIN), 1.0)]),
             k(DUST, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Lfo1, to(TONE), 1.0)]),
         ],
@@ -2072,15 +2108,16 @@ static KITS: [Kit; 50] = [
                 .supply(0.8)
                 .routes(&[(Lfo2, CellTarget::Pitch, 0.6)]),
             k(SNARE, -5, 0.0, &[(BODY, 0.8)]).routes(&[(Lfo3, to(TONE), 0.6)]),
-            k(RING, -12, -0.6, &[])
+            k(TOM, -12, -0.6, &[])
                 .threshold(-0.5)
                 .supply(0.8)
                 .routes(&[(Lfo2, CellTarget::Pitch, 0.6)]),
-            k(RING, -7, -0.2, &[])
-                .threshold(-0.5)
-                .supply(0.8)
-                .routes(&[(Lfo2, CellTarget::Pitch, -0.6)]),
-            k(RING, -5, 0.2, &[]).threshold(-0.5).supply(0.8).routes(&[(
+            k(TOM, -7, -0.2, &[]).threshold(-0.5).supply(0.8).routes(&[(
+                Lfo2,
+                CellTarget::Pitch,
+                -0.6,
+            )]),
+            k(TOM, -5, 0.2, &[]).threshold(-0.5).supply(0.8).routes(&[(
                 Lfo3,
                 CellTarget::Pitch,
                 0.6,
@@ -2091,18 +2128,18 @@ static KITS: [Kit; 50] = [
             k(FOLD, -5, -0.8, &[(DRIVE, 0.4)])
                 .supply(0.8)
                 .routes(&[(Lfo3, to(DRIVE), 0.8)]),
-            k(LOOP, -12, 0.8, &[(DAMPING, 0.4)])
+            k(CONGA, -10, 0.8, &[(DAMPING, 0.4)])
                 .threshold(-0.4)
                 .routes(&[(Lfo2, to(DAMPING), 0.8)]),
             k(SPARK, 0, -0.3, &[]),
             k(CLAP, 0, 0.3, &[]),
-            k(DUST, 0, 0.4, &[]).leak(85.0).hats(),
-            k(DUST, 0, 0.4, &[])
+            k(CLOSED, 0, 0.4, &[]).leak(85.0).hats(),
+            k(OPEN, 0, 0.4, &[])
                 .leak(775.0)
                 .hats()
                 .routes(&[(Lfo2, to(TONE), 0.6)]),
             k(LOOP, 0, 0.0, &[(SPREAD, 0.5)]).leak(1600.0),
-            k(FOLD, 0, 0.5, &[(DRIVE, 0.4)]).routes(&[(Lfo3, to(DRIVE), 0.8)]),
+            k(BELL, -15, 0.5, &[(DRIVE, 0.4)]).routes(&[(Lfo3, to(DRIVE), 0.8)]),
             k(SPARK, 0, -0.5, &[]),
             k(DUST, 0, 0.6, &[]).leak(180.0),
         ],
@@ -2117,9 +2154,9 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 12, 0.0, &[(DROP, 1.0), (DAMPING, 0.6)]).leak(200.0),
             k(SNARE, 12, 0.0, &[(BODY, 1.0), (DROP, 1.0), (DAMPING, 0.4)]).leak(200.0),
-            k(RING, 24, -0.6, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
-            k(RING, 28, -0.2, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
-            k(RING, 33, 0.2, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
+            k(TOM, 24, -0.6, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
+            k(TOM, 28, -0.2, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
+            k(TOM, 33, 0.2, &[(DAMPING, 0.5), (DROP, 0.6)]).leak(150.0),
             k(FOLD, 24, 0.6, &[(DRIVE, -0.6)]).leak(150.0).routes(&[(
                 Lfo1,
                 CellTarget::Pitch,
@@ -2130,17 +2167,17 @@ static KITS: [Kit; 50] = [
                 CellTarget::Pitch,
                 0.8,
             )]),
-            k(RING, 36, 0.8, &[(DAMPING, 0.5), (DROP, 0.8)]).leak(120.0),
-            k(SPARK, 0, -0.3, &[(TONE, -0.4), (GRAIN, -0.6)]).leak(300.0),
+            k(CLAVE, -18, 0.8, &[(DAMPING, 0.5), (DROP, 0.8)]).leak(120.0),
+            k(MARACA, 0, -0.3, &[(TONE, -0.4), (GRAIN, -0.6)]).leak(300.0),
             k(CLAP, 0, 0.3, &[(SPACING, 0.8), (TONE, 0.2)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 1.0), (TONE, 0.5), (GRAIN, -1.0)])
+            k(CLOSED, 0, 0.4, &[(SPREAD, 1.0), (TONE, 0.5), (GRAIN, -1.0)])
                 .leak(200.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(SPREAD, 1.0), (TONE, 0.5), (GRAIN, -1.0)])
+            k(OPEN, 0, 0.4, &[(SPREAD, 1.0), (TONE, 0.5), (GRAIN, -1.0)])
                 .leak(2000.0)
                 .hats(),
-            k(LOOP, 24, 0.0, &[(DAMPING, 0.4), (SPREAD, -1.0)]).leak(300.0),
-            k(RING, 40, 0.5, &[(DAMPING, 0.6), (DROP, 1.0)]).leak(100.0),
+            k(TAMB, 0, 0.0, &[(DAMPING, 0.4), (SPREAD, -1.0)]).leak(300.0),
+            k(RIM, 14, 0.5, &[(DAMPING, 0.6), (DROP, 1.0)]).leak(100.0),
             k(SPARK, 0, -0.5, &[(GRAIN, -0.8)]).leak(500.0),
             k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 0.167), (GRAIN, -1.0)])
                 .bus(B)
@@ -2170,35 +2207,35 @@ static KITS: [Kit; 50] = [
                 CellTarget::Pan,
                 1.0,
             )]),
-            k(LOOP, 12, 0.0, &[(SPREAD, 0.8), (DAMPING, 0.2)]).routes(&[(
+            k(COWBELL, -4, 0.0, &[(SPREAD, 0.8), (DAMPING, 0.2)]).routes(&[(
                 Random,
                 CellTarget::Pan,
                 1.0,
             )]),
-            k(LOOP, 19, 0.0, &[(SPREAD, 0.8), (DAMPING, 0.2)]).routes(&[(
+            k(COWBELL, 3, 0.0, &[(SPREAD, 0.8), (DAMPING, 0.2)]).routes(&[(
                 Random,
                 CellTarget::Pan,
                 1.0,
             )]),
-            k(RING, 29, 0.0, &[(DROP, 1.0), (DAMPING, 0.2)]).routes(&[(
+            k(BONGO, 10, 0.0, &[(DROP, 1.0), (DAMPING, 0.2)]).routes(&[(
                 Random,
                 CellTarget::Pan,
                 1.0,
             )]),
-            k(SPARK, 0, 0.0, &[(TONE, 1.0)]).routes(&[(Random, CellTarget::Pan, 1.0)]),
+            k(RIM, 12, 0.0, &[(TONE, 1.0)]).routes(&[(Random, CellTarget::Pan, 1.0)]),
             k(CLAP, 0, 0.0, &[(SPACING, -0.4)]).routes(&[(Random, CellTarget::Pan, 1.0)]),
-            k(DUST, 0, 0.0, &[(TONE, 1.0)])
+            k(CLOSED, 0, 0.0, &[(TONE, 1.0)])
                 .leak(100.0)
                 .hats()
                 .routes(&[(Random, CellTarget::Pan, 1.0)]),
-            k(DUST, 0, 0.0, &[(TONE, 1.0)])
+            k(OPEN, 0, 0.0, &[(TONE, 1.0)])
                 .leak(1000.0)
                 .hats()
                 .routes(&[(Random, CellTarget::Pan, 1.0)]),
-            k(LOOP, 31, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.4)])
+            k(RIDE, 16, 0.0, &[(SPREAD, 1.0), (DAMPING, -0.4)])
                 .leak(3000.0)
                 .routes(&[(Random, CellTarget::Pan, 1.0)]),
-            k(RING, 36, 0.0, &[(DROP, 1.0), (DAMPING, 0.4)]).routes(&[(
+            k(CLAVE, -18, 0.0, &[(DROP, 1.0), (DAMPING, 0.4)]).routes(&[(
                 Random,
                 CellTarget::Pan,
                 1.0,
@@ -2220,33 +2257,33 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 0, 0.0, &[(DAMPING, 0.2)]).routes(&[(Lfo1, CellTarget::Pitch, 0.6)]),
             k(SNARE, 0, 0.0, &[(BODY, 0.2)]).routes(&[(Lfo2, to(TONE), 1.0)]),
-            k(RING, 0, -0.6, &[(DAMPING, -0.3)]).routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
+            k(TOM, 0, -0.6, &[(DAMPING, -0.3)]).routes(&[(Lfo1, CellTarget::Pitch, 1.0)]),
             k(RING, 7, -0.2, &[(DAMPING, -0.3)]).routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
             k(RING, 14, 0.2, &[(DAMPING, -0.3)]).routes(&[(Lfo1, CellTarget::Pitch, -1.0)]),
             k(FOLD, 5, 0.6, &[(DRIVE, 0.5)])
                 .routes(&[(Lfo1, CellTarget::Pitch, 1.0), (Lfo2, to(DRIVE), 1.0)]),
-            k(FOLD, 12, -0.8, &[(DRIVE, 0.5)])
+            k(FOLDED, 12, -0.8, &[(DRIVE, 0.5)])
                 .routes(&[(Lfo2, CellTarget::Pitch, 1.0), (Lfo1, to(SPREAD), 1.0)]),
-            k(LOOP, 12, 0.8, &[(SPREAD, 0.5)])
+            k(COWBELL, -3, 0.8, &[(SPREAD, 0.5)])
                 .routes(&[(Lfo1, CellTarget::Pitch, 1.0), (Lfo2, to(DAMPING), 0.8)]),
-            k(SPARK, 0, -0.3, &[]).routes(&[(Lfo1, to(TONE), 1.0), (Lfo2, to(GRAIN), 1.0)]),
+            k(MARACA, 0, -0.3, &[]).routes(&[(Lfo1, to(TONE), 1.0), (Lfo2, to(GRAIN), 1.0)]),
             k(CLAP, 0, 0.3, &[]).routes(&[(Lfo2, to(TONE), 1.0)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+            k(CLOSED, 0, 0.4, &[(SPREAD, 0.8)])
                 .leak(100.0)
                 .hats()
                 .routes(&[(Lfo1, to(TONE), 1.0)]),
-            k(DUST, 0, 0.4, &[(SPREAD, 0.8)])
+            k(OPEN, 0, 0.4, &[(SPREAD, 0.8)])
                 .leak(1200.0)
                 .hats()
                 .routes(&[(Lfo2, to(TONE), 1.0)]),
-            k(LOOP, 24, 0.0, &[(SPREAD, 0.8)]).leak(2000.0).routes(&[(
+            k(CYMBAL, 12, 0.0, &[(SPREAD, 0.8)]).leak(2000.0).routes(&[(
                 Lfo1,
                 CellTarget::Pitch,
                 1.0,
             )]),
-            k(FOLD, 19, 0.5, &[(DRIVE, 0.6)]).routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
+            k(BELL, -8, 0.5, &[(DRIVE, 0.6)]).routes(&[(Lfo2, CellTarget::Pitch, 1.0)]),
             k(SPARK, 0, -0.5, &[]).routes(&[(Lfo1, to(GRAIN), 1.0)]),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Lfo2, to(TONE), 1.0)]),
+            k(GUIRO, 0, 0.6, &[(SPREAD, 1.0)]).routes(&[(Lfo2, to(TONE), 1.0)]),
         ],
         ..INIT
     },
@@ -2293,18 +2330,18 @@ static KITS: [Kit; 50] = [
                 .routes(&[(Lfo3, CellTarget::Threshold, -1.0)]),
             k(SPARK, 0, -0.3, &[(GRAIN, 0.8)]).leak(200.0),
             k(CLAP, 0, 0.3, &[(SPACING, -0.5)]),
-            k(DUST, 0, 0.4, &[(TONE, 0.833)]).leak(80.0).hats(),
-            k(DUST, 0, 0.4, &[(TONE, 0.833)]).leak(800.0).hats(),
-            k(LOOP, 24, 0.0, &[(SPREAD, -1.0)]).leak(1600.0),
-            k(FOLD, 24, 0.5, &[(DRIVE, -0.8)])
+            k(CLOSED, 0, 0.4, &[(TONE, 0.833)]).leak(80.0).hats(),
+            k(OPEN, 0, 0.4, &[(TONE, 0.833)]).leak(800.0).hats(),
+            k(CYMBAL, 12, 0.0, &[(SPREAD, -1.0)]).leak(1600.0),
+            k(COWBELL, 0, 0.5, &[(DRIVE, -0.8)])
                 .threshold(-0.6)
                 .leak(3000.0)
                 .routes(&[(Lfo1, CellTarget::Threshold, 1.0)]),
-            k(SPARK, 0, -0.5, &[(GRAIN, 1.0), (TONE, 1.0)])
+            k(MARACA, 0, -0.5, &[(GRAIN, 1.0), (TONE, 1.0)])
                 .threshold(-0.8)
                 .leak(4000.0)
                 .routes(&[(Lfo3, CellTarget::Threshold, 1.0)]),
-            k(DUST, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)]).leak(300.0),
+            k(GUIRO, 0, 0.6, &[(SPREAD, 1.0), (TONE, 1.0)]).leak(300.0),
         ],
         ..INIT
     },
@@ -2319,26 +2356,26 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, 36, 0.0, &[(DROP, 1.0), (DAMPING, 0.4)]).leak(300.0),
             k(SNARE, 12, 0.0, &[(BODY, -0.8), (TONE, 0.625), (SNAP, 1.0)]).threshold(-0.5),
-            k(RING, 24, -0.6, &[(DROP, 1.0)]).threshold(-0.3),
+            k(TOM, 24, -0.6, &[(DROP, 1.0)]).threshold(-0.3),
             k(SPARK, 0, -0.2, &[(GRAIN, 1.0)]).threshold(-0.8),
-            k(RING, 36, 0.2, &[(DROP, 1.0)]).threshold(-0.3),
+            k(TOM, 36, 0.2, &[(DROP, 1.0)]).threshold(-0.3),
             k(SPARK, 0, 0.6, &[(GRAIN, 1.0), (TONE, 1.0)]).threshold(-0.8),
             k(FOLD, 24, -0.8, &[(DRIVE, 1.0)]),
             k(SPARK, 0, 0.8, &[(GRAIN, 1.0), (TONE, -0.6)]).threshold(-0.8),
-            k(SPARK, 0, -0.3, &[(GRAIN, 1.0), (TONE, 1.0)]).threshold(-0.8),
+            k(MARACA, 0, -0.3, &[(GRAIN, 1.0), (TONE, 1.0)]).threshold(-0.8),
             k(CLAP, 0, 0.3, &[(GRAIN, 1.0), (SPACING, -1.0)]).threshold(-0.8),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (GRAIN, 1.0)])
+            k(CLOSED, 0, 0.4, &[(TONE, 1.0), (GRAIN, 1.0)])
                 .leak(60.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(TONE, 1.0), (GRAIN, 1.0)])
+            k(OPEN, 0, 0.4, &[(TONE, 1.0), (GRAIN, 1.0)])
                 .leak(800.0)
                 .hats(),
             k(LOOP, 31, 0.0, &[(SPREAD, 1.0), (DRIVE, 1.0)])
                 .threshold(-0.5)
                 .leak(2000.0),
-            k(RING, 48, 0.5, &[(DROP, 1.0), (DAMPING, 0.5)]),
+            k(CLAVE, 0, 0.5, &[(DROP, 1.0), (DAMPING, 0.5)]),
             k(SPARK, 0, -0.5, &[(GRAIN, 1.0)]).threshold(-0.8),
-            k(DUST, 0, 0.6, &[(TONE, 1.0), (SPREAD, 0.8)]).leak(300.0),
+            k(TAMB, 12, 0.6, &[(TONE, 1.0), (SPREAD, 0.8)]).leak(300.0),
         ],
         ..INIT
     },
@@ -2357,31 +2394,31 @@ static KITS: [Kit; 50] = [
         keys: [
             k(KICK, -5, 0.0, &[(DROP, 0.6)]).threshold(-0.5).strike(1.0),
             k(SNARE, 0, 0.0, &[]).threshold(-0.5).strike(1.0),
-            k(RING, -12, -0.6, &[]).threshold(-0.5).strike(1.0),
-            k(RING, -5, -0.2, &[]).threshold(-0.5).strike(1.0),
-            k(RING, 2, 0.2, &[]).threshold(-0.5).strike(1.0),
-            k(FOLD, -7, 0.6, &[(DRIVE, 0.4)])
+            k(TOM, -12, -0.6, &[]).threshold(-0.5).strike(1.0),
+            k(TOM, -5, -0.2, &[]).threshold(-0.5).strike(1.0),
+            k(TOM, 2, 0.2, &[]).threshold(-0.5).strike(1.0),
+            k(CONGA, -17, 0.6, &[(DRIVE, 0.4)])
                 .threshold(-0.5)
                 .strike(1.0),
-            k(LOOP, 0, -0.8, &[(SPREAD, 0.6)])
+            k(CYMBAL, -6, -0.8, &[(SPREAD, 0.6)])
                 .threshold(-0.5)
                 .strike(1.0),
-            k(LOOP, 7, 0.8, &[(SPREAD, 0.6)])
+            k(BELL, -8, 0.8, &[(SPREAD, 0.6)])
                 .threshold(-0.5)
                 .strike(1.0),
-            k(SPARK, 0, -0.3, &[]).threshold(-0.5).strike(1.0),
+            k(RIM, 0, -0.3, &[]).threshold(-0.5).strike(1.0),
             k(CLAP, 0, 0.3, &[]).threshold(-0.5).strike(1.0),
-            k(DUST, 0, 0.4, &[]).strike(1.0).leak(100.0).hats(),
-            k(DUST, 0, 0.4, &[]).strike(1.0).leak(1500.0).hats(),
-            k(LOOP, 12, 0.0, &[(SPREAD, 1.0)])
+            k(CLOSED, 0, 0.4, &[]).strike(1.0).leak(100.0).hats(),
+            k(OPEN, 0, 0.4, &[]).strike(1.0).leak(1500.0).hats(),
+            k(CRASH, 7, 0.0, &[(SPREAD, 1.0)])
                 .threshold(-0.5)
                 .strike(1.0)
                 .leak(4000.0),
-            k(FOLD, 12, 0.5, &[(DRIVE, 0.4)])
+            k(COWBELL, -3, 0.5, &[(DRIVE, 0.4)])
                 .threshold(-0.5)
                 .strike(1.0),
-            k(SPARK, 0, -0.5, &[]).threshold(-0.5).strike(1.0),
-            k(DUST, 0, 0.6, &[(SPREAD, 0.6)]).strike(1.0),
+            k(CLAVE, -12, -0.5, &[]).threshold(-0.5).strike(1.0),
+            k(TAMB, 0, 0.6, &[(SPREAD, 0.6)]).strike(1.0),
         ],
         ..INIT
     },
@@ -2408,23 +2445,23 @@ static KITS: [Kit; 50] = [
                 .threshold(-0.8)
                 .strike(1.0)
                 .touch(1.0),
-            k(RING, -12, -0.6, &[(DRIVE, 1.0)])
+            k(TOM, -12, -0.6, &[(DRIVE, 1.0)])
                 .threshold(-0.8)
                 .strike(1.0)
                 .bus(A),
-            k(RING, 0, -0.2, &[(DRIVE, 1.0)])
+            k(TOM, 0, -0.2, &[(DRIVE, 1.0)])
                 .threshold(-0.8)
                 .strike(1.0)
                 .touch(1.0),
-            k(RING, 12, 0.2, &[(DRIVE, 1.0)])
+            k(BELL, -15, 0.2, &[(DRIVE, 1.0)])
                 .threshold(-0.8)
                 .strike(1.0)
                 .bus(B),
-            k(FOLD, 0, 0.6, &[(DRIVE, 1.0)])
+            k(FOLDED, 0, 0.6, &[(DRIVE, 1.0)])
                 .threshold(-0.8)
                 .strike(1.0)
                 .touch(1.0),
-            k(LOOP, 0, -0.8, &[(DRIVE, 1.0), (SPREAD, 1.0)])
+            k(COWBELL, -17, -0.8, &[(DRIVE, 1.0), (SPREAD, 1.0)])
                 .threshold(-0.8)
                 .strike(1.0)
                 .bus(A),
@@ -2432,16 +2469,16 @@ static KITS: [Kit; 50] = [
                 .threshold(-0.8)
                 .strike(1.0)
                 .touch(1.0),
-            k(SPARK, 0, -0.3, &[(GRAIN, 1.0)])
+            k(MARACA, 0, -0.3, &[(GRAIN, 1.0)])
                 .threshold(-0.8)
                 .strike(1.0)
                 .bus(B),
             k(CLAP, 0, 0.3, &[(GRAIN, 1.0)]).threshold(-0.8).strike(1.0),
-            k(DUST, 0, 0.4, &[(GRAIN, 1.0)])
+            k(CLOSED, 0, 0.4, &[(GRAIN, 1.0)])
                 .strike(1.0)
                 .leak(150.0)
                 .hats(),
-            k(DUST, 0, 0.4, &[(GRAIN, 1.0)])
+            k(OPEN, 0, 0.4, &[(GRAIN, 1.0)])
                 .strike(1.0)
                 .leak(3000.0)
                 .hats(),
@@ -2456,7 +2493,7 @@ static KITS: [Kit; 50] = [
             k(SPARK, 0, -0.5, &[(GRAIN, 1.0)])
                 .threshold(-0.8)
                 .strike(1.0),
-            k(DUST, 0, 0.6, &[(GRAIN, 1.0), (SPREAD, 1.0)])
+            k(BRUSH, 0, 0.6, &[(GRAIN, 1.0), (SPREAD, 1.0)])
                 .strike(1.0)
                 .bus(B),
         ],

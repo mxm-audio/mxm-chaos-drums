@@ -930,8 +930,8 @@
       "text": "12 st"
     },
     "coarse_14": {
-      "v": 0.625,
-      "text": "12 st"
+      "v": 0.5,
+      "text": "0 st"
     },
     "coarse_15": {
       "v": 0.5,
@@ -1134,8 +1134,8 @@
       "text": "1.60 s"
     },
     "leak_14": {
-      "v": 0.5,
-      "text": "775 ms"
+      "v": 0.3,
+      "text": "179 ms"
     },
     "leak_15": {
       "v": 0.6851476,
@@ -1186,24 +1186,24 @@
       "text": "-4.0 dB"
     },
     "level_11": {
-      "v": 0.79457945,
-      "text": "-5.0 dB"
+      "v": 0.7620131,
+      "text": "-7.0 dB"
     },
     "level_12": {
-      "v": 0.73076564,
-      "text": "-9.0 dB"
+      "v": 0.71561867,
+      "text": "-10.0 dB"
     },
     "level_13": {
-      "v": 0.9198136,
-      "text": "2.0 dB"
+      "v": 0.81137544,
+      "text": "-4.0 dB"
     },
     "level_14": {
-      "v": 0.69347477,
-      "text": "-11.5 dB"
+      "v": 0.81137544,
+      "text": "-4.0 dB"
     },
     "level_15": {
-      "v": 0.79457945,
-      "text": "-5.0 dB"
+      "v": 0.9392385,
+      "text": "3.0 dB"
     },
     "level_16": {
       "v": 1.0,
@@ -1230,8 +1230,8 @@
       "text": "-7.0 dB"
     },
     "level_7": {
-      "v": 0.94910365,
-      "text": "3.5 dB"
+      "v": 0.70078033,
+      "text": "-11.0 dB"
     },
     "level_8": {
       "v": 0.6862438,
@@ -1354,24 +1354,24 @@
       "text": "Spark clap"
     },
     "model_11": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.011764706,
+      "text": "Leaking closed hat"
     },
     "model_12": {
-      "v": 0.09803922,
-      "text": "Raw dust"
+      "v": 0.015686275,
+      "text": "Leaking open hat"
     },
     "model_13": {
-      "v": 0.09411765,
-      "text": "Raw loop"
+      "v": 0.050980393,
+      "text": "Loop cymbal"
     },
     "model_14": {
-      "v": 0.09019608,
-      "text": "Raw fold"
+      "v": 0.047058824,
+      "text": "Coupled cowbell"
     },
     "model_15": {
-      "v": 0.08627451,
-      "text": "Raw spark"
+      "v": 0.07058824,
+      "text": "Scraping guiro"
     },
     "model_16": {
       "v": 0.09803922,
@@ -1398,8 +1398,8 @@
       "text": "Raw spark"
     },
     "model_7": {
-      "v": 0.08627451,
-      "text": "Raw spark"
+      "v": 0.0627451,
+      "text": "Grain maraca"
     },
     "model_8": {
       "v": 0.08627451,
