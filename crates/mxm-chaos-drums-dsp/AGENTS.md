@@ -8,15 +8,26 @@ types, no GUI, no allocation once a kit is built. The crate's docs (`src/lib.rs`
 the brief (`docs/briefs/mxm-chaos-drums.md`) is what it implements.
 
 **P2, the DSP crate** (2026-11-02): all five engines, three drum models (Draining kick, Wired snare,
-Spark clap) and the five raw ones; the rest of the catalogue is P4's, a group at a time: **its
-drums** (2026-11-03, the owner: "Great. Continue"), the Falling tom and the Slapped conga and
-bongo (a ring body under a Fold slap, `voice::HandLaw`); then **its hats and cymbals** (2026-11-03),
-waiting for the owner's listening before the hand percussion follows. A hat is six Fold phases at
-inharmonic rates through a high band under Dust (`voice::HatLaw`): the leaking hats kick them
-gently, closed or open by their leak, the folded hat hard, into noise while full. A cymbal is a
-Loop fed by Dust while its charge lasts (`voice::CymbalLaw`): the crash's with a dense burst at the
-strike, the ride's under a bell of two Rings. Their leaks are set by length, 40 dB down in about
-0.18 s (closed), 1 s (open), 1.1 s (folded), 2.2 s (cymbal), 2.8 s (crash) and 2.3 s (ride).
+Spark clap) and the five raw ones. **P4** built the rest of the catalogue on 2026-11-03, a group at
+a time, each heard by the owner before the next: **the drums** ("Great. Continue"), **the hats and
+cymbals** ("sounds goo-oo-ood") and **the hand percussion**, waiting for the owner's listening. All
+twenty-five models render.
+
+- The tom is a ring law; the conga and bongo a ring body under a Fold slap (`voice::HandLaw`).
+- A hat is six Fold phases at inharmonic rates through a high band under Dust (`voice::HatLaw`): the
+  leaking hats kick them gently, closed or open by their leak, the folded hat hard, into noise while
+  full. A cymbal is a Loop fed by Dust while its charge lasts (`voice::CymbalLaw`): the crash's with
+  a dense burst at the strike, the ride's under a bell of two Rings.
+- The rim and clave are damped ring laws, the rim with a spark's click (`voice::RIM`, `CLAVE`); the
+  cowbell and bell two and three Rings pulling on one another (`voice::CoupledLaw`); the maraca
+  Spark-timed grains of noise after Cook's particle model, the tambourine those grains ringing a
+  Loop of jingles (`voice::GrainLaw`, `JingleLaw`); the guiro a spark train, its rate following the
+  charge, ringing a short Loop (`voice::Guiro`); the brush noise following the current a held note
+  pushes in, so the note's length is the stroke (`voice::Brush`).
+- Each new model's leak is set by its length, measured from a capture: 40 dB down in about 0.18 s
+  (closed hat), 1 s (open), 1.1 s (folded), 2.2 s (cymbal), 2.8 s (crash), 2.3 s (ride), and 0.06 s
+  (clave) to 2.1 s (bell) for the hand percussion. The rim was made louder to balance (it sat 12 dB
+  under the kick), not its kit quieter.
 
 ## Ownership
 
@@ -117,7 +128,8 @@ strike, the ride's under a bell of two Rings. Their leaks are set by length, 40 
   back"). At the full reach a spark's click corner passed 4 kHz and filtered the click away, and a
   snare's wires and a dust's band passed 16 kHz, so Tone reaches less far up than down on those
   three (`voice::WIRES_TONE_UP`, `CLICK_TONE_UP`, `DUST_TONE_UP`): to 14 kHz, 4 kHz and 16 kHz. The
-  hats and cymbals were built to it (`HAT_TONE_UP`, `CYMBAL_TONE_UP`): to 16 kHz at most.
+  hats, cymbals and hand percussion were built to it (`HAT_TONE_UP`, `CYMBAL_TONE_UP`,
+  `GUIRO_TONE_UP`, `BRUSH_TONE_UP`, a grain law's `tone_up`): to 16 kHz at most.
 - `cpu_cost` measured 9–16% of one core for sixteen busy cells at 96 kHz, and 17–21% for the hats
   and cymbals, the dearest (2026-11-03: a hat's six phases, a cymbal's loop and noise); a change that
   moves it says so.

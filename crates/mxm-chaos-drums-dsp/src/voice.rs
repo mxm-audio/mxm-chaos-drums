@@ -604,6 +604,439 @@ const RINGING_RIDE: CymbalLaw = CymbalLaw {
     bell: Some((760.0, 2.76, 0.3)),
 };
 
+/// The rim: a short, heavily damped ring, and a Spark's click while the charge is high.
+const RIM: RingLaw = RingLaw {
+    hz: 480.0,
+    drop: 0.1,
+    power: 1,
+    gain: 0.05,
+    growth: 0.9,
+    damping: 0.02,
+    threshold: 0.85,
+    temper_shift: 0.45,
+    strike: 2.6,
+};
+/// The rim's click: the charge its spark fires at, how long it waits before firing again, so a hit
+/// clicks once or twice rather than crackling, and the click's share at Body 0.
+const RIM_SPARK_THRESHOLD: f32 = 0.55;
+const RIM_REFRACTORY_S: f32 = 0.03;
+const RIM_CLICK_MIX: f32 = 0.45;
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Rim {
+    ring: Ring,
+    spark: Spark,
+    click: Click,
+}
+
+impl Rim {
+    /// One sample: the ring as a ring law's, Tone the click's corner, Body trading click for ring.
+    fn tick(&mut self, sample_rate: f32, drive: &Drive) -> f32 {
+        let dt = 1.0 / sample_rate;
+        let ring = RIM.tick(&mut self.ring, sample_rate, drive);
+        let input = drive.charge / threshold(RIM_SPARK_THRESHOLD, SPARK_TEMPER_SHIFT, drive)
+            + 0.5 * drive.neighbour.abs();
+        let width = ((SPARK_PULSE_S * sample_rate) as u32).max(2);
+        let refractory = ((RIM_REFRACTORY_S * sample_rate) as u32).max(width + 2);
+        let leak = (dt / SPARK_MEMBRANE_S).min(1.0);
+        let (pulse, _) = self.spark.tick(input, leak, refractory, width);
+        let corner = CLICK_HZ * drive.octaves_split(1, 3.0, CLICK_TONE_UP);
+        let click = self.click.tick(pulse, (TAU * corner * dt).min(1.0));
+        let mix = (RIM_CLICK_MIX - 0.3 * CONTROL_REACH * drive.control(2)).clamp(0.0, 1.0);
+        (1.0 - mix) * ring + mix * click
+    }
+
+    fn strike(&mut self, velocity: f32, controls: &[f32; CONTROLS]) {
+        RIM.strike(&mut self.ring, velocity, controls);
+        self.spark.prime();
+    }
+
+    fn clear(&mut self) {
+        self.ring.clear();
+        self.spark.clear();
+        self.click = Click::default();
+    }
+}
+
+/// The clave: a high, short ring and nothing else.
+const CLAVE: RingLaw = RingLaw {
+    hz: 2500.0,
+    drop: 0.05,
+    power: 1,
+    gain: 0.02,
+    growth: 0.9,
+    damping: 0.0005,
+    threshold: 0.85,
+    temper_shift: 0.45,
+    strike: 1.2,
+};
+
+/// Rings struck together and pulling on one another at inharmonic ratios: the cowbell's two, the
+/// bell's three. They share one ring law's charge and threshold, so they cross into sustaining
+/// together; Coupling sets how hard each pulls the others, and Spread widens the ratios.
+struct CoupledLaw {
+    hz: f32,
+    /// Each ring's pitch in octaves over the first's, and its share of the sound; 0 is no ring.
+    octaves: [f32; 3],
+    shares: [f32; 3],
+    coupling: f32,
+    /// As a [`RingLaw`]'s.
+    gain: f32,
+    growth: f32,
+    damping: f32,
+    threshold: f32,
+    temper_shift: f32,
+    strike: f32,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Coupled {
+    rings: [Ring; 3],
+    /// Each ring's ω a sample, and the pitch, Spread and rate it was worked out for.
+    w: [f32; 3],
+    w_for: (f32, f32, f32),
+}
+
+impl CoupledLaw {
+    /// One sample: Body the coupling, Spread the ratios, Drive and Damping as a ring law's.
+    fn tick(&self, coupled: &mut Coupled, sample_rate: f32, drive: &Drive) -> f32 {
+        let spread = drive.control(4);
+        if coupled.w_for != (drive.pitch, spread, sample_rate) {
+            let widen = exp2(CONTROL_REACH * 0.3 * spread);
+            let base = TAU * self.hz * drive.pitch / sample_rate;
+            for (w, octaves) in coupled.w.iter_mut().zip(self.octaves) {
+                *w = (base * exp2(widen * octaves)).min(1.0);
+            }
+            coupled.w_for = (drive.pitch, spread, sample_rate);
+        }
+        let over = drive.charge - threshold(self.threshold, self.temper_shift, drive);
+        let slope = if over > 0.0 {
+            self.growth * drive.octaves(7, 1.5)
+        } else {
+            self.gain
+        };
+        let eps = slope * over - self.damping * drive.octaves(9, 2.0);
+        let couple = (self.coupling * drive.octaves(2, 1.0)).min(1.0);
+        let sounding = self.shares.iter().filter(|&&share| share > 0.0).count() as f32;
+        let positions = coupled.rings.map(|ring| ring.position());
+        let total: f32 = positions.iter().sum();
+        let mut out = 0.0;
+        for (i, ring) in coupled.rings.iter_mut().enumerate() {
+            if self.shares[i] > 0.0 {
+                let pull = couple * (total - positions[i]) / (sounding - 1.0);
+                out += self.shares[i]
+                    * ring.tick(coupled.w[i], eps, pull + drive.neighbour + drive.supply);
+            }
+        }
+        out
+    }
+
+    /// A hit: every ring struck at once, with Snap.
+    fn strike(&self, coupled: &mut Coupled, velocity: f32, controls: &[f32; CONTROLS]) {
+        let amount = self.strike * velocity * exp2(CONTROL_REACH * 0.5 * controls[5]);
+        for (ring, share) in coupled.rings.iter_mut().zip(self.shares) {
+            if share > 0.0 {
+                ring.strike(amount);
+            }
+        }
+    }
+}
+
+/// The cowbell: two short rings a fifth and a little apart (1.48), pulling on each other.
+const COWBELL: CoupledLaw = CoupledLaw {
+    hz: 560.0,
+    octaves: [0.0, 0.5656, 0.0],
+    shares: [0.55, 0.45, 0.0],
+    coupling: 0.15,
+    gain: 0.02,
+    growth: 0.6,
+    damping: 0.003,
+    threshold: 0.85,
+    temper_shift: 0.45,
+    strike: 1.3,
+};
+
+/// The bell: three long rings at 1, 2.32 and 4.25, the higher dying sooner, lightly coupled.
+const BELL: CoupledLaw = CoupledLaw {
+    hz: 520.0,
+    octaves: [0.0, 1.2141, 2.0875],
+    shares: [0.45, 0.33, 0.22],
+    coupling: 0.08,
+    gain: 0.001,
+    growth: 0.4,
+    damping: 0.0001,
+    threshold: 0.85,
+    temper_shift: 0.45,
+    strike: 1.2,
+};
+
+/// Spark-timed grains of noise (a particle model after Cook, *Physically Informed Sonic Modeling
+/// (PhISM): Synthesis of Percussive Sounds*, Computer Music Journal 21(3), 1997): each spike is a
+/// collision, a burst of noise through a band that dies in milliseconds. The charge sets how often
+/// they collide, so a full shaker hisses and a draining one patters out.
+struct GrainLaw {
+    /// The charge the collisions start at, and how far full Temper lowers it.
+    threshold: f32,
+    temper_shift: f32,
+    /// The spark's membrane and refractory period: how fast collisions come.
+    membrane_s: f32,
+    refractory_s: f32,
+    /// How long one grain rings at Snap 0.
+    grain_s: f32,
+    /// The band, and how far Tone reaches up, so all of its travel is heard.
+    band_hz: f32,
+    band_q: f32,
+    tone_up: f32,
+    density: f32,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Grains {
+    spark: Spark,
+    noise: Dust,
+    tuned: Tuned,
+    grain: f32,
+}
+
+impl Grains {
+    fn new(seed: u32) -> Self {
+        Self {
+            spark: Spark::default(),
+            noise: Dust::new(seed),
+            tuned: Tuned::default(),
+            grain: 0.0,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.spark.clear();
+        self.noise.clear();
+        self.grain = 0.0;
+    }
+}
+
+impl GrainLaw {
+    /// One sample: Tone moves the band, Grain makes collisions denser, Snap shortens each grain.
+    fn tick(&self, grains: &mut Grains, sample_rate: f32, drive: &Drive) -> f32 {
+        let dt = 1.0 / sample_rate;
+        let input = drive.charge / threshold(self.threshold, self.temper_shift, drive)
+            + 0.5 * drive.neighbour.abs();
+        let width = ((SPARK_PULSE_S * sample_rate) as u32).max(2);
+        let refractory =
+            ((self.refractory_s * drive.octaves(5, -1.0) * sample_rate) as u32).max(width + 2);
+        let leak = (dt / self.membrane_s).min(1.0);
+        let (_, fired) = grains.spark.tick(input, leak, refractory, width);
+        let decay = (dt / (self.grain_s * drive.octaves(6, -1.0))).min(1.0);
+        grains.grain = if fired {
+            1.0
+        } else {
+            flush(grains.grain - grains.grain * decay)
+        };
+        let centre = self.band_hz * drive.octaves_split(1, 2.0, self.tone_up);
+        grains
+            .tuned
+            .retune(&mut grains.noise, centre, self.band_q, sample_rate);
+        grains.grain * grains.noise.tick(self.density, sample_rate)
+    }
+
+    /// A hit: a collision at once, as loud as the velocity.
+    fn strike(&self, grains: &mut Grains, velocity: f32) {
+        grains.spark.prime();
+        grains.grain = grains.grain.max(velocity.clamp(0.0, 1.0));
+    }
+}
+
+/// The maraca's seeds: dense, short collisions in a band near 4.5 kHz, Tone reaching to 15 kHz.
+const MARACA: GrainLaw = GrainLaw {
+    threshold: 0.25,
+    temper_shift: 0.1,
+    membrane_s: 0.004,
+    refractory_s: 0.003,
+    grain_s: 0.004,
+    band_hz: 4500.0,
+    band_q: 1.2,
+    tone_up: 0.7,
+    density: 16_000.0,
+};
+
+/// A tambourine: grains shaking a loop of jingles, each collision ringing the metal briefly.
+struct JingleLaw {
+    grains: GrainLaw,
+    /// The jingles' loop: its pitch, second tap's ratio and share, gain and damping.
+    hz: f32,
+    second_ratio: f32,
+    second: f32,
+    gain: f32,
+    damping: f32,
+    /// The jingles' share against the grains heard directly.
+    jingle_mix: f32,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Tambourine {
+    grains: Grains,
+    strand: Strand,
+}
+
+impl JingleLaw {
+    /// One sample: the grains as a grain law's, Spread spreading the jingles, Damping darkening them.
+    fn tick(&self, t: &mut Tambourine, sample_rate: f32, drive: &Drive, lines: &mut Lines) -> f32 {
+        let grains = self.grains.tick(&mut t.grains, sample_rate, drive);
+        let age = sample_rate / (self.hz * drive.pitch);
+        let spread = drive.control(4);
+        let jingle = t.strand.tick(
+            &mut lines[0],
+            &StrandDrive {
+                age,
+                second_age: age * self.second_ratio * exp2(CONTROL_REACH * 0.5 * spread),
+                second: (self.second + 0.2 * CONTROL_REACH * spread).clamp(0.0, 1.0),
+                gain: self.gain,
+                damping: self.damping * drive.octaves(9, 1.0),
+                input: 0.5 * grains + 0.3 * drive.neighbour,
+            },
+        );
+        self.jingle_mix * jingle + (1.0 - self.jingle_mix) * grains
+    }
+}
+
+const TAMBOURINE: JingleLaw = JingleLaw {
+    grains: GrainLaw {
+        threshold: 0.25,
+        temper_shift: 0.1,
+        membrane_s: 0.006,
+        refractory_s: 0.006,
+        grain_s: 0.003,
+        band_hz: 7000.0,
+        band_q: 1.0,
+        tone_up: 0.45,
+        density: 16_000.0,
+    },
+    hz: 2400.0,
+    second_ratio: 1.37,
+    second: 0.4,
+    gain: 0.95,
+    damping: 0.15,
+    jingle_mix: 0.6,
+};
+
+/// The guiro's ridges: a spark whose long membrane makes its rate follow the charge over a wide
+/// range, from a couple of dozen ridges a second as it drains to over a hundred full.
+const GUIRO_THRESHOLD: f32 = 0.2;
+const GUIRO_TEMPER_SHIFT: f32 = 0.08;
+const GUIRO_MEMBRANE_S: f32 = 0.02;
+const GUIRO_REFRACTORY_S: f32 = 0.004;
+const GUIRO_PULSE_S: f32 = 0.0004;
+/// Each ridge's click, its corner reaching up to 4 kHz, past which it filters itself away.
+const GUIRO_CLICK_HZ: f32 = 500.0;
+const GUIRO_TONE_UP: f32 = 1.2;
+/// The gourd: a short loop the ridges ring, and the clicks' share heard directly.
+const GUIRO_HZ: f32 = 1100.0;
+const GUIRO_SECOND_RATIO: f32 = 1.53;
+const GUIRO_GAIN: f32 = 0.93;
+const GUIRO_DAMPING: f32 = 0.25;
+const GUIRO_RIDGE_MIX: f32 = 0.3;
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Guiro {
+    spark: Spark,
+    click: Click,
+    strand: Strand,
+}
+
+impl Guiro {
+    /// One sample: Tone the ridges' corner, Spread the gourd's second tap, Spacing the shortest gap
+    /// between ridges, Damping the gourd's darkness.
+    fn tick(&mut self, sample_rate: f32, drive: &Drive, lines: &mut Lines) -> f32 {
+        let dt = 1.0 / sample_rate;
+        let input = drive.charge / threshold(GUIRO_THRESHOLD, GUIRO_TEMPER_SHIFT, drive)
+            + 0.5 * drive.neighbour.abs();
+        let width = ((GUIRO_PULSE_S * sample_rate) as u32).max(2);
+        let refractory =
+            ((GUIRO_REFRACTORY_S * drive.octaves(8, 1.0) * sample_rate) as u32).max(width + 2);
+        let leak = (dt / GUIRO_MEMBRANE_S).min(1.0);
+        let (pulse, _) = self.spark.tick(input, leak, refractory, width);
+        let corner = GUIRO_CLICK_HZ * drive.octaves_split(1, 2.0, GUIRO_TONE_UP);
+        let ridge = self.click.tick(pulse, (TAU * corner * dt).min(1.0));
+        let age = sample_rate / (GUIRO_HZ * drive.pitch);
+        let spread = drive.control(4);
+        let gourd = self.strand.tick(
+            &mut lines[0],
+            &StrandDrive {
+                age,
+                second_age: age * GUIRO_SECOND_RATIO * exp2(CONTROL_REACH * 0.5 * spread),
+                second: (0.35 + 0.2 * CONTROL_REACH * spread).clamp(0.0, 1.0),
+                gain: GUIRO_GAIN,
+                damping: GUIRO_DAMPING * drive.octaves(9, 1.0),
+                input: 0.6 * ridge + 0.3 * drive.neighbour,
+            },
+        );
+        (1.0 - GUIRO_RIDGE_MIX) * gourd + GUIRO_RIDGE_MIX * ridge
+    }
+
+    fn clear(&mut self, lines: &mut Lines) {
+        self.spark.clear();
+        self.click = Click::default();
+        self.strand.clear(&mut lines[0]);
+    }
+}
+
+/// The brush: noise whose density and band follow the current a held note pushes through the
+/// cell, so the note's length is the stroke and a release leaves only the charge's tail. Its band,
+/// and how far Tone reaches up: to 13 kHz at the top of a stroke.
+const BRUSH_HZ: f32 = 2500.0;
+const BRUSH_Q: f32 = 0.45;
+const BRUSH_TONE_UP: f32 = 0.8;
+const BRUSH_DENSITY: f32 = 6000.0;
+/// The current that makes half a stroke: about the default Supply's.
+const BRUSH_HALF_STROKE: f32 = 0.02;
+/// How fast the stroke follows the current, and how fast the strike's swish dies.
+const BRUSH_FOLLOW_S: f32 = 0.03;
+const BRUSH_SWISH_S: f32 = 0.04;
+
+#[derive(Clone, Debug)]
+pub(crate) struct Brush {
+    noise: Dust,
+    tuned: Tuned,
+    stroke: f32,
+    swish: f32,
+}
+
+impl Brush {
+    fn new(seed: u32) -> Self {
+        Self {
+            noise: Dust::new(seed),
+            tuned: Tuned::default(),
+            stroke: 0.0,
+            swish: 0.0,
+        }
+    }
+
+    /// One sample: Tone moves the band, Spread widens it, Grain thickens the noise.
+    fn tick(&mut self, sample_rate: f32, drive: &Drive) -> f32 {
+        let dt = 1.0 / sample_rate;
+        let pushed = drive.supply / (drive.supply + BRUSH_HALF_STROKE);
+        self.stroke = flush(self.stroke + (pushed - self.stroke) * (dt / BRUSH_FOLLOW_S).min(1.0));
+        self.swish = flush(self.swish - self.swish * (dt / BRUSH_SWISH_S).min(1.0));
+        let motion = self.stroke.max(self.swish);
+        let centre = BRUSH_HZ * drive.octaves_split(1, 2.0, BRUSH_TONE_UP) * (0.7 + 0.6 * motion);
+        self.tuned.retune(
+            &mut self.noise,
+            centre,
+            BRUSH_Q * drive.octaves(4, -1.0),
+            sample_rate,
+        );
+        let density = BRUSH_DENSITY * drive.octaves(5, 1.5) * (0.15 + 0.85 * motion)
+            + 2000.0 * drive.neighbour.abs().min(1.0);
+        (0.4 + 0.6 * motion) * self.noise.tick(density, sample_rate)
+    }
+
+    fn clear(&mut self) {
+        self.noise.clear();
+        self.stroke = 0.0;
+        self.swish = 0.0;
+    }
+}
+
 /// A band's tuning, kept so it is recomputed only when its control moves.
 #[derive(Clone, Copy, Debug, Default)]
 struct Tuned {
@@ -693,6 +1126,14 @@ pub(crate) enum Voice {
     Cymbal(Cymbal),
     Crash(Cymbal),
     Ride(Cymbal),
+    Rim(Rim),
+    Clave(Ring),
+    Cowbell(Coupled),
+    Maraca(Grains),
+    Tambourine(Tambourine),
+    Guiro(Guiro),
+    Bell(Coupled),
+    Brush(Brush),
 }
 
 impl Voice {
@@ -740,6 +1181,17 @@ impl Voice {
             ModelId::LOOP_CYMBAL => Self::Cymbal(Cymbal::new(seed)),
             ModelId::LOOP_CRASH => Self::Crash(Cymbal::new(seed)),
             ModelId::RINGING_RIDE => Self::Ride(Cymbal::new(seed)),
+            ModelId::DAMPED_RIM => Self::Rim(Rim::default()),
+            ModelId::DAMPED_CLAVE => Self::Clave(Ring::default()),
+            ModelId::COUPLED_COWBELL => Self::Cowbell(Coupled::default()),
+            ModelId::GRAIN_MARACA => Self::Maraca(Grains::new(seed)),
+            ModelId::JINGLE_TAMBOURINE => Self::Tambourine(Tambourine {
+                grains: Grains::new(seed),
+                strand: Strand::default(),
+            }),
+            ModelId::SCRAPING_GUIRO => Self::Guiro(Guiro::default()),
+            ModelId::COUPLED_BELL => Self::Bell(Coupled::default()),
+            ModelId::SWEPT_BRUSH => Self::Brush(Brush::new(seed)),
             _ => Self::Silent,
         }
     }
@@ -763,6 +1215,15 @@ impl Voice {
             ModelId::LOOP_CYMBAL => 0.46,
             ModelId::LOOP_CRASH => 0.5,
             ModelId::RINGING_RIDE => 0.48,
+            // About 85, 85, 180, 125, 260, 180, 1800 and 125 ms.
+            ModelId::DAMPED_RIM => 0.2,
+            ModelId::DAMPED_CLAVE => 0.2,
+            ModelId::COUPLED_COWBELL => 0.3,
+            ModelId::GRAIN_MARACA => 0.25,
+            ModelId::JINGLE_TAMBOURINE => 0.35,
+            ModelId::SCRAPING_GUIRO => 0.3,
+            ModelId::COUPLED_BELL => 0.62,
+            ModelId::SWEPT_BRUSH => 0.25,
             _ => 0.42,
         }
     }
@@ -779,6 +1240,14 @@ impl Voice {
             Self::Cymbal(cymbal) => LOOP_CYMBAL.strike(cymbal, velocity),
             Self::Crash(cymbal) => LOOP_CRASH.strike(cymbal, velocity),
             Self::Ride(cymbal) => RINGING_RIDE.strike(cymbal, velocity),
+            Self::Rim(rim) => rim.strike(velocity, controls),
+            Self::Clave(ring) => CLAVE.strike(ring, velocity, controls),
+            Self::Cowbell(coupled) => COWBELL.strike(coupled, velocity, controls),
+            Self::Bell(coupled) => BELL.strike(coupled, velocity, controls),
+            Self::Maraca(grains) => MARACA.strike(grains, velocity),
+            Self::Tambourine(t) => TAMBOURINE.grains.strike(&mut t.grains, velocity),
+            Self::Guiro(guiro) => guiro.spark.prime(),
+            Self::Brush(brush) => brush.swish = velocity.clamp(0.0, 1.0),
             Self::Kick(kick) => KICK.strike(&mut kick.ring, velocity, controls),
             Self::Snare(snare) => SNARE_BODY.strike(&mut snare.body, velocity, controls),
             Self::RawRing(ring) => RAW_RING.strike(ring, velocity, controls),
@@ -912,6 +1381,14 @@ impl Voice {
             Self::Cymbal(cymbal) => LOOP_CYMBAL.tick(cymbal, sample_rate, drive, lines),
             Self::Crash(cymbal) => LOOP_CRASH.tick(cymbal, sample_rate, drive, lines),
             Self::Ride(cymbal) => RINGING_RIDE.tick(cymbal, sample_rate, drive, lines),
+            Self::Rim(rim) => rim.tick(sample_rate, drive),
+            Self::Clave(ring) => CLAVE.tick(ring, sample_rate, drive),
+            Self::Cowbell(coupled) => COWBELL.tick(coupled, sample_rate, drive),
+            Self::Bell(coupled) => BELL.tick(coupled, sample_rate, drive),
+            Self::Maraca(grains) => MARACA.tick(grains, sample_rate, drive),
+            Self::Tambourine(t) => TAMBOURINE.tick(t, sample_rate, drive, lines),
+            Self::Guiro(guiro) => guiro.tick(sample_rate, drive, lines),
+            Self::Brush(brush) => brush.tick(sample_rate, drive),
         }
     }
 
@@ -920,7 +1397,16 @@ impl Voice {
         match self {
             Self::Silent => {}
             Self::Kick(kick) => kick.ring.clear(),
-            Self::RawRing(ring) | Self::Tom(ring) => ring.clear(),
+            Self::RawRing(ring) | Self::Tom(ring) | Self::Clave(ring) => ring.clear(),
+            Self::Rim(rim) => rim.clear(),
+            Self::Cowbell(coupled) | Self::Bell(coupled) => *coupled = Coupled::default(),
+            Self::Maraca(grains) => grains.clear(),
+            Self::Tambourine(t) => {
+                t.grains.clear();
+                t.strand.clear(&mut lines[0]);
+            }
+            Self::Guiro(guiro) => guiro.clear(lines),
+            Self::Brush(brush) => brush.clear(),
             Self::Conga(hand) | Self::Bongo(hand) => *hand = Hand::default(),
             Self::Snare(snare) => {
                 snare.body.clear();

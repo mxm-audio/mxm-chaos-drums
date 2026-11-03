@@ -180,8 +180,7 @@ pub struct CellParams {
 }
 
 /// Init's kit, on the drum machine's role map so the same beat plays both instruments (the brief's
-/// *Init*): the model, Coarse, Leak, choke group and Level of each cell. Until P4 builds its hand
-/// percussion, the rim, cowbell, clave and maraca play raw engines that stand in for them.
+/// *Init*): the model, Coarse, Leak, choke group and Level of each cell.
 ///
 /// **The Levels balance the kit** (the owner, 2026-11-03), as every factory kit's (`kits::balance`):
 /// each cell equally loud per hit by ITU-R BS.1770's K-weighting, then the three noise cells (both
@@ -199,14 +198,14 @@ const INIT: [(ModelId, i32, Option<f32>, i32, f32); CELLS] = [
     (ModelId::SLAPPED_CONGA, 5, None, 0, 4.0),
     (ModelId::SLAPPED_BONGO, 0, None, 0, 6.0),
     // Rim, clap, the hats (the closed one cuts the open one), crash, cowbell, clave, maraca.
-    (ModelId::RAW_SPARK, 0, None, 0, 2.0),
+    (ModelId::DAMPED_RIM, 0, None, 0, -1.0),
     (ModelId::SPARK_CLAP, 0, None, 0, 2.5),
     (ModelId::LEAKING_CLOSED_HAT, 0, None, 1, 0.0),
     (ModelId::LEAKING_OPEN_HAT, 0, None, 1, -4.5),
     (ModelId::LOOP_CRASH, 0, None, 0, 0.5),
-    (ModelId::RAW_FOLD, 12, None, 0, -6.0),
-    (ModelId::RAW_SPARK, 12, Some(0.25), 0, 4.5),
-    (ModelId::RAW_DUST, 5, Some(0.3), 0, -8.5),
+    (ModelId::COUPLED_COWBELL, 0, None, 0, 1.5),
+    (ModelId::DAMPED_CLAVE, 0, None, 0, 1.5),
+    (ModelId::GRAIN_MARACA, 0, None, 0, -2.5),
 ];
 
 impl CellParams {

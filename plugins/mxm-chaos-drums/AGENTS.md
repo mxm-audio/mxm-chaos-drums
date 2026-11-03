@@ -74,11 +74,11 @@ P5** (2026-11-02): the first version the owner explores; Resample and Export, P3
   the mix stays live while frozen, so changing anything else is Resample off, edit, on. Export needs
   Resample engaged and writes the kit heard, under its name, to the default pack folder or one
   chosen. The pair sits in the app bar, moving into its `…` menu when the bar is narrow.
-- **Init** is the defaults: the brief's kit on the drum machine's role map, every route Off, Temper
-  0. A role whose drum P4 has not built yet plays a raw engine standing in for it (`params::INIT`).
-  Its Levels are the brief's balance (`kits::balance`): equal loudness per hit, the noise cells
-  6 dB under it, the whole kit down as far as 6 dB where a quiet cell needs the room. A balance is a preset's Levels, never a change to a model's sound (the owner,
-  2026-11-03).
+- **Init** is the defaults: the brief's kit on the drum machine's role map, every model it names,
+  every route Off, Temper 0 (`params::INIT`). Its Levels are the brief's balance (`kits::balance`):
+  equal loudness per hit, the noise cells (`kits::is_noise`: the hats, the maraca, Raw dust) 6 dB
+  under it, the whole kit down as far as 6 dB where a quiet cell needs the room. A balance is a
+  preset's Levels, never a change to a model's sound (the owner, 2026-11-03).
 - **The fifty factory kits** (`kits`, the owner, 2026-11-03) are abstract and far apart ("this is
   abstract sounds. So go wild"): no two of them, nor any and Init, nearer than `ALIKE_DB` by
   `distance`, each cell's level-free spectral fingerprint over its attack, body and tail

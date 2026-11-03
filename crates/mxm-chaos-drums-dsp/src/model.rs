@@ -17,10 +17,18 @@ impl ModelId {
     pub const FALLING_TOM: Self = Self(6);
     pub const SLAPPED_CONGA: Self = Self(7);
     pub const SLAPPED_BONGO: Self = Self(8);
+    pub const DAMPED_RIM: Self = Self(9);
+    pub const DAMPED_CLAVE: Self = Self(10);
     pub const SPARK_CLAP: Self = Self(11);
+    pub const COUPLED_COWBELL: Self = Self(12);
     pub const LOOP_CYMBAL: Self = Self(13);
     pub const LOOP_CRASH: Self = Self(14);
     pub const RINGING_RIDE: Self = Self(15);
+    pub const GRAIN_MARACA: Self = Self(16);
+    pub const JINGLE_TAMBOURINE: Self = Self(17);
+    pub const SCRAPING_GUIRO: Self = Self(18);
+    pub const COUPLED_BELL: Self = Self(19);
+    pub const SWEPT_BRUSH: Self = Self(20);
     pub const RAW_RING: Self = Self(21);
     pub const RAW_SPARK: Self = Self(22);
     pub const RAW_FOLD: Self = Self(23);
@@ -215,6 +223,15 @@ const HAT_CONTROLS: [ControlSpec; 5] = [
     control(7, "Drive"),
 ];
 
+/// What the cowbell and the bell read.
+const COUPLED_CONTROLS: [ControlSpec; 5] = [
+    control(2, "Coupling"),
+    control(4, "Spread"),
+    control(6, "Snap"),
+    control(7, "Drive"),
+    control(9, "Damping"),
+];
+
 /// What every cymbal reads.
 const CYMBAL_CONTROLS: [ControlSpec; 5] = [
     control(1, "Tone"),
@@ -319,6 +336,33 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
         notes: "A smaller, higher conga: a short ring and a bright slap.",
     },
     ModelSpec {
+        id: ModelId::DAMPED_RIM,
+        label: "Damped rim",
+        kind: Kind::Rim,
+        controls: &[
+            control(1, "Tone"),
+            control(2, "Body"),
+            control(3, "Drop"),
+            control(6, "Snap"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "A short, damped ring and a spark's click while the charge is high: struck hard it \
+                clicks twice.",
+    },
+    ModelSpec {
+        id: ModelId::DAMPED_CLAVE,
+        label: "Damped clave",
+        kind: Kind::Clave,
+        controls: &[
+            control(3, "Drop"),
+            control(6, "Snap"),
+            control(7, "Drive"),
+            control(9, "Damping"),
+        ],
+        notes: "A high ring, damped short; fill it past its threshold and it whistles.",
+    },
+    ModelSpec {
         id: ModelId::SPARK_CLAP,
         label: "Spark clap",
         kind: Kind::Clap,
@@ -330,6 +374,14 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
         ],
         notes: "Sparks fire while the charge is high, each opening a burst of noise; as it drains they \
                 slow and stop.",
+    },
+    ModelSpec {
+        id: ModelId::COUPLED_COWBELL,
+        label: "Coupled cowbell",
+        kind: Kind::Cowbell,
+        controls: &COUPLED_CONTROLS,
+        notes: "Two short rings at an inharmonic ratio pulling on each other; Coupling makes them \
+                beat and tangle.",
     },
     ModelSpec {
         id: ModelId::LOOP_CYMBAL,
@@ -354,6 +406,60 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
         controls: &CYMBAL_CONTROLS,
         notes: "A steadier loop with little noise, and a bell of two rings over it; Body brings the \
                 bell up.",
+    },
+    ModelSpec {
+        id: ModelId::GRAIN_MARACA,
+        label: "Grain maraca",
+        kind: Kind::Maraca,
+        controls: &[control(1, "Tone"), control(5, "Grain"), control(6, "Snap")],
+        notes: "Seeds colliding as fast as the charge drives them: a held note shakes, a release \
+                patters out.",
+    },
+    ModelSpec {
+        id: ModelId::JINGLE_TAMBOURINE,
+        label: "Jingle tambourine",
+        kind: Kind::Tambourine,
+        controls: &[
+            control(1, "Tone"),
+            control(4, "Spread"),
+            control(5, "Grain"),
+            control(6, "Snap"),
+            control(9, "Damping"),
+        ],
+        notes: "Grains shaking a loop of jingles, each collision ringing the metal.",
+    },
+    ModelSpec {
+        id: ModelId::SCRAPING_GUIRO,
+        label: "Scraping guiro",
+        kind: Kind::Guiro,
+        controls: &[
+            control(1, "Tone"),
+            control(4, "Spread"),
+            control(8, "Spacing"),
+            control(9, "Damping"),
+        ],
+        notes: "A train of ridges scraping a gourd, as fast as the charge drives it: it slows as it \
+                drains, and a held note is a long stroke.",
+    },
+    ModelSpec {
+        id: ModelId::COUPLED_BELL,
+        label: "Coupled bell",
+        kind: Kind::Bell,
+        controls: &COUPLED_CONTROLS,
+        notes: "Three long rings at inharmonic ratios, the higher dying sooner; fill it past its \
+                threshold and it drones.",
+    },
+    ModelSpec {
+        id: ModelId::SWEPT_BRUSH,
+        label: "Swept brush",
+        kind: Kind::Brush,
+        controls: &[
+            control(1, "Tone"),
+            control(4, "Spread"),
+            control(5, "Grain"),
+        ],
+        notes: "Noise that follows the current a held note pushes in: the note's length is the \
+                stroke, and Supply its pressure.",
     },
     ModelSpec {
         id: ModelId::RAW_RING,
