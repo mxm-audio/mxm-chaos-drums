@@ -3,12 +3,12 @@
 //! comes to rest.
 
 use mxm_chaos_drums_dsp::capture::{
-    CAPTURE_GATE_S, FADE_SECONDS, KitCapture, KitCaptureInProgress, MAX_CAPTURE_SECONDS,
-    capture_kit, capture_patches,
+    CAPTURE_GATE_S, KitCapture, KitCaptureInProgress, MAX_CAPTURE_SECONDS, capture_kit,
+    capture_patches,
 };
 use mxm_chaos_drums_dsp::{
-    Bus, CELLS, CellParams, CellTarget, Event, EventKind, Kit, KitParams, KitTarget, ModelId,
-    OutputFrame, Route, Source, velocity_curve,
+    Bus, CELLS, CellParams, CellTarget, DECLICK_S, Event, EventKind, Kit, KitParams, KitTarget,
+    ModelId, OutputFrame, Route, Source, velocity_curve,
 };
 
 const RATE: f32 = 16_000.0;
@@ -111,7 +111,7 @@ fn a_frozen_strike_plays_its_cells_one_shot_at_its_velocitys_gain() {
 #[test]
 fn a_new_strike_a_choke_and_a_reset_fade_a_one_shot_and_a_panic_cuts_it() {
     let base = cells(&[(0, ModelId::RAW_RING)]);
-    let fade = (FADE_SECONDS * RATE) as usize + 2;
+    let fade = (DECLICK_S * RATE) as usize + 2;
     let (mut kit, capture) = frozen(KitParams::default(), base);
     let shot = capture.cell(0).to_vec();
     let at = shot.len() / 4;
@@ -154,7 +154,7 @@ fn a_strike_in_a_choke_group_ends_the_others_frozen_hits() {
     base[11].choke_group = 1;
     base[11].leak = 0.6;
     let (mut kit, _) = frozen(KitParams::default(), base);
-    let fade = (FADE_SECONDS * RATE) as usize + 2;
+    let fade = (DECLICK_S * RATE) as usize + 2;
     let out = render(
         &mut kit,
         &[(0, strike(11, 1.0)), (400, strike(10, 1.0))],
@@ -514,14 +514,15 @@ fn routes_from_a_captures_zero_sources_move_no_captured_sample() {
     );
 }
 
-/// Strikes faster than a fade never jump: a one-shot a third strike cuts inside its fade goes on as
-/// a falling tail from where it was, so no sample steps further than the shots' own movement.
+/// Strikes of any speed never jump and never pass a cell's peak: each ends the one-shot before it
+/// with a live cell's transition law, its jump into a declick offset, so no sample steps further than
+/// the shots' own movement and the offset's fall, and a frozen cell stays within ±2.
 #[test]
-fn strikes_faster_than_a_fade_never_jump() {
+fn strikes_of_any_speed_never_jump_nor_pass_a_cells_peak() {
     let base = cells(&[(0, ModelId::RAW_RING)]);
     let (mut kit, capture) = frozen(KitParams::default(), base);
     let shot = capture.cell(0);
-    // The first one-shot at its loudest when the next two arrive, a sample apart.
+    // The first one-shot at its loudest when four more arrive, a sample apart.
     let at = (300..shot.len().min(2_000))
         .max_by(|&a, &b| shot[a].abs().total_cmp(&shot[b].abs()))
         .expect("a long shot");
@@ -529,30 +530,27 @@ fn strikes_faster_than_a_fade_never_jump() {
         .windows(2)
         .map(|pair| (pair[1] - pair[0]).abs())
         .fold(shot[0].abs(), f32::max);
-    let out = render(
-        &mut kit,
-        &[
-            (0, strike(0, 1.0)),
-            (at, strike(0, 1.0)),
-            (at + 1, strike(0, 1.0)),
-        ],
-        at + 400,
-    );
+    let events: Vec<_> = [0, at, at + 1, at + 2, at + 3]
+        .into_iter()
+        .map(|n| (n, strike(0, 1.0)))
+        .collect();
+    let out = render(&mut kit, &events, at + 400);
     let jump = out
         .windows(2)
         .map(|pair| (pair[1][0] - pair[0][0]).abs())
         .fold(0.0, f32::max);
-    let step = 1.0 / (FADE_SECONDS * RATE);
+    let step = (1.0 / RATE) / DECLICK_S;
     assert!(
-        jump <= 3.0 * (moves + step) + 1e-6,
-        "a step of {jump} where the shots move {moves} (the cut one-shot stood at {})",
+        jump <= 2.0 * (moves + step) + 1e-6,
+        "a step of {jump} where the shot moves {moves} (the cut one-shot stood at {})",
         shot[at]
     );
+    assert!(out.iter().all(|frame| frame[0].abs() <= 2.0));
     let mut seconds = 0;
     while !kit.is_at_rest() {
         render(&mut kit, &[], 16_000);
         seconds += 1;
-        assert!(seconds < 60, "the tail never ends");
+        assert!(seconds < 60, "the offset never ends");
     }
 }
 
@@ -626,5 +624,68 @@ fn a_standing_lfos_rate_is_not_part_of_a_capture_and_its_shape_is() {
         capture_patches(square, cancelled),
         capture_patches(kit, cancelled),
         "a read LFO's shape"
+    );
+}
+
+/// What cannot move a captured sample is no part of the key, and moves none when rendered: a route
+/// of no depth or onto Off, a control the model does not read and a route onto one, the Touch no
+/// capture holds and a route onto it.
+#[test]
+fn inert_routes_unread_controls_and_touch_are_not_part_of_a_capture() {
+    let kit = KitParams {
+        temper: 0.6,
+        coupling: 1.0,
+        ..KitParams::default()
+    };
+    let base = cells(&[(0, ModelId::DRAINING_KICK), (1, ModelId::RAW_RING)]);
+    let mut inert = base;
+    // The kick reads controls 3, 6, 7 and 9: the others, and routes onto them, move nothing.
+    for k in [0, 1, 3, 4, 7, 9, 10, 11] {
+        inert[0].controls[k] = 0.9;
+    }
+    inert[0].touch = 1.0;
+    inert[0].routes = [
+        Route {
+            source: Source::Lfo1,
+            target: CellTarget::Control(0),
+            amount: 0.7,
+        },
+        Route {
+            source: Source::Random,
+            target: CellTarget::Touch,
+            amount: 1.0,
+        },
+        Route {
+            source: Source::Lfo2,
+            target: CellTarget::Pitch,
+            amount: 0.0,
+        },
+        Route {
+            source: Source::Lfo3,
+            target: CellTarget::Off,
+            amount: 0.5,
+        },
+    ];
+    inert[1].routes[0] = Route {
+        source: Source::Random,
+        target: CellTarget::Pitch,
+        amount: 0.0,
+    };
+    let mut inert_kit = kit;
+    inert_kit.routes[0] = Route {
+        source: Source::Lfo1,
+        target: KitTarget::Temper,
+        amount: 0.0,
+    };
+    inert_kit.lfo_shape[1] = mxm_chaos_drums_dsp::LfoShape::Square;
+    assert_eq!(
+        capture_kit(&(inert_kit, inert), RATE),
+        capture_kit(&(kit, base), RATE),
+        "rendered"
+    );
+    assert_eq!(
+        capture_patches(inert_kit, inert),
+        capture_patches(kit, base),
+        "the key"
     );
 }

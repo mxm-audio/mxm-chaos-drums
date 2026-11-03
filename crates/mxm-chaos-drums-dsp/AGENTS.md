@@ -113,15 +113,18 @@ twenty-five models render.
   what stays live while frozen is not a new capture: Level, Pan, Mute, Solo, the output, Master,
   routes onto them, Dynamics, the choke groups, the buses, an LFO only those routes read, and any
   route from Velocity, Wheel or Pressure, exactly zero in a capture (a velocity-1 hit's, an unstruck
-  neighbour's, and the expression no capture sends), and the Rate of an LFO that reaches nothing.
+  neighbour's, and the expression no capture sends), a route of no depth or onto Off, a control its
+  model does not read and a route onto one, the Touch no capture holds and a route onto it, and the
+  Rate of an LFO that reaches nothing.
   **The key is conservative**: it leaves out only what cannot move a captured sample, never a change
   it cannot show harmless (routes that cancel keep their LFO's Shape in it, as cancelling is exact in
   floating point only alone on a target). A needless recapture costs time; a kept capture over a
   changed sound would play the wrong one. A frozen strike plays its one-shot at its
   velocity's gain through Dynamics, a capture played quieter rather than struck softer, with its own
   Velocity and Random staged for the routes onto its mix; a new strike, a choke, a group's choke and
-  a transport reset fade it over `FADE_SECONDS` (one a third strike cuts inside its fade goes on
-  as a tail falling to zero over one, so strikes faster than a fade never jump), a panic cuts it; releases, touch and tuning play
+  a transport reset end it with a live cell's transition law, its jump into a declick offset
+  clamped to ±1 that falls to zero within `DECLICK_S`, so strikes of any speed never jump unless the
+  clamp holds and a frozen cell's peak is a live one's, 2; a panic cuts it; releases, touch and tuning play
   nothing. Engaging lets a live tail ring out but feeds it nothing: every gate and touch lets go,
   and while frozen the buses feed no cell, so it decays to rest; a frozen cell's own strike chokes
   it. Installing or taking away a frozen kit cuts what it was playing, as its one-shots go with it,

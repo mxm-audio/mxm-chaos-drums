@@ -23,11 +23,14 @@
 //!
 //! A strike starts its cell's one-shot at the strike's gain: its velocity through Dynamics, so a
 //! capture at full strength is played quieter rather than struck softer, a loss the plan names. A
-//! new strike fades the one-shot still playing over [`FADE_SECONDS`], as a choke, a group's choke, a
-//! panic and a transport reset do; releases, touch, tuning, the wheel and pressure play nothing.
+//! new strike ends the one-shot still playing as a live cell's transition does, its jump into a
+//! declick offset falling to zero within [`DECLICK_S`](crate::DECLICK_S), as a choke, a group's
+//! choke and a transport reset do; a panic cuts it; releases, touch, tuning, the wheel and pressure
+//! play nothing.
 
 use crate::cell::{Bus, CellParams};
 use crate::kit::{CELLS, Event, EventKind, Kit, KitParams};
+use crate::model::available;
 use crate::routes::{CellTarget, KitTarget, Route, Source};
 
 /// The strike every capture is taken at: full strength, which a pack is too.
@@ -44,8 +47,6 @@ pub const QUIET_DB: f32 = -80.0;
 pub const QUIET_HOLD_SECONDS: f32 = 0.25;
 /// The fade on a truncated tail, long enough not to click.
 pub const TRUNCATION_FADE_SECONDS: f32 = 0.010;
-/// How long a one-shot takes to fade when a new strike, a choke or a reset ends it.
-pub const FADE_SECONDS: f32 = 0.004;
 
 /// How much of a capture renders before it looks at whether the kit has rested.
 const REST_CHECK_FRAMES: usize = 256;
@@ -75,26 +76,44 @@ pub fn capture_patches(
         master: 1.0,
         dynamics: 0.0,
         routes: kit.routes.map(|route| match (route.source, route.target) {
-            (_, KitTarget::BusA | KitTarget::BusB) => Route::default(),
+            (_, KitTarget::Off | KitTarget::BusA | KitTarget::BusB) => Route::default(),
+            _ if route.amount == 0.0 => Route::default(),
             (Source::Lfo1 | Source::Lfo2 | Source::Lfo3, _) => route,
             _ => Route::default(),
         }),
         ..kit
     };
-    let cells = cells.map(|cell| CellParams {
-        level: 1.0,
-        pan: 0.0,
-        mute: false,
-        solo: false,
-        output: 0,
-        bus: Bus::Off,
-        choke_group: 0,
-        routes: cell.routes.map(|route| match (route.source, route.target) {
-            (_, CellTarget::Level | CellTarget::Pan) => Route::default(),
-            (Source::Lfo1 | Source::Lfo2 | Source::Lfo3 | Source::Random, _) => route,
-            _ => Route::default(),
-        }),
-        ..cell
+    let cells = cells.map(|cell| {
+        // The controls its model reads; the rest move nothing, and are the model's own, zero.
+        let read = |control: u8| {
+            available(cell.model).is_some_and(|spec| {
+                spec.controls
+                    .iter()
+                    .any(|shown| shown.number == control + 1)
+            })
+        };
+        CellParams {
+            level: 1.0,
+            pan: 0.0,
+            mute: false,
+            solo: false,
+            output: 0,
+            bus: Bus::Off,
+            choke_group: 0,
+            // Read only while a touch is held, which no capture makes.
+            touch: CellParams::new(cell.model).touch,
+            controls: core::array::from_fn(|k| if read(k as u8) { cell.controls[k] } else { 0.0 }),
+            routes: cell.routes.map(|route| match (route.source, route.target) {
+                (_, CellTarget::Off | CellTarget::Level | CellTarget::Pan | CellTarget::Touch) => {
+                    Route::default()
+                }
+                (_, CellTarget::Control(k)) if !read(k) => Route::default(),
+                _ if route.amount == 0.0 => Route::default(),
+                (Source::Lfo1 | Source::Lfo2 | Source::Lfo3 | Source::Random, _) => route,
+                _ => Route::default(),
+            }),
+            ..cell
+        }
     });
     let reads = |lfo: Source| {
         kit.routes
@@ -378,21 +397,17 @@ pub fn capture_kit_until(
     }
 }
 
-/// One one-shot being read: where it is, at what gain, and how far it has faded.
+/// One one-shot being read: where it is, at what gain, and what it played last.
 #[derive(Clone, Copy, Debug, Default)]
 struct Reader {
     at: usize,
     gain: f32,
-    /// 1 while it plays, falling to 0 once it fades.
-    fade: f32,
-    fading: bool,
     live: bool,
-    /// What it played last, for a strike that cuts it short.
     last: f32,
 }
 
 impl Reader {
-    fn sample(&mut self, shot: &[f32], step: f32) -> f32 {
+    fn sample(&mut self, shot: &[f32]) -> f32 {
         if !self.live {
             return 0.0;
         }
@@ -401,81 +416,57 @@ impl Reader {
             return 0.0;
         };
         self.at += 1;
-        let out = x * self.gain * self.fade;
-        self.last = out;
-        if self.fading {
-            self.fade -= step;
-            if self.fade <= 0.0 {
-                *self = Self::default();
-            }
-        }
-        out
+        self.last = x * self.gain;
+        self.last
     }
 }
 
-/// What a frozen cell plays: its one-shot, the one a new strike is fading out, and the tail of one a
-/// third strike cut short inside its fade.
+/// What a frozen cell plays: its one-shot and a cell's declick offset. A new strike, a choke and a
+/// reset end what plays with a live cell's transition law: its jump into the offset, clamped to ±1,
+/// which falls to exact zero within [`DECLICK_S`](crate::DECLICK_S). So strikes of any speed never
+/// jump unless the clamp holds, as a live cell's, and a frozen cell's peak is a live one's, 2.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Player {
     now: Reader,
-    gone: Reader,
-    /// Where a fade cut short left off, falling to zero by `tail_fall` a sample over one fade, so
-    /// strikes faster than a fade never jump; clamped as a cell's declick is.
-    tail: f32,
-    tail_fall: f32,
+    offset: f32,
 }
 
 impl Player {
-    /// A hit at `gain`: the one-shot from its start, the one playing faded out under it; one still
-    /// fading from before goes on from where it was as a falling tail. `step` is a fade's fall a
-    /// sample.
-    pub(crate) fn strike(&mut self, gain: f32, step: f32) {
+    /// A hit at `gain`: the one-shot from its start, what played before bridged by the offset.
+    pub(crate) fn strike(&mut self, gain: f32) {
         self.stop();
-        if self.gone.live {
-            self.tail = (self.tail + self.gone.last).clamp(-1.0, 1.0);
-            self.tail_fall = self.tail.abs() * step;
-        }
-        self.gone = self.now;
         self.now = Reader {
             at: 0,
             gain,
-            fade: 1.0,
-            fading: false,
             live: true,
             last: 0.0,
         };
     }
 
-    /// Whatever plays fades out.
+    /// What plays ends, its jump into the offset.
     pub(crate) fn stop(&mut self) {
-        for reader in [&mut self.now, &mut self.gone] {
-            if reader.live {
-                reader.fading = true;
-            }
-        }
+        self.offset = (self.offset + self.now.last).clamp(-1.0, 1.0);
+        self.now = Reader::default();
     }
 
-    /// Silence at once: a reset's, or a frozen kit taken away.
+    /// Silence at once: a panic's, or a frozen kit taken away.
     pub(crate) fn clear(&mut self) {
         *self = Self::default();
     }
 
     pub(crate) fn is_quiet(&self) -> bool {
-        !self.now.live && !self.gone.live && self.tail == 0.0
+        !self.now.live && self.offset == 0.0
     }
 
-    /// One sample of `shot`, `step` the fade's fall a sample.
+    /// One sample of `shot`, `step` the offset's fall a sample (a cell's: the period over
+    /// [`DECLICK_S`](crate::DECLICK_S)).
     pub(crate) fn tick(&mut self, shot: &[f32], step: f32) -> f32 {
-        let tail = self.tail;
-        if tail != 0.0 {
-            self.tail = if tail.abs() <= self.tail_fall {
-                0.0
-            } else if tail > 0.0 {
-                tail - self.tail_fall
-            } else {
-                tail + self.tail_fall
-            };
-        }
-        self.now.sample(shot, step) + self.gone.sample(shot, step) + tail
+        let offset = self.offset;
+        self.offset = if offset.abs() <= step {
+            0.0
+        } else {
+            offset - step * offset.signum()
+        };
+        self.now.sample(shot) + self.offset
     }
 }

@@ -5,8 +5,8 @@ use mxm_drum_engine::{LFO_SEEDS, Lfo, LfoShape, OUTPUT_TRANSFER_SECONDS, OutputF
 use mxm_dsp::guard::finite_or;
 use mxm_part_routing::{Destination, DestinationRouter};
 
-use crate::capture::{FADE_SECONDS, KitCapture, Player};
-use crate::cell::{Cell, CellParams, velocity_curve};
+use crate::capture::{KitCapture, Player};
+use crate::cell::{Cell, CellParams, DECLICK_S, velocity_curve};
 use crate::curves::{self, RECHARGE_OCTAVES};
 use crate::fmath;
 use crate::pool::Pool;
@@ -221,10 +221,10 @@ pub struct Kit {
     master: f32,
     smoothing: f32,
     /// Resample's frozen kit, when one is installed, what each cell plays from it, and how fast a
-    /// one-shot fades (`capture`).
+    /// player's declick offset falls, a cell's (`capture`).
     frozen: Option<Box<KitCapture>>,
     players: [Player; CELLS],
-    fade_step: f32,
+    declick_step: f32,
 }
 
 /// The kit's settings for one sample, its routes applied.
@@ -281,7 +281,7 @@ impl Kit {
             smoothing: (1.0 / (MIX_FOLLOW_S * sample_rate)).min(1.0),
             frozen: None,
             players: [Player::default(); CELLS],
-            fade_step: 1.0 / (FADE_SECONDS * sample_rate).max(1.0),
+            declick_step: (1.0 / sample_rate) / DECLICK_S,
         };
         kit.reach = kit.lfo_reach();
         // A fresh kit is a reset one: its routes settled at the LFOs' start, its pool full at the
@@ -530,14 +530,13 @@ impl Kit {
             }
         }
         let dynamics = self.params.dynamics;
-        let fade_step = self.fade_step;
         for (index, (cell, player)) in self.cells.iter_mut().zip(&mut self.players).enumerate() {
             let group = cell.params().choke_group;
             let velocity = sample.strike[index];
             if velocity > 0.0 {
                 // The hit's own Velocity and Random, as a live hit's, for the routes onto its mix.
                 cell.stage_hit(velocity);
-                player.strike(velocity_curve(velocity, dynamics), fade_step);
+                player.strike(velocity_curve(velocity, dynamics));
                 cell.choke();
             } else if group > 0 && groups & (1 << group.min(31)) != 0 {
                 cell.choke();
@@ -559,7 +558,7 @@ impl Kit {
         };
         for (cell, player) in self.players.iter_mut().enumerate() {
             if !player.is_quiet() {
-                out[cell] += player.tick(frozen.cell(cell), self.fade_step);
+                out[cell] += player.tick(frozen.cell(cell), self.declick_step);
             }
         }
     }
