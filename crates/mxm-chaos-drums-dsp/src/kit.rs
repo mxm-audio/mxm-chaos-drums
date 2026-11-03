@@ -530,13 +530,14 @@ impl Kit {
             }
         }
         let dynamics = self.params.dynamics;
+        let fade_step = self.fade_step;
         for (index, (cell, player)) in self.cells.iter_mut().zip(&mut self.players).enumerate() {
             let group = cell.params().choke_group;
             let velocity = sample.strike[index];
             if velocity > 0.0 {
                 // The hit's own Velocity and Random, as a live hit's, for the routes onto its mix.
                 cell.stage_hit(velocity);
-                player.strike(velocity_curve(velocity, dynamics));
+                player.strike(velocity_curve(velocity, dynamics), fade_step);
                 cell.choke();
             } else if group > 0 && groups & (1 << group.min(31)) != 0 {
                 cell.choke();
@@ -816,10 +817,8 @@ impl Kit {
     /// performance, which nothing reads back.
     fn mix(&mut self, raw: &[f32; CELLS]) -> OutputFrame {
         let mut frame = OutputFrame::default();
-        let soloing = self
-            .cells
-            .iter()
-            .any(|cell| cell.params().solo && !cell.params().mute);
+        // Any Solo isolates the soloed cells, a muted one too: Mute wins only for its own cell.
+        let soloing = self.cells.iter().any(|cell| cell.params().solo);
         let alpha = self.smoothing;
         self.master = follow(self.master, self.params.master.max(0.0), alpha);
         let master = self.master;

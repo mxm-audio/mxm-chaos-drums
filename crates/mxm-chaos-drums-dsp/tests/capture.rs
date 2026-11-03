@@ -298,7 +298,7 @@ fn what_stays_live_or_would_disturb_the_hit_is_not_part_of_a_capture() {
     );
     let mut bent = base;
     bent[10].routes[0] = Route {
-        source: Source::Velocity,
+        source: Source::Random,
         target: CellTarget::Pitch,
         amount: 1.0,
     };
@@ -459,5 +459,137 @@ fn an_lfo_only_the_live_mix_reads_is_not_part_of_a_capture() {
         capture_patches(retuned, bent),
         capture_patches(kit, bent),
         "read by the sound"
+    );
+}
+
+/// A capture's Velocity (a velocity-1 hit's, and an unstruck neighbour's), Wheel and Pressure are
+/// exactly zero, so a route from them moves no captured sample: rendered with and without them, the
+/// one-shots are the same, bit for bit. So they are no part of the key either.
+#[test]
+fn routes_from_a_captures_zero_sources_move_no_captured_sample() {
+    let kit = KitParams {
+        temper: 0.6,
+        coupling: 1.0,
+        ..KitParams::default()
+    };
+    let base = cells(&[(5, ModelId::RAW_RING), (6, ModelId::SLAPPED_CONGA)]);
+    let route = |source, target| Route {
+        source,
+        target,
+        amount: 0.8,
+    };
+    let mut routed = base;
+    routed[5].routes = [
+        route(Source::Velocity, CellTarget::Pitch),
+        route(Source::Wheel, CellTarget::Supply),
+        route(Source::Pressure, CellTarget::Link),
+        route(Source::Velocity, CellTarget::Threshold),
+    ];
+    routed[6].routes = [
+        route(Source::Wheel, CellTarget::Control(2)),
+        route(Source::Pressure, CellTarget::Strike),
+        route(Source::Velocity, CellTarget::Link),
+        route(Source::Wheel, CellTarget::Pitch),
+    ];
+    let mut routed_kit = kit;
+    routed_kit.routes[0] = Route {
+        source: Source::Wheel,
+        target: KitTarget::Temper,
+        amount: 1.0,
+    };
+    routed_kit.routes[1] = Route {
+        source: Source::Pressure,
+        target: KitTarget::Coupling,
+        amount: -1.0,
+    };
+    assert_eq!(
+        capture_kit(&(routed_kit, routed), RATE),
+        capture_kit(&(kit, base), RATE),
+        "rendered"
+    );
+    assert_eq!(
+        capture_patches(routed_kit, routed),
+        capture_patches(kit, base),
+        "the key"
+    );
+}
+
+/// Strikes faster than a fade never jump: a one-shot a third strike cuts inside its fade goes on as
+/// a falling tail from where it was, so no sample steps further than the shots' own movement.
+#[test]
+fn strikes_faster_than_a_fade_never_jump() {
+    let base = cells(&[(0, ModelId::RAW_RING)]);
+    let (mut kit, capture) = frozen(KitParams::default(), base);
+    let shot = capture.cell(0);
+    // The first one-shot at its loudest when the next two arrive, a sample apart.
+    let at = (300..shot.len().min(2_000))
+        .max_by(|&a, &b| shot[a].abs().total_cmp(&shot[b].abs()))
+        .expect("a long shot");
+    let moves = shot
+        .windows(2)
+        .map(|pair| (pair[1] - pair[0]).abs())
+        .fold(shot[0].abs(), f32::max);
+    let out = render(
+        &mut kit,
+        &[
+            (0, strike(0, 1.0)),
+            (at, strike(0, 1.0)),
+            (at + 1, strike(0, 1.0)),
+        ],
+        at + 400,
+    );
+    let jump = out
+        .windows(2)
+        .map(|pair| (pair[1][0] - pair[0][0]).abs())
+        .fold(0.0, f32::max);
+    let step = 1.0 / (FADE_SECONDS * RATE);
+    assert!(
+        jump <= 3.0 * (moves + step) + 1e-6,
+        "a step of {jump} where the shots move {moves} (the cut one-shot stood at {})",
+        shot[at]
+    );
+    let mut seconds = 0;
+    while !kit.is_at_rest() {
+        render(&mut kit, &[], 16_000);
+        seconds += 1;
+        assert!(seconds < 60, "the tail never ends");
+    }
+}
+
+/// Any Solo isolates the soloed cells, a muted one too: Mute wins for its own cell only.
+#[test]
+fn a_muted_solo_still_silences_the_rest() {
+    let mut mixed = cells(&[(0, ModelId::DRAINING_KICK), (1, ModelId::WIRED_SNARE)]);
+    mixed[0].solo = true;
+    mixed[0].mute = true;
+    let mut kit = Kit::new(RATE, KitParams::default(), mixed);
+    let mut frames = vec![OutputFrame::default(); 2_000];
+    kit.process(
+        &[
+            Event {
+                offset: 0,
+                kind: strike(0, 1.0),
+            },
+            Event {
+                offset: 0,
+                kind: strike(1, 1.0),
+            },
+        ],
+        &mut frames,
+    );
+    assert!(frames.iter().all(|frame| frame.main == [0.0; 2]));
+    mixed[0].solo = false;
+    kit.set_cell(0, mixed[0]);
+    let mut frames = vec![OutputFrame::default(); 2_000];
+    kit.process(
+        &[Event {
+            offset: 0,
+            kind: strike(1, 1.0),
+        }],
+        &mut frames,
+    );
+    assert!(
+        frames.iter().any(|frame| frame.main != [0.0; 2]),
+        "no Solo: the snare is heard"
     );
 }

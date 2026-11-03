@@ -54,8 +54,10 @@ const REST_CHECK_FRAMES: usize = 256;
 /// stands: the kit's and every cell's, with all that stays live while frozen neutral (the mix, its
 /// routes, Dynamics, which a velocity-1 hit cannot hear), and all that would disturb the isolated
 /// hit taken away (the buses and every route onto them, the choke groups, whose strike would latch
-/// a neighbour out of the coupling). An LFO no route left reads stands still and moves nothing, so
-/// its Rate and Shape are Init's in the key.
+/// a neighbour out of the coupling). A capture's sources are its LFOs and each hit's Random: a
+/// velocity-1 hit's Velocity, and the Wheel and Pressure no capture sends, are exactly zero, so a
+/// route from them moves nothing and is left out. An LFO no route left reads stands still and moves
+/// nothing, so its Rate and Shape are Init's in the key.
 #[must_use]
 pub fn capture_patches(
     kit: KitParams,
@@ -65,9 +67,10 @@ pub fn capture_patches(
         bus: [0.0; 2],
         master: 1.0,
         dynamics: 0.0,
-        routes: kit.routes.map(|route| match route.target {
-            KitTarget::BusA | KitTarget::BusB => Route::default(),
-            _ => route,
+        routes: kit.routes.map(|route| match (route.source, route.target) {
+            (_, KitTarget::BusA | KitTarget::BusB) => Route::default(),
+            (Source::Lfo1 | Source::Lfo2 | Source::Lfo3, _) => route,
+            _ => Route::default(),
         }),
         ..kit
     };
@@ -79,9 +82,10 @@ pub fn capture_patches(
         output: 0,
         bus: Bus::Off,
         choke_group: 0,
-        routes: cell.routes.map(|route| match route.target {
-            CellTarget::Level | CellTarget::Pan => Route::default(),
-            _ => route,
+        routes: cell.routes.map(|route| match (route.source, route.target) {
+            (_, CellTarget::Level | CellTarget::Pan) => Route::default(),
+            (Source::Lfo1 | Source::Lfo2 | Source::Lfo3 | Source::Random, _) => route,
+            _ => Route::default(),
         }),
         ..cell
     });
@@ -367,6 +371,8 @@ struct Reader {
     fade: f32,
     fading: bool,
     live: bool,
+    /// What it played last, for a strike that cuts it short.
+    last: f32,
 }
 
 impl Reader {
@@ -380,6 +386,7 @@ impl Reader {
         };
         self.at += 1;
         let out = x * self.gain * self.fade;
+        self.last = out;
         if self.fading {
             self.fade -= step;
             if self.fade <= 0.0 {
@@ -390,17 +397,28 @@ impl Reader {
     }
 }
 
-/// What a frozen cell plays: its one-shot, and the one a new strike is fading out.
+/// What a frozen cell plays: its one-shot, the one a new strike is fading out, and the tail of one a
+/// third strike cut short inside its fade.
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct Player {
     now: Reader,
     gone: Reader,
+    /// Where a fade cut short left off, falling to zero by `tail_fall` a sample over one fade, so
+    /// strikes faster than a fade never jump; clamped as a cell's declick is.
+    tail: f32,
+    tail_fall: f32,
 }
 
 impl Player {
-    /// A hit at `gain`: the one-shot from its start, the one playing faded out under it.
-    pub(crate) fn strike(&mut self, gain: f32) {
+    /// A hit at `gain`: the one-shot from its start, the one playing faded out under it; one still
+    /// fading from before goes on from where it was as a falling tail. `step` is a fade's fall a
+    /// sample.
+    pub(crate) fn strike(&mut self, gain: f32, step: f32) {
         self.stop();
+        if self.gone.live {
+            self.tail = (self.tail + self.gone.last).clamp(-1.0, 1.0);
+            self.tail_fall = self.tail.abs() * step;
+        }
         self.gone = self.now;
         self.now = Reader {
             at: 0,
@@ -408,6 +426,7 @@ impl Player {
             fade: 1.0,
             fading: false,
             live: true,
+            last: 0.0,
         };
     }
 
@@ -426,11 +445,21 @@ impl Player {
     }
 
     pub(crate) fn is_quiet(&self) -> bool {
-        !self.now.live && !self.gone.live
+        !self.now.live && !self.gone.live && self.tail == 0.0
     }
 
     /// One sample of `shot`, `step` the fade's fall a sample.
     pub(crate) fn tick(&mut self, shot: &[f32], step: f32) -> f32 {
-        self.now.sample(shot, step) + self.gone.sample(shot, step)
+        let tail = self.tail;
+        if tail != 0.0 {
+            self.tail = if tail.abs() <= self.tail_fall {
+                0.0
+            } else if tail > 0.0 {
+                tail - self.tail_fall
+            } else {
+                tail + self.tail_fall
+            };
+        }
+        self.now.sample(shot, step) + self.gone.sample(shot, step) + tail
     }
 }

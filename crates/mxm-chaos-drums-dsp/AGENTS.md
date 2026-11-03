@@ -37,6 +37,8 @@ twenty-five models render.
 - `src/pool.rs`: the shared supply, divided among every demand at once.
 - `src/kit.rs`: the torus, Flow and Coupling, the events and their order, group chokes, the LFOs, the
   kit routes, Level, Pan, Mute, Solo, the outputs, Master, and the frozen kit Resample installs.
+  Mute and Solo are the brief's and the drum machine's: any Solo isolates the soloed cells, a muted
+  one too, and Mute wins for its own cell only.
 - `src/capture.rs`: Resample's DSP half, as the drum machine's: each cell's one-shot (`capture_kit`,
   chunked in `KitCaptureInProgress`) and the players a frozen kit strikes. The capture thread, the
   pack and the editor's pair are mxm-kit's `mxm-drum-shell`.
@@ -109,10 +111,13 @@ twenty-five models render.
   (`examples/capture_cost.rs`, 2026-11-03); the exact rest alone took twice as long, and the
   validator's parameter fuzz timed out on it. Those settings are its key (`capture_patches`), so
   what stays live while frozen is not a new capture: Level, Pan, Mute, Solo, the output, Master,
-  routes onto them, Dynamics, the choke groups, the buses, and an LFO only those routes read. A frozen strike plays its one-shot at its
+  routes onto them, Dynamics, the choke groups, the buses, an LFO only those routes read, and any
+  route from Velocity, Wheel or Pressure, exactly zero in a capture (a velocity-1 hit's, an unstruck
+  neighbour's, and the expression no capture sends). A frozen strike plays its one-shot at its
   velocity's gain through Dynamics, a capture played quieter rather than struck softer, with its own
   Velocity and Random staged for the routes onto its mix; a new strike, a choke, a group's choke and
-  a transport reset fade it over `FADE_SECONDS`, a panic cuts it; releases, touch and tuning play
+  a transport reset fade it over `FADE_SECONDS` (one a third strike cuts inside its fade goes on
+  as a tail falling to zero over one, so strikes faster than a fade never jump), a panic cuts it; releases, touch and tuning play
   nothing. Engaging lets a live tail ring out but feeds it nothing: every gate and touch lets go,
   and while frozen the buses feed no cell, so it decays to rest; a frozen cell's own strike chokes
   it. Installing or taking away a frozen kit cuts what it was playing, as its one-shots go with it,
