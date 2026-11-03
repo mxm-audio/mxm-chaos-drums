@@ -35,6 +35,65 @@ pub enum SourceChoice {
     Random,
 }
 
+/// A route's source list, as a knob's routes offer it: a cell's or the kit's.
+pub trait Choice: Enum + PartialEq + Copy + Send + Sync + 'static {
+    /// No source: a slot with it is free.
+    const OFF: Self;
+    /// Every source but Off, in the list's order.
+    const SOURCES: &'static [Self];
+
+    /// Its name, as a row shows it.
+    fn name(self) -> &'static str;
+}
+
+impl Choice for SourceChoice {
+    const OFF: Self = Self::Off;
+    const SOURCES: &'static [Self] = &[
+        Self::Lfo1,
+        Self::Lfo2,
+        Self::Lfo3,
+        Self::Wheel,
+        Self::Pressure,
+        Self::Velocity,
+        Self::Random,
+    ];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::Lfo1 => "LFO 1",
+            Self::Lfo2 => "LFO 2",
+            Self::Lfo3 => "LFO 3",
+            Self::Wheel => "Wheel",
+            Self::Pressure => "Pressure",
+            Self::Velocity => "Velocity",
+            Self::Random => "Random",
+        }
+    }
+}
+
+impl Choice for KitSourceChoice {
+    const OFF: Self = Self::Off;
+    const SOURCES: &'static [Self] = &[
+        Self::Lfo1,
+        Self::Lfo2,
+        Self::Lfo3,
+        Self::Wheel,
+        Self::Pressure,
+    ];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::Lfo1 => "LFO 1",
+            Self::Lfo2 => "LFO 2",
+            Self::Lfo3 => "LFO 3",
+            Self::Wheel => "Wheel",
+            Self::Pressure => "Pressure",
+        }
+    }
+}
+
 impl SourceChoice {
     #[must_use]
     pub const fn dsp(self) -> Source {
@@ -116,6 +175,20 @@ pub fn cell_target(index: i32) -> CellTarget {
             .get(i - 2 - CONTROLS)
             .copied()
             .unwrap_or(CellTarget::Off),
+    }
+}
+
+/// The target parameter's value that names `target`.
+#[must_use]
+pub fn cell_target_index(target: CellTarget) -> i32 {
+    match target {
+        CellTarget::Off => 0,
+        CellTarget::Pitch => 1,
+        CellTarget::Control(k) => 2 + i32::from(k),
+        after => AFTER_CONTROLS
+            .iter()
+            .position(|t| *t == after)
+            .map_or(0, |i| (2 + CONTROLS + i) as i32),
     }
 }
 
@@ -350,5 +423,21 @@ mod tests {
         assert_eq!(cell_target(0), CellTarget::Off);
         assert_eq!(cell_target(CELL_TARGETS as i32 - 1), CellTarget::Pan);
         assert_eq!(cell_target(CELL_TARGETS as i32), CellTarget::Off);
+        for index in 0..CELL_TARGETS as i32 {
+            assert_eq!(cell_target_index(cell_target(index)), index);
+        }
+    }
+
+    #[test]
+    fn every_source_but_off_is_offered_once() {
+        fn check<S: Choice + std::fmt::Debug>() {
+            assert!(!S::SOURCES.contains(&S::OFF));
+            assert_eq!(S::SOURCES.len() + 1, S::variants().len());
+            for (source, name) in S::SOURCES.iter().zip(&S::variants()[1..]) {
+                assert_eq!(source.name(), *name, "{source:?}");
+            }
+        }
+        check::<SourceChoice>();
+        check::<KitSourceChoice>();
     }
 }

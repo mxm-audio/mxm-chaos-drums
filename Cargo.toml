@@ -25,6 +25,7 @@ mxm-drum-shell = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main"
 mxm-dsp = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-editor = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-modulation = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
+mxm-modulation-params = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-params = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-part-routing = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }
 mxm-plugin-test = { git = "https://github.com/mxm-audio/mxm-kit", branch = "main" }

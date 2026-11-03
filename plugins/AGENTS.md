@@ -132,4 +132,4 @@ clap-validator validate "target/bundled/mxm-chaos-drums.clap"
 
 | Doc | Scope |
 |---|---|
-| [`mxm-chaos-drums/AGENTS.md`](mxm-chaos-drums/AGENTS.md) | The charge-driven drum instrument's shell and editor: identity, cell and touch keys and their gates, the 688 parameters (41 a cell), two output layouts, presets and Init, the cells' names, the grid and nine more cards |
+| [`mxm-chaos-drums/AGENTS.md`](mxm-chaos-drums/AGENTS.md) | The charge-driven drum instrument's shell and editor: identity, cell and touch keys and their gates, the 688 parameters (41 a cell), two output layouts, presets and Init, the cells' names, the grid and seven more cards, each knob's routes under it |

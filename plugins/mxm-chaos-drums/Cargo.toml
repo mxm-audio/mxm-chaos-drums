@@ -22,6 +22,8 @@ mxm-ui.workspace = true
 mxm-telemetry.workspace = true
 # The cells' names, made up from their models' kinds or typed (mxm-kit's `crates/mxm-drum-shell`).
 mxm-drum-shell.workspace = true
+# A route row's track floor, the collection's (`mxm_modulation_params::ui::TRACK_MIN`).
+mxm-modulation-params.workspace = true
 mxm-params.workspace = true
 mxm-part-routing.workspace = true
 mxm-preset.workspace = true

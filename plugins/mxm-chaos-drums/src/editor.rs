@@ -1,34 +1,38 @@
-//! The editor (the brief's §4–§6): the grid of cells and the kit's dials, the LFOs and routes, then
-//! the selected cell's model, charge, feeds, controls and output.
+//! The editor (the brief's §4–§6): the grid of cells and the kit's dials, the LFOs, then the
+//! selected cell's model, charge, feeds, controls and output.
 //!
 //! Every card is one tree (`mxm_ui::tree`), measured for its floor and drawn leaf by leaf through
 //! the collection's bindings (`mxm_params::binding`), as the drum machine's are. **A model shows only
-//! the controls it reads**, under its own names. *Not yet as the brief has it:* a cell's routes are
-//! a card of their own, not rows under each control they move.
+//! the controls it reads**, under its own names. There is no Routes card: each knob's routes are rows
+//! under it, over the cell's or the kit's four route slots, as the drum machine draws them.
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use egui::Ui;
-use mxm_chaos_drums_dsp::{AVAILABLE_MODELS, CELLS, EDGES, SIDE, available, edge};
+use mxm_chaos_drums_dsp::{
+    AVAILABLE_MODELS, CELLS, CONTROLS, CellTarget, EDGES, ROUTES, SIDE, available, edge,
+};
 use mxm_params::binding::{self, Bound, ErasedParam};
 use mxm_preset::PresetUi;
-use mxm_ui::control::{Size, Wave};
-use mxm_ui::space::{SPACE_2, SPACE_3, SPACE_5};
+use mxm_ui::control::{self, ParamView, Size, Steps, Wave, Wheel};
+use mxm_ui::space::{MIN_TARGET, SPACE_2, SPACE_3, SPACE_5};
 use mxm_ui::theme::Tokens;
 use mxm_ui::tree::{
-    Flow, Font, Height, Kind, Node, group, leaf, pad, pad_all, row_gap, stack, stack_gap,
+    self, Flow, Font, Height, Kind, Node, group, leaf, pad, pad_all, row_gap, stack, stack_gap,
 };
 use nice_plug::context::gui::GuiContext;
 use nice_plug::prelude::*;
 
 use crate::params::{KIT_IDS, MxmChaosDrumsParams, at, cell_ids};
-use crate::routes::{CELL_TARGETS, KIT_TARGETS, cell_target_name};
+use crate::routes::{
+    Choice, KIT_TARGETS, KitSourceChoice, SourceChoice, cell_target_index, cell_target_name,
+};
 use crate::telemetry::Telemetry;
 
 /// The opening size: the quarter-4K budget, hugged. Measured by `the_opening_size_is_the_budget_hugged`,
 /// which fails with the size it should be.
-const REFERENCE: (u32, u32) = (1820, 968);
+const REFERENCE: (u32, u32) = (1346, 791);
 /// The smallest window advertised: the widest card with the workspace's gutters, or the app bar.
 const MINIMUM: (u32, u32) = (444, 320);
 /// The keyboard cursor's card for the app bar's Master, outside the paging keys.
@@ -47,17 +51,8 @@ const GRID_KEYS: [&str; CELLS] = [
     "cell-09", "cell-10", "cell-11", "cell-12", "cell-13", "cell-14", "cell-15", "cell-16",
 ];
 
-const TITLES: [&str; 10] = [
-    "Cells",
-    "Kit",
-    "LFOs",
-    "Routes",
-    "Kit routes",
-    "Model",
-    "Charge",
-    "Feeds",
-    "Controls",
-    "Output",
+const TITLES: [&str; 8] = [
+    "Cells", "Kit", "LFOs", "Model", "Charge", "Feeds", "Controls", "Output",
 ];
 
 const LFO_SHAPES: [(Wave, &str); 6] = [
@@ -77,10 +72,6 @@ const LFO_DETAILS: [&str; 6] = [
     "A new random value on every cycle.",
 ];
 
-const SOURCES: [&str; 8] = [
-    "Off", "LFO 1", "LFO 2", "LFO 3", "Wheel", "Pressure", "Velocity", "Random",
-];
-const KIT_SOURCES: [&str; 6] = ["Off", "LFO 1", "LFO 2", "LFO 3", "Wheel", "Pressure"];
 const BUSES: [&str; 3] = ["Off", "A", "B"];
 const OUTPUTS: [&str; 17] = [
     "L+R", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
@@ -92,17 +83,6 @@ const ALL_CELLS_ID: &str = "outputs_all";
 const CHOKE_GROUPS: [&str; 17] = [
     "Off", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
 ];
-
-static CELL_TARGET_NAMES: LazyLock<Vec<String>> =
-    LazyLock::new(|| (0..CELL_TARGETS as i32).map(cell_target_name).collect());
-
-fn cell_target_options() -> Vec<&'static str> {
-    CELL_TARGET_NAMES.iter().map(String::as_str).collect()
-}
-
-fn kit_target_options() -> Vec<&'static str> {
-    KIT_TARGETS.iter().map(|(_, name)| *name).collect()
-}
 
 pub type MxmChaosDrumsEditor = mxm_editor::Editor<App>;
 
@@ -264,11 +244,9 @@ pub fn page_items(
 ) -> Vec<mxm_ui::paging::Item<'static>> {
     use mxm_ui::flow::Card;
     use mxm_ui::paging::{Category, Item, Key};
-    const CATEGORIES: [Category; 10] = [
+    const CATEGORIES: [Category; 8] = [
         Category::Performance,
         Category::Performance,
-        Category::Modulators,
-        Category::Modulators,
         Category::Modulators,
         Category::Generators,
         Category::Generators,
@@ -276,8 +254,8 @@ pub fn page_items(
         Category::Generators,
         Category::Tone,
     ];
-    const KINDS: [&str; 10] = [
-        "Cells", "Kit", "LFO", "Routes", "Routes", "Model", "Shape", "Shape", "Shape", "Output",
+    const KINDS: [&str; 8] = [
+        "Cells", "Kit", "LFO", "Model", "Shape", "Shape", "Shape", "Output",
     ];
     TITLES
         .iter()
@@ -305,12 +283,10 @@ enum Leaf {
     Rate(usize),
     Sync(usize),
     Shape(usize),
-    Source(usize),
-    Target(usize),
-    Amount(usize),
-    KitSource(usize),
-    KitTarget(usize),
-    KitAmount(usize),
+    /// A knob's routes, by the target parameter's value they carry: the selected cell's, or the
+    /// kit's.
+    Routes(i32),
+    KitRoutes(i32),
     Model,
     Notes,
     NoControls,
@@ -413,6 +389,10 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                     },
                 ),
             ));
+            rows.extend(stacks((1..KIT_TARGETS.len() as i32).map(|target| {
+                let stack = kit_stack(params, target);
+                (Leaf::KitRoutes(target), stack.size(ui))
+            })));
             stack(rows)
         }
         2 => stack(
@@ -423,21 +403,9 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                 })
                 .collect(),
         ),
-        3 => routes_card(
-            ui,
-            |r| (Leaf::Source(r), Leaf::Target(r), Leaf::Amount(r)),
-            &SOURCES,
-            &cell_target_options(),
-        ),
-        4 => routes_card(
-            ui,
-            |r| (Leaf::KitSource(r), Leaf::KitTarget(r), Leaf::KitAmount(r)),
-            &KIT_SOURCES,
-            &kit_target_options(),
-        ),
-        5 => {
+        3 => {
             let parameters = p.parameters();
-            stack(vec![
+            let mut body = vec![
                 leaf(
                     Leaf::Model,
                     Kind::Selector {
@@ -459,22 +427,24 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                             .into_iter(),
                     ),
                 ),
-                pad(
-                    SPACE_3,
-                    leaf(
-                        Leaf::Notes,
-                        Kind::Text {
-                            text: notes(p).to_owned(),
-                            font: Font::Caption,
-                            flow: Flow::Wrap,
-                        },
-                    ),
+            ];
+            body.extend(cell_stacks(ui, params, cell, [CellTarget::Pitch]));
+            body.push(pad(
+                SPACE_3,
+                leaf(
+                    Leaf::Notes,
+                    Kind::Text {
+                        text: notes(p).to_owned(),
+                        font: Font::Caption,
+                        flow: Flow::Wrap,
+                    },
                 ),
-            ])
+            ));
+            stack(body)
         }
-        6 => {
+        4 => {
             let parameters = p.parameters();
-            stack(vec![
+            let mut body = vec![
                 knobs(
                     ui,
                     [at::STRIKE, at::SUPPLY, at::HUNGER]
@@ -487,11 +457,24 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                         .map(|i| (Leaf::Knob(i), parameters[i]))
                         .into_iter(),
                 ),
-            ])
+            ];
+            body.extend(cell_stacks(
+                ui,
+                params,
+                cell,
+                [
+                    CellTarget::Strike,
+                    CellTarget::Supply,
+                    CellTarget::Hunger,
+                    CellTarget::Leak,
+                    CellTarget::Threshold,
+                ],
+            ));
+            stack(body)
         }
-        7 => {
+        5 => {
             let parameters = p.parameters();
-            stack(vec![
+            let mut body = vec![
                 selector_leaf(Leaf::Bus, "Bus", &BUSES),
                 pad(
                     SPACE_3,
@@ -502,22 +485,40 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                             .into_iter(),
                     ),
                 ),
-            ])
+            ];
+            body.extend(cell_stacks(
+                ui,
+                params,
+                cell,
+                [CellTarget::Link, CellTarget::Touch],
+            ));
+            stack(body)
         }
-        8 => {
+        6 => {
             let parameters = p.parameters();
             let controls = available(p.model_id()).map_or(&[][..], |spec| spec.controls);
-            if controls.is_empty() {
-                return leaf(
+            // The model's controls in panel order, then any control it does not read that a route
+            // is still aimed at, so a route a change of model left behind is seen and can be removed.
+            let read = |k: usize| controls.iter().any(|c| usize::from(c.number) == k + 1);
+            let targets = controls
+                .iter()
+                .map(|c| CellTarget::Control(c.number - 1))
+                .chain(
+                    (0..CONTROLS)
+                        .filter(|&k| !read(k))
+                        .map(|k| CellTarget::Control(k as u8))
+                        .filter(|&target| !cell_stack(params, cell, target).on().is_empty()),
+                );
+            let mut body: Vec<Node<Leaf>> = if controls.is_empty() {
+                vec![leaf(
                     Leaf::NoControls,
                     Kind::Text {
                         text: NO_CONTROLS.to_owned(),
                         font: Font::Caption,
                         flow: Flow::Wrap,
                     },
-                );
-            }
-            stack(
+                )]
+            } else {
                 controls
                     .chunks(3)
                     .map(|row| {
@@ -527,18 +528,26 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                         });
                         knobs_named(ui, row, |leaf| control_name(params, cell, leaf))
                     })
-                    .collect(),
-            )
+                    .collect()
+            };
+            body.extend(cell_stacks(ui, params, cell, targets));
+            stack(body)
         }
         _ => {
             let parameters = p.parameters();
-            stack(vec![
-                knobs(
-                    ui,
-                    [at::LEVEL, at::PAN]
-                        .map(|i| (Leaf::Knob(i), parameters[i]))
-                        .into_iter(),
-                ),
+            let mut body = vec![knobs(
+                ui,
+                [at::LEVEL, at::PAN]
+                    .map(|i| (Leaf::Knob(i), parameters[i]))
+                    .into_iter(),
+            )];
+            body.extend(cell_stacks(
+                ui,
+                params,
+                cell,
+                [CellTarget::Level, CellTarget::Pan],
+            ));
+            body.extend([
                 pad(
                     SPACE_3,
                     row_gap(
@@ -569,7 +578,8 @@ fn card(ui: &Ui, index: usize, params: &MxmChaosDrumsParams, cell: usize) -> Nod
                     },
                 ),
                 selector_leaf(Leaf::ChokeGroup, "Choke group", &CHOKE_GROUPS),
-            ])
+            ]);
+            stack(body)
         }
     }
 }
@@ -625,38 +635,386 @@ fn selector_leaf(key: Leaf, label: &str, options: &[&str]) -> Node<Leaf> {
     )
 }
 
-/// Four routes, each a source and a target side by side and its amount below them.
-fn routes_card(
+/// Route stacks as leaves, each sized as it stands ([`Stack::size`]) and filling the card's width,
+/// the first `SPACE_3` below the knobs above them.
+fn stacks(sized: impl Iterator<Item = (Leaf, egui::Vec2)>) -> Vec<Node<Leaf>> {
+    sized
+        .enumerate()
+        .map(|(n, (key, size))| {
+            let node = leaf(
+                key,
+                Kind::Custom {
+                    min_width: size.x,
+                    height: Height::Fixed(size.y),
+                    fills: true,
+                },
+            );
+            if n == 0 { pad(SPACE_3, node) } else { node }
+        })
+        .collect()
+}
+
+/// The selected cell's route stacks for `targets`, in that order.
+fn cell_stacks(
     ui: &Ui,
-    keys: impl Fn(usize) -> (Leaf, Leaf, Leaf),
-    sources: &[&str],
-    targets: &[&str],
-) -> Node<Leaf> {
-    stack(
-        (0..4)
-            .map(|r| {
-                let (source, target, amount) = keys(r);
-                let body = stack(vec![
-                    row_gap(
-                        ui.spacing().item_spacing.x,
-                        vec![
-                            selector_leaf(source, &format!("Route {}", r + 1), sources),
-                            selector_leaf(target, "To", targets),
-                        ],
-                    ),
-                    leaf(
-                        amount,
-                        Kind::Slider {
-                            label: "Amount".to_owned(),
-                            quiet: false,
-                            widest: "-100%".to_owned(),
-                        },
-                    ),
-                ]);
-                if r == 0 { body } else { pad(SPACE_3, body) }
+    params: &MxmChaosDrumsParams,
+    cell: usize,
+    targets: impl IntoIterator<Item = CellTarget>,
+) -> Vec<Node<Leaf>> {
+    stacks(targets.into_iter().map(|target| {
+        (
+            Leaf::Routes(cell_target_index(target)),
+            cell_stack(params, cell, target).size(ui),
+        )
+    }))
+}
+
+/// One route slot as a knob's routes read it: a cell's or the kit's.
+struct Slot<'a, S: Choice> {
+    source: &'a EnumParam<S>,
+    target: &'a IntParam,
+    amount: &'a FloatParam,
+    /// Its source's and amount's ids, which the keyboard cursor registers.
+    source_id: &'static str,
+    amount_id: &'static str,
+}
+
+impl<S: Choice> Slot<'_, S> {
+    /// Free to take: its source or its target is Off.
+    fn free(&self) -> bool {
+        self.source.value() == S::OFF || self.target.value() == 0
+    }
+}
+
+/// A knob's routes: the four slots that can carry them, the target they carry, and the knob's name,
+/// which every row reads (*Drop from LFO 1*).
+struct Stack<'a, S: Choice> {
+    slots: [Slot<'a, S>; ROUTES],
+    target: i32,
+    name: String,
+    /// Whether the panel shows its knob. A control the model does not read keeps the routes still
+    /// aimed at it drawn, so they can be removed, and offers nothing.
+    shown: bool,
+}
+
+/// The selected cell's routes on `target`, named as their knob is.
+fn cell_stack(
+    params: &MxmChaosDrumsParams,
+    cell: usize,
+    target: CellTarget,
+) -> Stack<'_, SourceChoice> {
+    let p = &params.cells[cell];
+    let ids = cell_ids(cell);
+    let routes = p.routes.all();
+    let (name, shown) = match target {
+        CellTarget::Control(k) => available(p.model_id())
+            .and_then(|spec| spec.controls.iter().find(|c| c.number == k + 1))
+            .map_or_else(
+                || (format!("Control {}", k + 1), false),
+                |c| (c.name.to_owned(), true),
+            ),
+        target => (cell_target_name(cell_target_index(target)), true),
+    };
+    Stack {
+        slots: std::array::from_fn(|r| Slot {
+            source: &routes[r].source,
+            target: &routes[r].target,
+            amount: &routes[r].amount,
+            source_id: ids[at::route(r)[0]],
+            amount_id: ids[at::route(r)[2]],
+        }),
+        target: cell_target_index(target),
+        name,
+        shown,
+    }
+}
+
+/// The kit's routes on the target `KIT_TARGETS[target]` names.
+fn kit_stack(params: &MxmChaosDrumsParams, target: i32) -> Stack<'_, KitSourceChoice> {
+    let routes = params.kit_routes.all();
+    Stack {
+        slots: std::array::from_fn(|r| Slot {
+            source: &routes[r].source,
+            target: &routes[r].target,
+            amount: &routes[r].amount,
+            source_id: KIT_IDS[20 + 3 * r],
+            amount_id: KIT_IDS[22 + 3 * r],
+        }),
+        target,
+        name: KIT_TARGETS[target as usize].1.to_owned(),
+        shown: true,
+    }
+}
+
+impl<S: Choice> Stack<'_, S> {
+    /// The slots carrying a source onto this target.
+    fn on(&self) -> Vec<usize> {
+        (0..ROUTES)
+            .filter(|&r| {
+                let slot = &self.slots[r];
+                slot.source.value() != S::OFF && slot.target.value() == self.target
             })
-            .collect(),
-    )
+            .collect()
+    }
+
+    /// The slot adding a source takes: a free one already aimed here first (a source removed from
+    /// this knob, so adding one back keeps its depth), else the first free one.
+    fn free(&self) -> Option<usize> {
+        (0..ROUTES)
+            .find(|&r| self.slots[r].free() && self.slots[r].target.value() == self.target)
+            .or_else(|| (0..ROUTES).find(|&r| self.slots[r].free()))
+    }
+
+    /// What `‹ modulate ›` offers: the sources not already moving it, while a slot is free, on a knob
+    /// the panel shows.
+    fn offered(&self) -> Vec<S> {
+        if !self.shown || self.free().is_none() {
+            return Vec::new();
+        }
+        let on: Vec<S> = self
+            .on()
+            .into_iter()
+            .map(|r| self.slots[r].source.value())
+            .collect();
+        S::SOURCES
+            .iter()
+            .copied()
+            .filter(|s| !on.contains(s))
+            .collect()
+    }
+
+    /// The line over the rows: the knob's name, and that it is unused where the model does not read
+    /// it.
+    fn label(&self) -> String {
+        if self.shown {
+            self.name.clone()
+        } else {
+            format!("{} (unused)", self.name)
+        }
+    }
+
+    /// Adds `source` in one gesture: the free slot's source and target, and its amount to zero
+    /// unless the slot was already aimed here.
+    fn add(&self, source: S, setter: &ParamSetter<'_>) {
+        let Some(r) = self.free() else {
+            return;
+        };
+        let slot = &self.slots[r];
+        let mut edits: Vec<(&dyn ErasedParam, f32)> = vec![
+            (slot.source, slot.source.preview_normalized(source)),
+            (slot.target, slot.target.preview_normalized(self.target)),
+        ];
+        if slot.target.value() != self.target {
+            edits.push((slot.amount, slot.amount.preview_normalized(0.0)));
+        }
+        binding::set_together(setter, &edits);
+    }
+
+    /// What it occupies, without drawing it: at its narrowest the widest row any source could
+    /// draw, or its line; its height as the patch stands. The collection's own stack's rule
+    /// (`mxm_modulation_params::ui::stack_size`), over route slots.
+    fn size(&self, ui: &Ui) -> egui::Vec2 {
+        let spacing = ui.spacing().item_spacing;
+        let inset = 2.0 * tree::GROUP_INSET;
+        let amount: &dyn ErasedParam = self.slots[0].amount;
+        let widest = control::widest_value(|n| amount.format(n as f32));
+        let row = |source: S| {
+            let slider = control::slider_size(ui, source.name(), true, &widest);
+            egui::Vec2::new(
+                slider.x.max(mxm_modulation_params::ui::TRACK_MIN)
+                    + spacing.x
+                    + control::REMOVE_SIZE,
+                slider.y.max(control::REMOVE_SIZE),
+            )
+        };
+        let line = control::selector_size(ui, &self.label(), &["modulate"]);
+        let widest_row = S::SOURCES.iter().map(|s| row(*s).x).fold(0.0, f32::max);
+        let width = (widest_row.max(line.x) + inset).max(line.x);
+        let rows: Vec<f32> = self
+            .on()
+            .into_iter()
+            .map(|r| row(self.slots[r].source.value()).y)
+            .collect();
+        let height = if !rows.is_empty() {
+            inset + line.y + SPACE_2 + rows.iter().sum::<f32>() + SPACE_2 * (rows.len() - 1) as f32
+        } else if !self.offered().is_empty() {
+            line.y
+        } else {
+            0.0
+        };
+        egui::Vec2::new(width, height)
+    }
+
+    /// Its line offering `‹ modulate ›`, and a row for each route that moves it.
+    fn draw(
+        &self,
+        ui: &mut Ui,
+        tokens: &Tokens,
+        setter: &ParamSetter<'_>,
+        entries: &mut HashMap<&'static str, Option<String>>,
+    ) {
+        let on = self.on();
+        let offered = self.offered();
+        if !on.is_empty() {
+            mxm_ui::shell::group(ui, tokens, |ui| {
+                self.line(ui, tokens, &offered, setter);
+                for r in on {
+                    self.row(ui, tokens, r, setter, entries);
+                }
+            });
+        } else if !offered.is_empty() {
+            self.line(ui, tokens, &offered, setter);
+        }
+    }
+
+    /// The knob's line: its name, and `‹ modulate ›` offering the sources it can still take. Over
+    /// a control the model does not read, the line says it is unused and offers nothing.
+    fn line(&self, ui: &mut Ui, tokens: &Tokens, offered: &[S], setter: &ParamSetter<'_>) {
+        let label = self.label();
+        if offered.is_empty() {
+            ui.horizontal(|ui| {
+                ui.set_min_height(MIN_TARGET);
+                let line = ui.label(egui::RichText::new(&label).color(tokens.text_primary));
+                if !self.shown {
+                    line.on_hover_text(format!(
+                        "This model has no {}, so these routes move nothing. Remove them to free their slots.",
+                        self.name
+                    ));
+                }
+            });
+            return;
+        }
+        let labels: Vec<&str> = std::iter::once("modulate")
+            .chain(offered.iter().map(|s| s.name()))
+            .collect();
+        let mut chosen = 0usize;
+        let description = format!("Add a modulation source to {label}");
+        let changed = control::selector(
+            ui,
+            tokens,
+            &label,
+            &labels,
+            &mut chosen,
+            None,
+            Some(0),
+            &description,
+        );
+        if changed && chosen > 0 {
+            self.add(offered[chosen - 1], setter);
+        }
+    }
+
+    /// One route: its amount, painted as its source and named in full, with a remove beside it
+    /// that switches the source off, one write, the depth kept.
+    fn row(
+        &self,
+        ui: &mut Ui,
+        tokens: &Tokens,
+        r: usize,
+        setter: &ParamSetter<'_>,
+        entries: &mut HashMap<&'static str, Option<String>>,
+    ) {
+        let slot = &self.slots[r];
+        let source = slot.source.value().name();
+        let target = &self.name;
+        let amount: &dyn ErasedParam = slot.amount;
+        let name = format!("{target} from {source}");
+        let text = amount.text();
+        let description = if self.shown {
+            format!("How much {source} moves {target}. Signed: below the centre inverts it.")
+        } else {
+            format!("This model has no {target}, so {source} moves nothing here.")
+        };
+        let (fine_up, fine_down, coarse_up, coarse_down) = amount.stepping();
+        let view = ParamView {
+            name: &name,
+            label: source,
+            text: &text,
+            widest: "",
+            description: &description,
+            default: f64::from(amount.default_normalised()),
+            bipolar: true,
+            read_only: false,
+            modulation: f64::from(amount.modulation()),
+            marked: amount.modulation() != 0.0,
+            steps: Steps {
+                fine_up,
+                fine_down,
+                coarse_up,
+                coarse_down,
+            },
+            next: None,
+            quiet_label: true,
+        };
+        let mut normalised = f64::from(amount.normalised());
+        let entry = entries.entry(slot.amount_id).or_default();
+        let mut removed = false;
+        let outcome = ui
+            .horizontal(|ui| {
+                // The remove's width is reserved before the slider takes the rest.
+                let gap = ui.spacing().item_spacing.x;
+                let track = (ui.available_width() - control::REMOVE_SIZE - gap)
+                    .max(mxm_modulation_params::ui::TRACK_MIN);
+                let out = ui
+                    .scope(|ui| {
+                        ui.set_max_width(track);
+                        mxm_ui::navigation::at(ui, slot.amount_id, |ui| {
+                            control::slider(
+                                ui,
+                                tokens,
+                                &view,
+                                &mut normalised,
+                                track,
+                                entry,
+                                Wheel::FocusOrModifier,
+                            )
+                        })
+                    })
+                    .inner;
+                // Bottom-aligned onto the slider's track, as the collection's route rows are.
+                let height = ui.min_rect().height().max(control::REMOVE_SIZE);
+                ui.allocate_ui_with_layout(
+                    egui::Vec2::new(control::REMOVE_SIZE, height),
+                    egui::Layout::bottom_up(egui::Align::Center),
+                    |ui| {
+                        mxm_ui::navigation::at(ui, slot.source_id, |ui| {
+                            if control::remove_mark(
+                                ui,
+                                tokens,
+                                control::REMOVE_SIZE,
+                                true,
+                                &format!("Remove {source} from {target}"),
+                                ErasedParam::modulation(slot.source) != 0.0,
+                                "The depth stays, so adding the source back restores it.",
+                            ) {
+                                binding::set_together(
+                                    setter,
+                                    &[(
+                                        slot.source as &dyn ErasedParam,
+                                        slot.source.preview_normalized(S::OFF),
+                                    )],
+                                );
+                                removed = true;
+                            }
+                        });
+                    },
+                );
+                out
+            })
+            .inner;
+        if removed {
+            return;
+        }
+        if outcome.gesture_started {
+            amount.begin(setter);
+        }
+        if outcome.changed {
+            amount.set(setter, normalised as f32);
+        }
+        if outcome.gesture_ended {
+            amount.end(setter);
+        }
+    }
 }
 
 /// One LFO: its rate knob, and beside it Sync above the shapes, as the drum machine's.
@@ -811,66 +1169,15 @@ fn paint(ui: &mut Ui, tokens: &Tokens, leaf: &Leaf, rect: egui::Rect, live: &mut
             &LFO_DETAILS,
             setter,
         ),
-        Leaf::Source(r) => {
-            let route = p.routes.all()[r];
-            binding::selector_named(
-                ui,
-                tokens,
-                ids[at::route(r)[0]],
-                &route.source,
-                Some(&format!("Route {}", r + 1)),
-                &SOURCES,
-                "What moves this route: an LFO, the wheel, pressure, the hit's velocity or a random draw a hit.",
-                setter,
-            );
-        }
-        Leaf::Target(r) => binding::selector_named(
+        Leaf::Routes(target) => cell_stack(params, cell, crate::routes::cell_target(target)).draw(
             ui,
             tokens,
-            ids[at::route(r)[1]],
-            &p.routes.all()[r].target,
-            Some("To"),
-            &cell_target_options(),
-            "What this route moves on this cell.",
             setter,
+            live.entries,
         ),
-        Leaf::Amount(r) => Bound::new(
-            ids[at::route(r)[2]],
-            &p.routes.all()[r].amount,
-            "How far, and which way, the route moves it.",
-        )
-        .labelled("Amount")
-        .slider(ui, tokens, setter, live.entries),
-        Leaf::KitSource(r) => {
-            let route = params.kit_routes.all()[r];
-            binding::selector_named(
-                ui,
-                tokens,
-                KIT_IDS[20 + 3 * r],
-                &route.source,
-                Some(&format!("Route {}", r + 1)),
-                &KIT_SOURCES,
-                "What moves this kit route: an LFO, the wheel or pressure.",
-                setter,
-            );
+        Leaf::KitRoutes(target) => {
+            kit_stack(params, target).draw(ui, tokens, setter, live.entries);
         }
-        Leaf::KitTarget(r) => binding::selector_named(
-            ui,
-            tokens,
-            KIT_IDS[21 + 3 * r],
-            &params.kit_routes.all()[r].target,
-            Some("To"),
-            &kit_target_options(),
-            "What this route moves for the whole kit.",
-            setter,
-        ),
-        Leaf::KitAmount(r) => Bound::new(
-            KIT_IDS[22 + 3 * r],
-            &params.kit_routes.all()[r].amount,
-            "How far, and which way, the route moves it.",
-        )
-        .labelled("Amount")
-        .slider(ui, tokens, setter, live.entries),
         Leaf::Model => model_selector(ui, tokens, ids[at::MODEL], p, setter),
         Leaf::Notes => caption(ui, tokens, notes(p)),
         Leaf::NoControls => caption(ui, tokens, NO_CONTROLS),
@@ -1376,22 +1683,31 @@ mod tests {
         );
     }
 
-    /// Every card for every model, with every route in use and every LFO synced, passes the
-    /// collection's tree checks: its floor holds it and nothing paints outside it.
+    /// Every card for every model, with every route in use, on its knob's tallest stack, and every
+    /// LFO synced, passes the collection's tree checks: its floor holds it and nothing paints
+    /// outside it.
     #[test]
     fn every_card_passes_the_tree_checks_for_every_model() {
         use nice_plug::params::InternalParamMut;
         for spec in AVAILABLE_MODELS {
             let params = MxmChaosDrumsParams::default();
+            // Four sources on one knob each: the cell's on its model's first control, or on Pitch
+            // for a model of none, and the kit's on Temper.
+            let target = spec
+                .controls
+                .first()
+                .map_or(CellTarget::Pitch, |c| CellTarget::Control(c.number - 1));
+            for (r, source) in SourceChoice::SOURCES.iter().take(ROUTES).enumerate() {
+                route(&params, r, *source, target, 0.5);
+            }
             // SAFETY: exclusive test ownership; no process or GUI thread exists.
             unsafe {
                 params.cells[0]
                     .model
                     ._internal_set_plain_value(i32::from(spec.id.raw()));
-                for route in params.cells[0].routes.all() {
-                    route
-                        .source
-                        ._internal_set_plain_value(crate::routes::SourceChoice::Lfo1);
+                for (route, source) in params.kit_routes.all().iter().zip(KitSourceChoice::SOURCES)
+                {
+                    route.source._internal_set_plain_value(*source);
                     route.target._internal_set_plain_value(1);
                 }
                 for (_, _, sync) in params.lfos() {
@@ -1430,5 +1746,164 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Sets cell 1's route `r`.
+    fn route(
+        params: &MxmChaosDrumsParams,
+        r: usize,
+        source: SourceChoice,
+        target: CellTarget,
+        amount: f32,
+    ) {
+        use nice_plug::params::InternalParamMut;
+        let route = params.cells[0].routes.all()[r];
+        // SAFETY: exclusive test ownership; no process or GUI thread exists.
+        unsafe {
+            route.source._internal_set_plain_value(source);
+            route
+                .target
+                ._internal_set_plain_value(cell_target_index(target));
+            route.amount._internal_set_plain_value(amount);
+        }
+    }
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Call {
+        Begin,
+        Set,
+        End,
+    }
+
+    /// A host that applies each write at once and keeps the order of every call.
+    #[derive(Default)]
+    struct RecordingHost {
+        calls: std::sync::Mutex<Vec<Call>>,
+    }
+
+    impl nice_plug::context::gui::GuiContextInner for RecordingHost {
+        fn request_restart(&self) {}
+        fn plugin_api(&self) -> nice_plug::prelude::PluginApi {
+            nice_plug::prelude::PluginApi::Clap
+        }
+        unsafe fn raw_begin_set_parameter(&self, _param: nice_plug::params::internals::ParamPtr) {
+            self.calls.lock().unwrap().push(Call::Begin);
+        }
+        unsafe fn raw_set_parameter_normalized(
+            &self,
+            param: nice_plug::params::internals::ParamPtr,
+            normalized: f32,
+        ) {
+            self.calls.lock().unwrap().push(Call::Set);
+            // SAFETY: the test owns the parameters and no other thread touches them.
+            unsafe { param._internal_set_normalized_value(normalized) };
+        }
+        unsafe fn raw_end_set_parameter(&self, _param: nice_plug::params::internals::ParamPtr) {
+            self.calls.lock().unwrap().push(Call::End);
+        }
+        fn get_state(&self) -> nice_plug::prelude::PluginState {
+            nice_plug::prelude::PluginState {
+                version: String::new(),
+                params: Default::default(),
+                fields: Default::default(),
+            }
+        }
+        fn set_state(&self, _state: nice_plug::prelude::PluginState) {}
+    }
+
+    #[test]
+    fn adding_a_route_takes_the_first_free_slot_in_one_gesture() {
+        use nice_plug::params::InternalParamMut;
+        let params = MxmChaosDrumsParams::default();
+        // Route 1 busy on Level; routes 2–4 free, route 2 with a depth left from elsewhere.
+        route(&params, 0, SourceChoice::Lfo1, CellTarget::Level, 0.5);
+        route(&params, 1, SourceChoice::Off, CellTarget::Pan, 0.7);
+        let host = RecordingHost::default();
+        let setter = ParamSetter::new(&host);
+        let r2 = params.cells[0].routes.all()[1];
+        let supply = cell_stack(&params, 0, CellTarget::Supply);
+        supply.add(SourceChoice::Wheel, &setter);
+        assert_eq!(r2.source.value(), SourceChoice::Wheel);
+        assert_eq!(r2.target.value(), cell_target_index(CellTarget::Supply));
+        assert_eq!(
+            r2.amount.value(),
+            0.0,
+            "a depth aimed elsewhere is not inherited"
+        );
+        assert_eq!(cell_stack(&params, 0, CellTarget::Supply).on(), vec![1]);
+        let calls = host.calls.lock().unwrap().clone();
+        assert_eq!(calls.len(), 9, "three writes, each bracketed: {calls:?}");
+        let phase = |call: &Call| *call as u8;
+        assert!(calls.windows(2).all(|w| phase(&w[0]) <= phase(&w[1])));
+
+        // Removed and added back, the route keeps its depth.
+        // SAFETY: exclusive test ownership.
+        unsafe {
+            r2.amount._internal_set_plain_value(-0.4);
+            r2.source._internal_set_plain_value(SourceChoice::Off);
+        }
+        let supply = cell_stack(&params, 0, CellTarget::Supply);
+        assert!(supply.on().is_empty());
+        supply.add(SourceChoice::Lfo2, &setter);
+        assert_eq!(r2.amount.value(), -0.4);
+        assert_eq!(r2.source.value(), SourceChoice::Lfo2);
+    }
+
+    /// With every slot taken, nothing more is offered anywhere; a knob's own sources are never
+    /// offered twice; a control the model does not read offers nothing, and says so.
+    #[test]
+    fn a_knob_offers_what_it_can_still_take() {
+        let params = MxmChaosDrumsParams::default();
+        let (strike, leak) = (CellTarget::Strike, CellTarget::Leak);
+        assert_eq!(
+            cell_stack(&params, 0, strike).offered().len(),
+            SourceChoice::SOURCES.len()
+        );
+        route(&params, 0, SourceChoice::Lfo1, strike, 0.2);
+        assert!(
+            !cell_stack(&params, 0, strike)
+                .offered()
+                .contains(&SourceChoice::Lfo1)
+        );
+        assert!(
+            cell_stack(&params, 0, leak)
+                .offered()
+                .contains(&SourceChoice::Lfo1)
+        );
+        // The Draining kick reads no control 1.
+        let unused = cell_stack(&params, 0, CellTarget::Control(0));
+        assert!(!unused.shown && unused.offered().is_empty());
+        assert_eq!(unused.label(), "Control 1 (unused)");
+        let drop = cell_stack(&params, 0, CellTarget::Control(2));
+        assert!(drop.shown && drop.name == "Drop");
+        for (r, source) in SourceChoice::SOURCES
+            .iter()
+            .enumerate()
+            .take(ROUTES)
+            .skip(1)
+        {
+            route(&params, r, *source, CellTarget::Pan, 0.2);
+        }
+        assert!(cell_stack(&params, 0, leak).offered().is_empty());
+        assert!(cell_stack(&params, 0, leak).free().is_none());
+    }
+
+    #[test]
+    fn a_kit_knob_takes_the_kits_routes() {
+        let params = MxmChaosDrumsParams::default();
+        let host = RecordingHost::default();
+        let setter = ParamSetter::new(&host);
+        let temper = kit_stack(&params, 1);
+        assert_eq!(temper.name, "Temper");
+        assert_eq!(temper.offered(), KitSourceChoice::SOURCES);
+        temper.add(KitSourceChoice::Lfo3, &setter);
+        let r1 = params.kit_routes.all()[0];
+        assert_eq!(r1.source.value(), KitSourceChoice::Lfo3);
+        assert_eq!(r1.target.value(), 1);
+        assert_eq!(kit_stack(&params, 1).on(), vec![0]);
+        assert!(
+            kit_stack(&params, 2).on().is_empty(),
+            "Flow carries nothing"
+        );
     }
 }

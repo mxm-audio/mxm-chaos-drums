@@ -15,13 +15,15 @@ still to come.
   gates, the note names and the preset loader; its tests hold the note laws and the identity.
 - `src/params.rs`: the 41 parameters a cell and the kit's, their IDs, ranges and readings, the
   Init kit, and the conversion to the DSP's settings.
-- `src/routes.rs`: the route parameters, four a cell and four for the kit.
+- `src/routes.rs`: the route parameters, four a cell and four for the kit, and their source lists
+  (`Choice`).
 - `src/preset.rs`: the `mxm_preset::Instrument` binding: Init, sparse routes, instance settings.
 - `src/slot_names.rs`: the cells' names (mxm-drum-shell's `DrumSlots`) and the host's note names.
-- `src/editor.rs`: the panel: the app bar, and ten cards — Cells (the 4×4 grid and the Pool), Kit,
-  LFOs, Routes, Kit routes, Model, Charge, Feeds, Controls, Output — each one tree, measured and
-  drawn through the collection's bindings; its tests hold the opening size, the paging, the
-  keyboard cursor and the tree checks for every card in every model.
+- `src/editor.rs`: the panel: the app bar, and eight cards — Cells (the 4×4 grid and the Pool), Kit,
+  LFOs, Model, Charge, Feeds, Controls, Output — each one tree, measured and drawn through the
+  collection's bindings, each knob's route stack (`Stack`) under it; its tests hold the opening size,
+  the paging, the keyboard cursor, adding and offering routes, and the tree checks for every card in
+  every model.
 - `src/telemetry.rs`: what the audio thread tells the editor (each cell's charge, each edge's flow,
   the Pool, the meter, the tempo) and the cells the editor asks to hear, all atomics.
 - `control-map.json`: Master and two LFOs on existing roles.
@@ -67,10 +69,15 @@ still to come.
 
 - **The editor.** The grid's squares select a cell and strike it at velocity 100 (a click, or
   OPEN), as the drum machine's slot rows do; a model shows only the controls it reads, under its
-  own names; the Output card's All cells row writes every cell's Output in one gesture. *Not yet as
-  the brief has it:* a cell's routes are a card of their own rather than
-  rows under the controls they move, and Mute and Solo sit on the Output card, the grid showing
-  their marks.
+  own names; the Output card's All cells row writes every cell's Output in one gesture.
+- **Routes are rows under the knob they move** (the owner, 2026-11-03: a Routes card "have been
+  tried a few times and abandoned every time"), over the cell's four route slots or the kit's, as
+  the drum machine's: `‹ modulate ›` offers the sources not on the knob while a slot is free; adding
+  takes a free slot (one aimed at that knob first) in one bracketed gesture; removing switches the
+  source off and keeps the depth. A route aimed at a control the model does not read is drawn
+  under `Control N (unused)`, removable, never offered more. No Routes card may come back.
+- *Not yet as the brief has it:* Mute and Solo sit on the Output card, the grid showing their
+  marks.
 
 # Work Guidance
 

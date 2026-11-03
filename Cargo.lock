@@ -2125,6 +2125,7 @@ dependencies = [
  "mxm-chaos-drums-dsp",
  "mxm-drum-shell",
  "mxm-editor",
+ "mxm-modulation-params",
  "mxm-params",
  "mxm-part-routing",
  "mxm-plugin-test",
