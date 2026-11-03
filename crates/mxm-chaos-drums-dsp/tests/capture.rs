@@ -593,3 +593,38 @@ fn a_muted_solo_still_silences_the_rest() {
         "no Solo: the snare is heard"
     );
 }
+
+/// An LFO whose routes cancel stands still, as the kit's own rule has it, so its Rate moves no
+/// captured sample (rendered bit for bit at two rates) and is no part of the key; its Shape is, as a
+/// standing LFO's value still enters the sums: the key leaves out only what cannot move a sample.
+#[test]
+fn a_standing_lfos_rate_is_not_part_of_a_capture_and_its_shape_is() {
+    let kit = KitParams::default();
+    let mut cancelled = cells(&[(0, ModelId::RAW_RING)]);
+    for (slot, amount) in [(0, 0.5), (1, -0.5)] {
+        cancelled[0].routes[slot] = Route {
+            source: Source::Lfo1,
+            target: CellTarget::Pitch,
+            amount,
+        };
+    }
+    let mut fast = kit;
+    fast.lfo_rate_hz[0] = 9.0;
+    assert_eq!(
+        capture_kit(&(fast, cancelled), RATE),
+        capture_kit(&(kit, cancelled), RATE),
+        "rendered"
+    );
+    assert_eq!(
+        capture_patches(fast, cancelled),
+        capture_patches(kit, cancelled),
+        "the key"
+    );
+    let mut square = kit;
+    square.lfo_shape[0] = mxm_chaos_drums_dsp::LfoShape::Square;
+    assert_ne!(
+        capture_patches(square, cancelled),
+        capture_patches(kit, cancelled),
+        "a read LFO's shape"
+    );
+}

@@ -56,8 +56,15 @@ const REST_CHECK_FRAMES: usize = 256;
 /// hit taken away (the buses and every route onto them, the choke groups, whose strike would latch
 /// a neighbour out of the coupling). A capture's sources are its LFOs and each hit's Random: a
 /// velocity-1 hit's Velocity, and the Wheel and Pressure no capture sends, are exactly zero, so a
-/// route from them moves nothing and is left out. An LFO no route left reads stands still and moves
-/// nothing, so its Rate and Shape are Init's in the key.
+/// route from them moves nothing and is left out. An LFO that reaches nothing stands still, as the
+/// kit's own rule has it (`routes::lfo_reach`: no route, or routes that cancel), so its Rate is
+/// Init's in the key; its Shape is Init's only when no route reads it at all, as a standing LFO's
+/// value still enters the sums its cancelling routes make, and cancelling is exact in floating point
+/// only alone on its target.
+///
+/// **The key is conservative**: it leaves out only what cannot move a captured sample, never a
+/// change it cannot show harmless. A needless recapture costs the capture's time; a capture kept
+/// over a changed sound would play the wrong one.
 #[must_use]
 pub fn capture_patches(
     kit: KitParams,
@@ -99,14 +106,23 @@ pub fn capture_patches(
                     .any(|route| route.source == lfo && route.target != CellTarget::Off)
             })
     };
+    let mut reach = crate::routes::lfo_reach(&kit.routes, KitTarget::Off);
+    for cell in &cells {
+        let cell_reach = crate::routes::lfo_reach(&cell.routes, CellTarget::Off);
+        for (lfo, cell) in reach.iter_mut().zip(cell_reach) {
+            *lfo |= cell;
+        }
+    }
     let init = KitParams::default();
     let mut kit = kit;
     for (i, lfo) in [Source::Lfo1, Source::Lfo2, Source::Lfo3]
         .into_iter()
         .enumerate()
     {
-        if !reads(lfo) {
+        if !reach[i] {
             kit.lfo_rate_hz[i] = init.lfo_rate_hz[i];
+        }
+        if !reads(lfo) {
             kit.lfo_shape[i] = init.lfo_shape[i];
         }
     }

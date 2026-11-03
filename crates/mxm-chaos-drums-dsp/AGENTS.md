@@ -113,7 +113,11 @@ twenty-five models render.
   what stays live while frozen is not a new capture: Level, Pan, Mute, Solo, the output, Master,
   routes onto them, Dynamics, the choke groups, the buses, an LFO only those routes read, and any
   route from Velocity, Wheel or Pressure, exactly zero in a capture (a velocity-1 hit's, an unstruck
-  neighbour's, and the expression no capture sends). A frozen strike plays its one-shot at its
+  neighbour's, and the expression no capture sends), and the Rate of an LFO that reaches nothing.
+  **The key is conservative**: it leaves out only what cannot move a captured sample, never a change
+  it cannot show harmless (routes that cancel keep their LFO's Shape in it, as cancelling is exact in
+  floating point only alone on a target). A needless recapture costs time; a kept capture over a
+  changed sound would play the wrong one. A frozen strike plays its one-shot at its
   velocity's gain through Dynamics, a capture played quieter rather than struck softer, with its own
   Velocity and Random staged for the routes onto its mix; a new strike, a choke, a group's choke and
   a transport reset fade it over `FADE_SECONDS` (one a third strike cuts inside its fade goes on
