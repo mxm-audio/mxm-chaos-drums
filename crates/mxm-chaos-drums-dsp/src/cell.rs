@@ -243,6 +243,16 @@ impl Cell {
         &self.params
     }
 
+    /// What a transition would bridge now, the last live output and the offset, clamped as the
+    /// offset is, taken from the cell: a frozen cell's player bridges it instead, so a frozen cell has
+    /// one offset, not two.
+    pub fn hand_over(&mut self) -> f32 {
+        let pending = (self.offset + self.live).clamp(-1.0, 1.0);
+        self.offset = 0.0;
+        self.live = 0.0;
+        pending
+    }
+
     /// The jump from the last live output to whatever comes next goes into the declick offset.
     fn bridge(&mut self) {
         self.offset = (self.offset + self.live).clamp(-1.0, 1.0);

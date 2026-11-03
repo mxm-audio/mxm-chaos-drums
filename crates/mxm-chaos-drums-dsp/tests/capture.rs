@@ -689,3 +689,48 @@ fn inert_routes_unread_controls_and_touch_are_not_part_of_a_capture() {
         "the key"
     );
 }
+
+/// A frozen cell has one declick offset, a live cell's: a frozen strike over a live tail hands the
+/// tail's jump to the player, so a retrigger inside the window leaves the one-shot and one offset
+/// falling at the declick rate, never two, and the cell stays within ±2.
+#[test]
+fn a_frozen_cell_has_one_offset_even_over_a_live_tail() {
+    let base = cells(&[(0, ModelId::RAW_RING)]);
+    let capture = capture_kit(&capture_patches(KitParams::default(), base), RATE);
+    let shot = capture.cell(0).to_vec();
+    let mut kit = Kit::new(RATE, KitParams::default(), base);
+    let live = render(&mut kit, &[(0, strike(0, 1.0))], 400);
+    kit.set_captures(Some(Box::new(capture)));
+    // Ring on until the live tail stands well above zero, then strike frozen over it.
+    let mut tail = live[399][0];
+    while tail < 0.1 {
+        tail = render(&mut kit, &[], 1)[0][0];
+    }
+    // A retrigger while the first one-shot is positive too, so the two jumps share a sign.
+    let again = (1..80)
+        .find(|&k| shot[k - 1] > 0.02)
+        .expect("a rising shot");
+    let window = (DECLICK_S * RATE) as usize + 2;
+    let out = render(
+        &mut kit,
+        &[(0, strike(0, 1.0)), (again, strike(0, 1.0))],
+        again + window,
+    );
+    let step = (1.0 / RATE) / DECLICK_S;
+    let rest: Vec<f32> = (again..again + window)
+        .map(|n| out[n][0] - shot[n - again])
+        .collect();
+    for pair in rest.windows(2) {
+        assert!(
+            (pair[1] - pair[0]).abs() <= step + 1e-6,
+            "two offsets fall at once: {} then {}",
+            pair[0],
+            pair[1]
+        );
+    }
+    assert!(
+        rest[0] > 0.0,
+        "the tail's and the one-shot's jumps both carried"
+    );
+    assert!(out.iter().all(|frame| frame[0].abs() <= 2.0));
+}

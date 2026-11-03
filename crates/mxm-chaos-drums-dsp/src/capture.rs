@@ -443,6 +443,11 @@ impl Player {
         };
     }
 
+    /// A live cell's pending output, handed over as its tail is cut, into the same offset.
+    pub(crate) fn take(&mut self, pending: f32) {
+        self.offset = (self.offset + pending).clamp(-1.0, 1.0);
+    }
+
     /// What plays ends, its jump into the offset.
     pub(crate) fn stop(&mut self) {
         self.offset = (self.offset + self.now.last).clamp(-1.0, 1.0);

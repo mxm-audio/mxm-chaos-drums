@@ -518,6 +518,8 @@ impl Kit {
                 cell.touch_off();
             }
             if sample.choke[index] {
+                // The live tail's jump joins the player's: a frozen cell has one offset.
+                self.players[index].take(cell.hand_over());
                 cell.choke();
                 self.players[index].stop();
             }
@@ -536,9 +538,11 @@ impl Kit {
             if velocity > 0.0 {
                 // The hit's own Velocity and Random, as a live hit's, for the routes onto its mix.
                 cell.stage_hit(velocity);
+                player.take(cell.hand_over());
                 player.strike(velocity_curve(velocity, dynamics));
                 cell.choke();
             } else if group > 0 && groups & (1 << group.min(31)) != 0 {
+                player.take(cell.hand_over());
                 cell.choke();
                 player.stop();
             }

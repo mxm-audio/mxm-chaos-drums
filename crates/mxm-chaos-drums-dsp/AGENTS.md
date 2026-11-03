@@ -124,7 +124,8 @@ twenty-five models render.
   Velocity and Random staged for the routes onto its mix; a new strike, a choke, a group's choke and
   a transport reset end it with a live cell's transition law, its jump into a declick offset
   clamped to ±1 that falls to zero within `DECLICK_S`, so strikes of any speed never jump unless the
-  clamp holds and a frozen cell's peak is a live one's, 2; a panic cuts it; releases, touch and tuning play
+  clamp holds and a frozen cell's peak is a live one's, 2 (one offset: a frozen strike or choke over
+  a live tail hands the tail's jump to the player, `Cell::hand_over`); a panic cuts it; releases, touch and tuning play
   nothing. Engaging lets a live tail ring out but feeds it nothing: every gate and touch lets go,
   and while frozen the buses feed no cell, so it decays to rest; a frozen cell's own strike chokes
   it. Installing or taking away a frozen kit cuts what it was playing, as its one-shots go with it,
