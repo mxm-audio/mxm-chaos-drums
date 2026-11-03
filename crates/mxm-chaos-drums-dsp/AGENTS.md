@@ -9,8 +9,14 @@ the brief (`docs/briefs/mxm-chaos-drums.md`) is what it implements.
 
 **P2, the DSP crate** (2026-11-02): all five engines, three drum models (Draining kick, Wired snare,
 Spark clap) and the five raw ones; the rest of the catalogue is P4's, a group at a time: **its
-drums** (2026-11-03), the Falling tom and the Slapped conga and bongo (a ring body under a Fold
-slap, `voice::HandLaw`), wait for the owner's listening before the hats and cymbals follow.
+drums** (2026-11-03, the owner: "Great. Continue"), the Falling tom and the Slapped conga and
+bongo (a ring body under a Fold slap, `voice::HandLaw`); then **its hats and cymbals** (2026-11-03),
+waiting for the owner's listening before the hand percussion follows. A hat is six Fold phases at
+inharmonic rates through a high band under Dust (`voice::HatLaw`): the leaking hats kick them
+gently, closed or open by their leak, the folded hat hard, into noise while full. A cymbal is a
+Loop fed by Dust while its charge lasts (`voice::CymbalLaw`): the crash's with a dense burst at the
+strike, the ride's under a bell of two Rings. Their leaks are set by length, 40 dB down in about
+0.18 s (closed), 1 s (open), 1.1 s (folded), 2.2 s (cymbal), 2.8 s (crash) and 2.3 s (ride).
 
 ## Ownership
 
@@ -110,9 +116,11 @@ slap, `voice::HandLaw`), wait for the owner's listening before the hats and cymb
 - **Every Tone is heard over all its travel** (the owner, 2026-11-03: "pull those three ranges
   back"). At the full reach a spark's click corner passed 4 kHz and filtered the click away, and a
   snare's wires and a dust's band passed 16 kHz, so Tone reaches less far up than down on those
-  three (`voice::WIRES_TONE_UP`, `CLICK_TONE_UP`, `DUST_TONE_UP`): to 14 kHz, 4 kHz and 16 kHz.
-- `cpu_cost` measured 7.5–14.5% of one core for sixteen busy cells at 96 kHz (2026-11-02); a change
-  that moves it says so.
+  three (`voice::WIRES_TONE_UP`, `CLICK_TONE_UP`, `DUST_TONE_UP`): to 14 kHz, 4 kHz and 16 kHz. The
+  hats and cymbals were built to it (`HAT_TONE_UP`, `CYMBAL_TONE_UP`): to 16 kHz at most.
+- `cpu_cost` measured 9–16% of one core for sixteen busy cells at 96 kHz, and 17–21% for the hats
+  and cymbals, the dearest (2026-11-03: a hat's six phases, a cymbal's loop and noise); a change that
+  moves it says so.
 
 ## Verification
 

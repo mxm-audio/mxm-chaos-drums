@@ -11,10 +11,16 @@ impl ModelId {
     pub const NONE: Self = Self(0);
     pub const DRAINING_KICK: Self = Self(1);
     pub const WIRED_SNARE: Self = Self(2);
+    pub const LEAKING_CLOSED_HAT: Self = Self(3);
+    pub const LEAKING_OPEN_HAT: Self = Self(4);
+    pub const FOLDED_HAT: Self = Self(5);
     pub const FALLING_TOM: Self = Self(6);
     pub const SLAPPED_CONGA: Self = Self(7);
     pub const SLAPPED_BONGO: Self = Self(8);
     pub const SPARK_CLAP: Self = Self(11);
+    pub const LOOP_CYMBAL: Self = Self(13);
+    pub const LOOP_CRASH: Self = Self(14);
+    pub const RINGING_RIDE: Self = Self(15);
     pub const RAW_RING: Self = Self(21);
     pub const RAW_SPARK: Self = Self(22);
     pub const RAW_FOLD: Self = Self(23);
@@ -200,6 +206,24 @@ pub struct ModelSpec {
     pub notes: &'static str,
 }
 
+/// What every hat reads.
+const HAT_CONTROLS: [ControlSpec; 5] = [
+    control(1, "Tone"),
+    control(2, "Body"),
+    control(4, "Spread"),
+    control(5, "Grain"),
+    control(7, "Drive"),
+];
+
+/// What every cymbal reads.
+const CYMBAL_CONTROLS: [ControlSpec; 5] = [
+    control(1, "Tone"),
+    control(2, "Body"),
+    control(4, "Spread"),
+    control(5, "Grain"),
+    control(9, "Damping"),
+];
+
 /// The models that render, in ID order.
 pub const AVAILABLE_MODELS: &[ModelSpec] = &[
     ModelSpec {
@@ -229,6 +253,30 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
         ],
         notes: "A drum body whose swing spills into noisy wires: the harder it rings, the thicker the \
                 wires.",
+    },
+    ModelSpec {
+        id: ModelId::LEAKING_CLOSED_HAT,
+        label: "Leaking closed hat",
+        kind: Kind::ClosedHat,
+        controls: &HAT_CONTROLS,
+        notes: "Six metal partials through a high band, under noise; it leaks fast, so a hit is a tick \
+                and a held note a hiss.",
+    },
+    ModelSpec {
+        id: ModelId::LEAKING_OPEN_HAT,
+        label: "Leaking open hat",
+        kind: Kind::OpenHat,
+        controls: &HAT_CONTROLS,
+        notes: "The closed hat's metal and noise, leaking slowly, so it rings on until a closed hat \
+                cuts it.",
+    },
+    ModelSpec {
+        id: ModelId::FOLDED_HAT,
+        label: "Folded hat",
+        kind: Kind::Hat,
+        controls: &HAT_CONTROLS,
+        notes: "Metal partials kicked hard by their clock: full, they break into noise; draining, \
+                they turn back into a tone.",
     },
     ModelSpec {
         id: ModelId::FALLING_TOM,
@@ -282,6 +330,30 @@ pub const AVAILABLE_MODELS: &[ModelSpec] = &[
         ],
         notes: "Sparks fire while the charge is high, each opening a burst of noise; as it drains they \
                 slow and stop.",
+    },
+    ModelSpec {
+        id: ModelId::LOOP_CYMBAL,
+        label: "Loop cymbal",
+        kind: Kind::Cymbal,
+        controls: &CYMBAL_CONTROLS,
+        notes: "A loop of metal fed by noise for as long as the charge lasts: it washes while full and \
+                thins as it drains.",
+    },
+    ModelSpec {
+        id: ModelId::LOOP_CRASH,
+        label: "Loop crash",
+        kind: Kind::Crash,
+        controls: &CYMBAL_CONTROLS,
+        notes: "A lower, wider loop of metal and a dense burst of noise at the strike that washes out \
+                over seconds.",
+    },
+    ModelSpec {
+        id: ModelId::RINGING_RIDE,
+        label: "Ringing ride",
+        kind: Kind::Ride,
+        controls: &CYMBAL_CONTROLS,
+        notes: "A steadier loop with little noise, and a bell of two rings over it; Body brings the \
+                bell up.",
     },
     ModelSpec {
         id: ModelId::RAW_RING,

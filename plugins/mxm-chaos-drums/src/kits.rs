@@ -14,9 +14,9 @@
 //! never leans on a default; [`the_shipped_kits_are_their_designs`] compares them in memory.
 //!
 //! **Their Levels are the brief's balance** (the owner, 2026-11-03), as Init's: every cell equally
-//! loud per hit by ITU-R BS.1770's K-weighting, a noise cell (Raw dust) or a cell a bus drones 6 dB
-//! under it, the kick at 0 dB unless a quiet cell needs more than the Level's ceiling, when every
-//! Level comes down together, by up to 6 dB ([`balance`]). The ignored
+//! loud per hit by ITU-R BS.1770's K-weighting, a noise cell (a hat, the maraca or Raw dust) or a
+//! cell a bus drones 6 dB under it, the kick at 0 dB unless a quiet cell needs more than the Level's
+//! ceiling, when every Level comes down together, by up to 6 dB ([`balance`]). The ignored
 //! [`init_and_every_kit_are_balanced`] re-measures them and prints each kit's table, with the
 //! pink-noise balance beside it.
 //!
@@ -2776,20 +2776,34 @@ fn measured(params: &MxmChaosDrumsParams) -> [Hit; CELLS] {
     })
 }
 
-/// **The balance**: every cell as loud as the kick by its K-weighted hit, a noise cell (Raw dust)
-/// or one a bus drones [`UNDER_DB`] under that. The kick is at 0 dB unless a cell would need more
+/// **The balance**: every cell as loud as the kick by its K-weighted hit, a noise cell
+/// ([`is_noise`]) or one a bus drones [`UNDER_DB`] under that. The kick is at 0 dB unless a cell would need more
 /// than the Level's ceiling; then every Level comes down together, by up to [`MAKE_ROOM_DB`], so it
 /// fits. To half a decibel, within the Level's range.
 fn balance(params: &MxmChaosDrumsParams, hits: &[Hit; CELLS]) -> [f32; CELLS] {
     let reference = hits[0].loudness_db;
     let wanted: [f32; CELLS] = std::array::from_fn(|cell| {
         let p = &params.cells[cell];
-        let under = p.model_id() == DUST || p.bus.value() != BusChoice::Off;
+        let under = is_noise(p.model_id()) || p.bus.value() != BusChoice::Off;
         (reference - hits[cell].loudness_db) as f32 - if under { UNDER_DB } else { 0.0 }
     });
     let loudest = wanted.iter().copied().fold(f32::MIN, f32::max);
     let room = (loudest - LEVEL_DB.1).clamp(0.0, MAKE_ROOM_DB);
     wanted.map(|db| (((db - room) * 2.0).round() / 2.0).clamp(LEVEL_DB.0, LEVEL_DB.1))
+}
+
+/// The brief's noise cells, which sit under the others: the hats, the maraca and raw noise.
+fn is_noise(model: ModelId) -> bool {
+    dsp::available(model).is_some_and(|spec| {
+        matches!(
+            spec.kind,
+            dsp::Kind::ClosedHat
+                | dsp::Kind::OpenHat
+                | dsp::Kind::Hat
+                | dsp::Kind::Maraca
+                | dsp::Kind::Dust
+        )
+    })
 }
 
 /// The pink-noise balance, for comparison: every cell's strongest band as high as the kick's.

@@ -95,12 +95,22 @@ fn window() -> usize {
     (DECLICK_S * RATE) as usize + 1
 }
 
-/// Every model on the grid, neighbours trading hits, a touch and a bus, two events on one sample.
-fn scene() -> (KitParams, [CellParams; CELLS], Vec<(usize, EventKind)>) {
-    let models: Vec<(usize, ModelId)> = AVAILABLE_MODELS
-        .iter()
-        .enumerate()
-        .map(|(i, spec)| (i, spec.id))
+/// A kit, and what is played on it.
+type Scene = (KitParams, [CellParams; CELLS], Vec<(usize, EventKind)>);
+
+/// Scenes that between them put every model on the grid, sixteen at a time: neighbours trading
+/// hits, a touch and a bus, two events on one sample.
+fn scenes() -> Vec<Scene> {
+    (0..AVAILABLE_MODELS.len())
+        .step_by(CELLS)
+        .map(scene)
+        .collect()
+}
+
+/// The models from `first` in catalogue order, wrapping round, one to a cell.
+fn scene(first: usize) -> Scene {
+    let models: Vec<(usize, ModelId)> = (0..CELLS)
+        .map(|i| (i, AVAILABLE_MODELS[(first + i) % AVAILABLE_MODELS.len()].id))
         .collect();
     let mut cells = cells(&models);
     cells[3].bus = Bus::A;
@@ -137,23 +147,32 @@ fn scene() -> (KitParams, [CellParams; CELLS], Vec<(usize, EventKind)>) {
 
 #[test]
 fn any_block_size_and_any_same_sample_order_renders_the_same_samples() {
-    let (params, cells, events) = scene();
+    for (params, cells, events) in scenes() {
+        renders_the_same_samples(params, cells, &events);
+    }
+}
+
+fn renders_the_same_samples(
+    params: KitParams,
+    cells: [CellParams; CELLS],
+    events: &[(usize, EventKind)],
+) {
     let reference = bits(&render(
         &mut Kit::new(RATE, params, cells),
-        &events,
+        events,
         72_000,
         4096,
     ));
     for block in [1, 7, 64, 512] {
         let again = bits(&render(
             &mut Kit::new(RATE, params, cells),
-            &events,
+            events,
             72_000,
             block,
         ));
         assert!(again == reference, "block {block}");
     }
-    let mut shuffled = events.clone();
+    let mut shuffled = events.to_vec();
     let at = shuffled.iter().position(|(t, _)| *t == 20_000).unwrap();
     shuffled[at..at + 4].reverse();
     assert!(
@@ -427,7 +446,16 @@ fn a_bus_drones_with_no_note_and_a_panic_holds_it_silent_until_played() {
 
 #[test]
 fn after_a_transport_reset_the_performance_is_a_render_from_rest() {
-    let (params, cells, events) = scene();
+    for (params, cells, events) in scenes() {
+        resets_to_a_render_from_rest(params, cells, events);
+    }
+}
+
+fn resets_to_a_render_from_rest(
+    params: KitParams,
+    cells: [CellParams; CELLS],
+    events: Vec<(usize, EventKind)>,
+) {
     let reset = 30_000;
     let later = [
         strike(reset + 100, 0, 0.7),
@@ -501,7 +529,12 @@ fn a_cell_on_its_own_output_leaves_the_main_pair() {
 
 #[test]
 fn an_unfed_kit_comes_to_rest_and_rest_changes_nothing() {
-    let (params, cells, _) = scene();
+    for (params, cells, _) in scenes() {
+        comes_to_rest(params, cells);
+    }
+}
+
+fn comes_to_rest(params: KitParams, cells: [CellParams; CELLS]) {
     let params = KitParams {
         bus: [0.0; 2],
         ..params

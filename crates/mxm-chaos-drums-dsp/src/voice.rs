@@ -10,6 +10,7 @@ use mxm_dsp::delay::AgeLine;
 use mxm_dsp::guard::flush;
 use mxm_rng::Xorshift32;
 
+use crate::engine::svf::Band;
 use crate::engine::{Dust, Fold, Ring, Spark, Strand, StrandDrive};
 use crate::fmath::exp2;
 use crate::model::ModelId;
@@ -324,6 +325,285 @@ const DUST_HZ: f32 = 2000.0;
 const DUST_Q: f32 = 0.7;
 const DUST_DENSITY: f32 = 20_000.0;
 
+/// How far up a hat's and a cymbal's Tone reach, so all of its travel is heard: a hat's band an
+/// octave, to 16 kHz at most (the leaking hats'), a cymbal's noise an octave and a quarter, to
+/// 15.4 kHz at most (the ride's). Down, each keeps the full reach.
+const HAT_TONE_UP: f32 = 0.4;
+const CYMBAL_TONE_UP: f32 = 0.5;
+
+/// A hat's six metal partials, as octaves over its lowest: inharmonic, a struck plate's spread
+/// rather than a string's, in the manner of the six-oscillator hats electronic kits built.
+const HAT_OCTAVES: [f32; 6] = [0.0, 0.557, 0.858, 1.094, 1.307, 1.552];
+
+/// A band filter, retuned only when its centre or Q moves.
+#[derive(Clone, Copy, Debug, Default)]
+struct TunedBand {
+    band: Band,
+    centre: f32,
+    q: f32,
+}
+
+impl TunedBand {
+    fn tick(&mut self, x: f32, centre: f32, q: f32, sample_rate: f32) -> f32 {
+        if centre != self.centre || q != self.q {
+            self.band.tune(centre, q, sample_rate);
+            self.centre = centre;
+            self.q = q;
+        }
+        self.band.tick(x)
+    }
+}
+
+/// A hat: Fold phases at inharmonic rates through a high band, under Dust noise in the same band.
+/// The clock kicks each phase by the circle map as charge rises: gently, a metal that roughens;
+/// hard, the folded hat's, a tone that breaks into noise. Closed or open is how fast the cell
+/// leaks.
+struct HatLaw {
+    /// The lowest partial, and the band the metal and the noise sound through.
+    hz: f32,
+    band_hz: f32,
+    band_q: f32,
+    /// The noise's share at Body 0, and how dense it is at full charge.
+    noise_mix: f32,
+    density: f32,
+    /// How hard the clock kicks the phases at full charge: past 1, chaos.
+    kick: f32,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Hat {
+    phases: [Fold; 6],
+    /// Each partial's rate a sample, and the pitch and Spread it was worked out for.
+    rates: [f32; 6],
+    rates_for: (f32, f32, f32),
+    band: TunedBand,
+    noise: Dust,
+    tuned: Tuned,
+}
+
+impl Hat {
+    fn new(seed: u32) -> Self {
+        Self {
+            phases: [Fold::default(); 6],
+            rates: [0.0; 6],
+            rates_for: (f32::NAN, f32::NAN, f32::NAN),
+            band: TunedBand::default(),
+            noise: Dust::new(seed),
+            tuned: Tuned::default(),
+        }
+    }
+
+    fn clear(&mut self) {
+        self.phases = [Fold::default(); 6];
+        self.band.band.clear();
+        self.noise.clear();
+    }
+}
+
+impl HatLaw {
+    /// One sample: Tone moves the band, Body trades the noise for the metal, Spread widens the
+    /// partials, Grain thickens the noise and Drive kicks the phases harder.
+    fn tick(&self, hat: &mut Hat, sample_rate: f32, drive: &Drive) -> f32 {
+        let spread = drive.control(4);
+        if hat.rates_for != (drive.pitch, spread, sample_rate) {
+            let widen = exp2(CONTROL_REACH * 0.4 * spread);
+            let base = self.hz * drive.pitch / sample_rate;
+            for (rate, octaves) in hat.rates.iter_mut().zip(HAT_OCTAVES) {
+                *rate = (base * exp2(widen * octaves)).min(0.45);
+            }
+            hat.rates_for = (drive.pitch, spread, sample_rate);
+        }
+        let kick = self.kick * drive.octaves(7, 1.0) * drive.charge;
+        let mut metal = 0.0;
+        for (phase, &rate) in hat.phases.iter_mut().zip(&hat.rates) {
+            metal += phase.tick(rate, 0.5 * rate, kick);
+        }
+        let centre = self.band_hz * drive.octaves_split(1, 1.0, HAT_TONE_UP);
+        let metal = hat
+            .band
+            .tick(metal / 6.0, centre, self.band_q, sample_rate)
+            .clamp(-1.0, 1.0);
+        hat.tuned
+            .retune(&mut hat.noise, centre, self.band_q, sample_rate);
+        let density = self.density * drive.octaves(5, 1.5) * drive.charge;
+        let noise = hat.noise.tick(density, sample_rate);
+        let mix = (self.noise_mix - 0.3 * CONTROL_REACH * drive.control(2)).clamp(0.0, 1.0);
+        (1.0 - mix) * metal + mix * noise
+    }
+}
+
+/// The closed and the open hat: one law, a fast or a slow leak.
+const LEAKING_HAT: HatLaw = HatLaw {
+    hz: 3300.0,
+    band_hz: 8000.0,
+    band_q: 0.9,
+    noise_mix: 0.45,
+    density: 16_000.0,
+    kick: 0.25,
+};
+
+/// The folded hat: the phases kicked hard, so a full one is noise and a draining one turns to tone.
+const FOLDED_HAT: HatLaw = HatLaw {
+    hz: 2600.0,
+    band_hz: 7000.0,
+    band_q: 0.8,
+    noise_mix: 0.15,
+    density: 8_000.0,
+    kick: 3.0,
+};
+
+/// A cymbal: Loop metal fed by Dust for as long as the charge lasts, the crash's with a dense burst
+/// at the strike, the ride's with a bell of two Rings over it.
+struct CymbalLaw {
+    /// The loop's pitch, its second tap's ratio and share, its gain and its damping.
+    hz: f32,
+    second_ratio: f32,
+    second: f32,
+    gain: f32,
+    damping: f32,
+    /// The noise that feeds it: its centre, Q and density at full charge, how much more the
+    /// strike's burst adds and how fast that dies.
+    noise_hz: f32,
+    noise_q: f32,
+    density: f32,
+    burst: f32,
+    burst_s: f32,
+    /// How much of the noise is heard as well as feeding the loop, at Body 0.
+    noise_mix: f32,
+    /// The bell: its pitch, its second partial's ratio and its share at Body 0; none without one.
+    bell: Option<(f32, f32, f32)>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Cymbal {
+    strand: Strand,
+    noise: Dust,
+    tuned: Tuned,
+    burst: f32,
+    bell: [Ring; 2],
+}
+
+impl Cymbal {
+    fn new(seed: u32) -> Self {
+        Self {
+            strand: Strand::default(),
+            noise: Dust::new(seed),
+            tuned: Tuned::default(),
+            burst: 0.0,
+            bell: [Ring::default(); 2],
+        }
+    }
+
+    fn clear(&mut self, lines: &mut Lines) {
+        self.strand.clear(&mut lines[0]);
+        self.noise.clear();
+        self.burst = 0.0;
+        self.bell = [Ring::default(); 2];
+    }
+}
+
+impl CymbalLaw {
+    /// One sample: Tone moves the noise, Body trades the noise (the ride's bell) for the metal,
+    /// Spread spreads the metal, Grain thickens the noise and Damping darkens the loop.
+    fn tick(&self, cymbal: &mut Cymbal, sample_rate: f32, drive: &Drive, lines: &mut Lines) -> f32 {
+        let dt = 1.0 / sample_rate;
+        cymbal.burst = flush(cymbal.burst - cymbal.burst * (dt / self.burst_s).min(1.0));
+        let centre = self.noise_hz * drive.octaves_split(1, 2.0, CYMBAL_TONE_UP);
+        cymbal
+            .tuned
+            .retune(&mut cymbal.noise, centre, self.noise_q, sample_rate);
+        let density =
+            self.density * drive.octaves(5, 1.5) * (drive.charge + self.burst * cymbal.burst);
+        let noise = cymbal.noise.tick(density, sample_rate);
+        let age = sample_rate / (self.hz * drive.pitch);
+        let spread = drive.control(4);
+        let metal = cymbal.strand.tick(
+            &mut lines[0],
+            &StrandDrive {
+                age,
+                second_age: age * self.second_ratio * exp2(CONTROL_REACH * 0.5 * spread),
+                second: (self.second + 0.2 * CONTROL_REACH * spread).clamp(0.0, 1.0),
+                gain: self.gain,
+                damping: self.damping * drive.octaves(9, 1.0),
+                input: 0.25 * noise + 0.3 * drive.neighbour,
+            },
+        );
+        let body = drive.control(2);
+        match self.bell {
+            None => {
+                let mix = (self.noise_mix - 0.3 * CONTROL_REACH * body).clamp(0.0, 1.0);
+                (1.0 - mix) * metal + mix * noise
+            }
+            Some((hz, ratio, share)) => {
+                let w = |hz: f32| (TAU * hz * drive.pitch * dt).min(1.0);
+                let bell = 0.5
+                    * (cymbal.bell[0].tick(w(hz), -0.002, 0.0)
+                        + cymbal.bell[1].tick(w(hz * ratio), -0.003, 0.0));
+                let bell_mix = (share + 0.3 * CONTROL_REACH * body).clamp(0.0, 1.0);
+                let rest = 1.0 - bell_mix;
+                bell_mix * bell + rest * ((1.0 - self.noise_mix) * metal + self.noise_mix * noise)
+            }
+        }
+    }
+
+    /// A hit: the burst from its start, and the bell struck.
+    fn strike(&self, cymbal: &mut Cymbal, velocity: f32) {
+        cymbal.burst = velocity.clamp(0.0, 1.0);
+        if self.bell.is_some() {
+            for ring in &mut cymbal.bell {
+                ring.strike(1.2 * velocity);
+            }
+        }
+    }
+}
+
+const LOOP_CYMBAL: CymbalLaw = CymbalLaw {
+    hz: 420.0,
+    second_ratio: 1.53,
+    second: 0.45,
+    gain: 0.985,
+    damping: 0.18,
+    noise_hz: 6000.0,
+    noise_q: 0.6,
+    density: 12_000.0,
+    burst: 1.0,
+    burst_s: 0.05,
+    noise_mix: 0.35,
+    bell: None,
+};
+
+/// The crash: a lower, wider loop and a dense burst at the strike that washes out.
+const LOOP_CRASH: CymbalLaw = CymbalLaw {
+    hz: 300.0,
+    second_ratio: 1.71,
+    second: 0.5,
+    gain: 0.99,
+    damping: 0.15,
+    noise_hz: 5000.0,
+    noise_q: 0.5,
+    density: 14_000.0,
+    burst: 3.0,
+    burst_s: 0.3,
+    noise_mix: 0.4,
+    bell: None,
+};
+
+/// The ride: a darker, steadier loop with little noise, and a bell of two Rings over it.
+const RINGING_RIDE: CymbalLaw = CymbalLaw {
+    hz: 520.0,
+    second_ratio: 1.41,
+    second: 0.35,
+    gain: 0.98,
+    damping: 0.25,
+    noise_hz: 6500.0,
+    noise_q: 0.7,
+    density: 6_000.0,
+    burst: 0.5,
+    burst_s: 0.02,
+    noise_mix: 0.2,
+    bell: Some((760.0, 2.76, 0.3)),
+};
+
 /// A band's tuning, kept so it is recomputed only when its control moves.
 #[derive(Clone, Copy, Debug, Default)]
 struct Tuned {
@@ -407,6 +687,12 @@ pub(crate) enum Voice {
     RawFold(Fold),
     RawLoop(RawLoop),
     RawDust(RawDust),
+    ClosedHat(Hat),
+    OpenHat(Hat),
+    FoldedHat(Hat),
+    Cymbal(Cymbal),
+    Crash(Cymbal),
+    Ride(Cymbal),
 }
 
 impl Voice {
@@ -448,6 +734,12 @@ impl Voice {
                 dust: Dust::new(seed),
                 tuned: Tuned::default(),
             }),
+            ModelId::LEAKING_CLOSED_HAT => Self::ClosedHat(Hat::new(seed)),
+            ModelId::LEAKING_OPEN_HAT => Self::OpenHat(Hat::new(seed)),
+            ModelId::FOLDED_HAT => Self::FoldedHat(Hat::new(seed)),
+            ModelId::LOOP_CYMBAL => Self::Cymbal(Cymbal::new(seed)),
+            ModelId::LOOP_CRASH => Self::Crash(Cymbal::new(seed)),
+            ModelId::RINGING_RIDE => Self::Ride(Cymbal::new(seed)),
             _ => Self::Silent,
         }
     }
@@ -462,6 +754,15 @@ impl Voice {
             ModelId::RAW_FOLD | ModelId::RAW_LOOP => 0.5,
             ModelId::FALLING_TOM => 0.45,
             ModelId::SLAPPED_BONGO => 0.36,
+            // About 42 ms and 223 ms, 40 dB down in about 0.18 s and 1 s: closed or open is how
+            // fast it leaks.
+            ModelId::LEAKING_CLOSED_HAT => 0.1,
+            ModelId::LEAKING_OPEN_HAT => 0.33,
+            ModelId::FOLDED_HAT => 0.35,
+            // About 578 ms, 775 ms and 669 ms.
+            ModelId::LOOP_CYMBAL => 0.46,
+            ModelId::LOOP_CRASH => 0.5,
+            ModelId::RINGING_RIDE => 0.48,
             _ => 0.42,
         }
     }
@@ -469,7 +770,15 @@ impl Voice {
     /// A hit at `velocity`, 0…1; the cell has already added its charge.
     pub fn strike(&mut self, velocity: f32, controls: &[f32; CONTROLS], sample_rate: f32) {
         match self {
-            Self::Silent | Self::RawFold(_) | Self::RawDust(_) => {}
+            Self::Silent
+            | Self::RawFold(_)
+            | Self::RawDust(_)
+            | Self::ClosedHat(_)
+            | Self::OpenHat(_)
+            | Self::FoldedHat(_) => {}
+            Self::Cymbal(cymbal) => LOOP_CYMBAL.strike(cymbal, velocity),
+            Self::Crash(cymbal) => LOOP_CRASH.strike(cymbal, velocity),
+            Self::Ride(cymbal) => RINGING_RIDE.strike(cymbal, velocity),
             Self::Kick(kick) => KICK.strike(&mut kick.ring, velocity, controls),
             Self::Snare(snare) => SNARE_BODY.strike(&mut snare.body, velocity, controls),
             Self::RawRing(ring) => RAW_RING.strike(ring, velocity, controls),
@@ -598,6 +907,11 @@ impl Voice {
                     + 4000.0 * drive.neighbour.abs().min(1.0);
                 raw.dust.tick(density, sample_rate)
             }
+            Self::ClosedHat(hat) | Self::OpenHat(hat) => LEAKING_HAT.tick(hat, sample_rate, drive),
+            Self::FoldedHat(hat) => FOLDED_HAT.tick(hat, sample_rate, drive),
+            Self::Cymbal(cymbal) => LOOP_CYMBAL.tick(cymbal, sample_rate, drive, lines),
+            Self::Crash(cymbal) => LOOP_CRASH.tick(cymbal, sample_rate, drive, lines),
+            Self::Ride(cymbal) => RINGING_RIDE.tick(cymbal, sample_rate, drive, lines),
         }
     }
 
@@ -629,6 +943,8 @@ impl Voice {
                 raw.burst_left = 0;
             }
             Self::RawDust(raw) => raw.dust.clear(),
+            Self::ClosedHat(hat) | Self::OpenHat(hat) | Self::FoldedHat(hat) => hat.clear(),
+            Self::Cymbal(cymbal) | Self::Crash(cymbal) | Self::Ride(cymbal) => cymbal.clear(lines),
         }
     }
 }

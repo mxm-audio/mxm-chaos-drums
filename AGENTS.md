@@ -129,7 +129,7 @@ and the brief (approved 2026-11-02); P1 a DSP spike, which the owner heard as go
 (2026-11-02: "I think I need an interface to explore to test it further, so lets halt my tests until
 the first version is up"); P2 the DSP crate, P3 the plugin (its Resample and Export 2026-11-03) and **P5 the editor** (landed 2026-11-02: the first version the
 owner explores) and the fifty factory kits (2026-11-03, ahead of P4); then P4 the rest of the
-catalogue, played through the editor, a group at a time (its drums 2026-11-03); P6 the owner's listening to the kits, and the release gates.
+catalogue, played through the editor, a group at a time (its drums, then its hats and cymbals, 2026-11-03); P6 the owner's listening to the kits, and the release gates.
 
 # Local Contracts
 
