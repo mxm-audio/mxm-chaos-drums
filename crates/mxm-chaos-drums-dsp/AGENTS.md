@@ -52,8 +52,8 @@ twenty-five models render.
   appends a line to its golden list, and no line changes.
 - `src/fmath.rs`: `exp2`, semitones and the sine, in basic operations.
 - `examples/charge_grid.rs`: P1's listening grids. `examples/cpu_cost.rs`: sixteen busy cells at
-  96 kHz, live and frozen, and a kit at rest, as a share of real time. `examples/capture_cost.rs`: Resample's capture, tame and at its
-  worst.
+  96 kHz, live and frozen, and a kit at rest, as a share of real time. `examples/capture_cost.rs`:
+  Resample's capture, tame and at its worst.
 - `tests/charge.rs`: the contracts below; `tests/capture.rs`: Resample's.
 
 ## Local Contracts
