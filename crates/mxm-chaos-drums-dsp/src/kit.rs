@@ -441,9 +441,13 @@ impl Kit {
     /// Render `out.len()` frames, applying `events` at their offsets.
     pub fn process(&mut self, events: &[Event], out: &mut [OutputFrame]) {
         let mut next = 0;
-        for (n, frame) in out.iter_mut().enumerate() {
+        let mut n = 0;
+        while n < out.len() {
             let raw = self.step(events, &mut next, n);
-            *frame = self.mix(&raw);
+            out[n] = self.mix(&raw);
+            let still = self.stand_still(events, next, n + 1, out.len());
+            out[n + 1..still].fill(OutputFrame::default());
+            n = still;
         }
     }
 
@@ -451,9 +455,39 @@ impl Kit {
     /// every platform.
     pub fn process_raw(&mut self, events: &[Event], out: &mut [[f32; CELLS]]) {
         let mut next = 0;
-        for (n, frame) in out.iter_mut().enumerate() {
-            *frame = self.step(events, &mut next, n);
+        let mut n = 0;
+        while n < out.len() {
+            out[n] = self.step(events, &mut next, n);
+            let still = self.stand_still(events, next, n + 1, out.len());
+            out[n + 1..still].fill([0.0; CELLS]);
+            n = still;
         }
+    }
+
+    /// Where a kit standing still from sample `from` next has to render, having made the stretch
+    /// before it, silence, at once. Still is every cell resting, no one-shot playing and no LFO
+    /// moving: until the next event every sample is then the one before it — the same sources, so
+    /// settling changes nothing; the mixer on its settings, as the first such sample puts it; the
+    /// core skipped and the output zero — but for the pool's refill, which runs on until full. So the
+    /// stretch changes no sample and leaves the state each sample would, and an idle kit costs one
+    /// step a block.
+    fn stand_still(&mut self, events: &[Event], next: usize, from: usize, len: usize) -> usize {
+        let until = events.get(next).map_or(len, |event| event.offset.min(len));
+        if until <= from
+            || self.reach.contains(&true)
+            || !self.cells_rest()
+            || !self.players_quiet()
+        {
+            return from;
+        }
+        self.settle_mix();
+        for _ in from..until {
+            if self.pool.is_full() {
+                break;
+            }
+            self.pool.recharge();
+        }
+        until
     }
 
     fn step(&mut self, events: &[Event], next: &mut usize, n: usize) -> [f32; CELLS] {

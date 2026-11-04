@@ -74,7 +74,11 @@ twenty-five models render.
   LFOs, the routes and the pool's recharge run on) and the skip changes no sample. A sample whose
   events find every cell at rest begins with Level, Pan, Master and each output on their settings,
   a step nothing sounding can hear, and a rule of the timeline, so no block boundary or host sleep
-  changes the mix.
+  changes the mix. A kit standing still (every cell resting, no one-shot playing, no LFO moving)
+  renders the stretch to its next event at once (`Kit::stand_still`): each sample there is the one
+  before it but for the pool's refill, which runs on, so an idle block costs one step and changes
+  no sample (`a_still_stretch_renders_as_its_samples_one_by_one` holds it to the render sample by
+  sample).
   `Kit::is_at_rest`, the status a host may sleep on, also needs the pool full: its level is what the
   next note draws on. Leak is never infinite, so every unfed cell gets there. A pool
   of no capacity grants nothing, so no bus feeds through it. A kit at rest is still not a fixed
@@ -152,11 +156,12 @@ twenty-five models render.
   `GUIRO_TONE_UP`, `BRUSH_TONE_UP`, a grain law's `tone_up`): to 16 kHz at most.
 - `cpu_cost` measured 9–16% of one core for sixteen busy cells at 96 kHz, 16–20% for the cymbals,
   the tambourine and the hats, the dearest (2026-11-04: a hat's six phases, a cymbal's loop and
-  noise); the same strikes frozen 3.0–3.9%, a kit at rest 3.2% (the per-sample rest checks, route
-  settling and mixer, half each; `a_frozen_kit_never_wakes_its_cells` holds that a frozen kit's core
-  stays skipped); a capture 0.3–10 s on its thread; a change that moves it says so. Against the drum machine's `drum_machine_cpu_cost`, whose sixteen cymbals cost
-  3.0–3.5 µs a sample (29–34% of a core at 96 kHz, 2026-11-03), the heaviest here is two-thirds of
-  its heaviest.
+  noise); the same strikes frozen 0.1–4.0%, the reading of one-shots still playing
+  (`a_frozen_kit_never_wakes_its_cells` holds that a frozen kit's core stays skipped); a kit at rest
+  0.03%, standing still (3.2% before, stepping every silent sample); a capture 0.3–10 s on its
+  thread. A change that moves these says so. Against the drum machine's `drum_machine_cpu_cost`,
+  whose sixteen cymbals cost 3.0–3.5 µs a sample (29–34% of a core at 96 kHz, 2026-11-03), the
+  heaviest here is two-thirds of its heaviest.
 
 ## Verification
 

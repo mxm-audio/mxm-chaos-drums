@@ -1414,3 +1414,114 @@ fn while_every_cell_rests_the_mixer_sits_on_its_settings() {
     assert!(frames.iter().any(|frame| frame.individual[2] != 0.0));
     assert!(frames.iter().all(|frame| frame.main == [0.0; 2]));
 }
+
+/// `len` mixed frames in blocks of `block`, as bits, the events (in time order) at their samples.
+fn render_mixed(
+    kit: &mut Kit,
+    events: &[(usize, EventKind)],
+    len: usize,
+    block: usize,
+) -> Vec<[u32; 2 + CELLS]> {
+    let mut out = vec![OutputFrame::default(); len];
+    let mut next = 0;
+    for (start, chunk) in (0..len).step_by(block).zip(out.chunks_mut(block)) {
+        let mut here = Vec::new();
+        while next < events.len() && events[next].0 < start + chunk.len() {
+            here.push(Event {
+                offset: events[next].0 - start,
+                kind: events[next].1,
+            });
+            next += 1;
+        }
+        kit.process(&here, chunk);
+    }
+    out.iter()
+        .map(|frame| {
+            let mut bits = [0; 2 + CELLS];
+            bits[..2].copy_from_slice(&frame.main.map(f32::to_bits));
+            bits[2..].copy_from_slice(&frame.individual.map(f32::to_bits));
+            bits
+        })
+        .collect()
+}
+
+/// A kit standing still renders the stretch to its next event at once, and the stretch is what
+/// rendering it sample by sample makes: the frames, the pool refilling under resting cells, and the
+/// mix moved while silent, which the next hit plays through. Frozen too, and with an LFO moving,
+/// which stands nothing still.
+#[test]
+fn a_still_stretch_renders_as_its_samples_one_by_one() {
+    use mxm_chaos_drums_dsp::capture::{capture_kit, capture_patches};
+    let base = KitParams {
+        // A small pool the held clave drains and a slow refill, so the cells rest well before the
+        // pool is full again.
+        pool: 0.25,
+        recharge: 0.4,
+        ..steady()
+    };
+    let swaying = KitParams {
+        routes: kit_route(Source::Lfo1, KitTarget::Pool, 0.3),
+        ..base
+    };
+    let mut kit_cells = cells(&[(2, ModelId::DAMPED_CLAVE), (5, ModelId::LEAKING_CLOSED_HAT)]);
+    kit_cells[2].supply = 1.0;
+    kit_cells[5].output = 4;
+    let events = sorted(vec![
+        strike(10, 2, 1.0),
+        release(6_000, 2),
+        strike(100_000, 5, 0.7),
+        release(100_050, 5),
+        strike(120_000, 2, 0.6),
+        release(120_500, 2),
+    ]);
+    const SEGMENT: usize = 6_000;
+    for (params, frozen) in [(base, false), (base, true), (swaying, false)] {
+        let make = || {
+            let mut kit = Kit::new(RATE, params, kit_cells);
+            if frozen {
+                let capture = capture_kit(&capture_patches(params, kit_cells), RATE);
+                kit.set_captures(Some(Box::new(capture)));
+            }
+            kit
+        };
+        let (mut one, mut whole) = (make(), make());
+        let (mut stood, mut rested) = (false, false);
+        for segment in 0..24 {
+            if segment > 0 {
+                // The mix moves between segments, often while the kit is silent.
+                let step = segment as f32 / 24.0;
+                for kit in [&mut one, &mut whole] {
+                    kit.set_params(KitParams {
+                        master: 1.0 - 0.5 * step,
+                        ..params
+                    });
+                    let mut moved = kit_cells[2];
+                    moved.level = -6.0 * step;
+                    moved.pan = 1.0 - 2.0 * step;
+                    kit.set_cell(2, moved);
+                }
+            }
+            let start = segment * SEGMENT;
+            let here: Vec<_> = events
+                .iter()
+                .filter(|(at, _)| (start..start + SEGMENT).contains(at))
+                .map(|&(at, kind)| (at - start, kind))
+                .collect();
+            assert!(
+                render_mixed(&mut one, &here, SEGMENT, 1)
+                    == render_mixed(&mut whole, &here, SEGMENT, SEGMENT),
+                "frozen {frozen}, segment {segment}"
+            );
+            assert_eq!(one.pool_level().to_bits(), whole.pool_level().to_bits());
+            assert_eq!(one.is_at_rest(), whole.is_at_rest());
+            stood |= whole.cells_rest() && !whole.is_at_rest();
+            rested |= whole.is_at_rest();
+        }
+        if params == base && !frozen {
+            assert!(
+                stood && rested,
+                "the cells rest while the pool refills, then all rests"
+            );
+        }
+    }
+}
