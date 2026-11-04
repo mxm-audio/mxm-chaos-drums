@@ -1,7 +1,8 @@
 //! What sixteen busy cells cost: each model on every cell, every cell fed by a bus and struck, at
 //! full Temper, Flow and Coupling, at 96 kHz; then the same strikes on the same kit frozen by
-//! Resample, which only reads its one-shots; then a kit at rest. Prints each render time as a share
-//! of real time, and how long the capture took (once per engage, on its own thread).
+//! Resample, which only reads its one-shots; then a kit at rest, and one an LFO moves. Prints each
+//! render time as a share of real time, and how long the capture took (once per engage, on its own
+//! thread).
 //!
 //! ```text
 //! cargo run -p mxm-chaos-drums-dsp --example cpu_cost --release
@@ -11,7 +12,8 @@ use std::time::Instant;
 
 use mxm_chaos_drums_dsp::capture::{capture_kit, capture_patches};
 use mxm_chaos_drums_dsp::{
-    AVAILABLE_MODELS, Bus, CELLS, CellParams, Event, EventKind, Kit, KitParams, OutputFrame,
+    AVAILABLE_MODELS, Bus, CELLS, CellParams, CellTarget, Event, EventKind, Kit, KitParams,
+    OutputFrame, Route, Source,
 };
 
 const RATE: f32 = 96_000.0;
@@ -82,4 +84,15 @@ fn main() {
         false,
     );
     println!("{:20} {:6.2}%", "A kit at rest", resting);
+    // An LFO on every cell's pitch, moving on through the silence.
+    let mut swaying = [CellParams::new(AVAILABLE_MODELS[0].id); CELLS];
+    for cell in &mut swaying {
+        cell.routes[0] = Route {
+            source: Source::Lfo1,
+            target: CellTarget::Pitch,
+            amount: 0.5,
+        };
+    }
+    let swayed = share(&mut Kit::new(RATE, KitParams::default(), swaying), false);
+    println!("{:20} {:6.2}%", "  an LFO on pitch", swayed);
 }

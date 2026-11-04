@@ -1463,9 +1463,36 @@ fn a_still_stretch_renders_as_its_samples_one_by_one() {
         routes: kit_route(Source::Lfo1, KitTarget::Pool, 0.3),
         ..base
     };
+    let roused = KitParams {
+        routes: kit_route(Source::Lfo3, KitTarget::BusA, 0.4),
+        ..base
+    };
     let mut kit_cells = cells(&[(2, ModelId::DAMPED_CLAVE), (5, ModelId::LEAKING_CLOSED_HAT)]);
     kit_cells[2].supply = 1.0;
     kit_cells[5].output = 4;
+    // LFOs onto what acts only once something sounds, so silence steps their phases alone: a fast
+    // sample and hold onto pitch, a triangle onto level, a sine onto pan.
+    let lfo = |source, target, amount| Route {
+        source,
+        target,
+        amount,
+    };
+    let moving = KitParams {
+        lfo_rate_hz: [3.0, 13.0, 7.0],
+        lfo_shape: [
+            mxm_chaos_drums_dsp::LfoShape::Sine,
+            mxm_chaos_drums_dsp::LfoShape::SampleHold,
+            mxm_chaos_drums_dsp::LfoShape::Triangle,
+        ],
+        ..base
+    };
+    let mut carried = kit_cells;
+    carried[2].routes[0] = lfo(Source::Lfo2, CellTarget::Pitch, 0.5);
+    carried[2].routes[1] = lfo(Source::Lfo3, CellTarget::Level, -0.4);
+    carried[5].routes[0] = lfo(Source::Lfo1, CellTarget::Pan, 1.0);
+    // And onto Supply, which could wake a cell its bus feeds: stepped sample by sample.
+    let mut supplied = carried;
+    supplied[5].routes[1] = lfo(Source::Lfo1, CellTarget::Supply, 0.5);
     let events = sorted(vec![
         strike(10, 2, 1.0),
         release(6_000, 2),
@@ -1475,7 +1502,15 @@ fn a_still_stretch_renders_as_its_samples_one_by_one() {
         release(120_500, 2),
     ]);
     const SEGMENT: usize = 6_000;
-    for (params, frozen) in [(base, false), (base, true), (swaying, false)] {
+    for (params, kit_cells, frozen) in [
+        (base, kit_cells, false),
+        (base, kit_cells, true),
+        (swaying, kit_cells, false),
+        (moving, carried, false),
+        (moving, carried, true),
+        (moving, supplied, false),
+        (roused, carried, false),
+    ] {
         let make = || {
             let mut kit = Kit::new(RATE, params, kit_cells);
             if frozen {
@@ -1517,7 +1552,7 @@ fn a_still_stretch_renders_as_its_samples_one_by_one() {
             stood |= whole.cells_rest() && !whole.is_at_rest();
             rested |= whole.is_at_rest();
         }
-        if params == base && !frozen {
+        if (params == base || params == moving) && !frozen {
             assert!(
                 stood && rested,
                 "the cells rest while the pool refills, then all rests"

@@ -209,6 +209,9 @@ pub struct Kit {
     lfos: [Lfo; 3],
     /// Which LFOs a route carries with a net amount: only they advance.
     reach: [bool; 3],
+    /// Which of them reach what can wake a resting cell or move the pool: a bus, the pool, its
+    /// refill, a cell's Supply. While one moves, silence is stepped sample by sample.
+    wakes: [bool; 3],
     wheel: f32,
     pressure: f32,
     routers: [DestinationRouter; CELLS],
@@ -271,6 +274,7 @@ impl Kit {
             ),
             lfos: lfos(params.seed),
             reach: [false; 3],
+            wakes: [false; 3],
             wheel: 0.0,
             pressure: 0.0,
             routers: cells.map(|cell| DestinationRouter::new(destination(cell.output), transition)),
@@ -284,6 +288,7 @@ impl Kit {
             declick_step: (1.0 / sample_rate) / DECLICK_S,
         };
         kit.reach = kit.lfo_reach();
+        kit.wakes = kit.lfo_wakes();
         // A fresh kit is a reset one: its routes settled at the LFOs' start, its pool full at the
         // capacity they make, its mixer on the settings they make.
         kit.reset();
@@ -305,6 +310,7 @@ impl Kit {
     pub fn set_params(&mut self, params: KitParams) {
         self.params = params;
         self.reach = self.lfo_reach();
+        self.wakes = self.lfo_wakes();
     }
 
     #[must_use]
@@ -320,6 +326,7 @@ impl Kit {
         }
         self.cells[cell].set_params(params);
         self.reach = self.lfo_reach();
+        self.wakes = self.lfo_wakes();
     }
 
     /// Which LFOs reach the performance, from the settings as they stand.
@@ -332,6 +339,27 @@ impl Kit {
             }
         }
         reach
+    }
+
+    /// Which LFOs reach what can wake a resting cell or move the pool, from the settings as they
+    /// stand: a bus, the pool and its refill, a cell's Supply. Whatever else they move acts only
+    /// once something sounds.
+    fn lfo_wakes(&self) -> [bool; 3] {
+        let mut wakes = routes::lfo_reach_onto(&self.params.routes, |target| {
+            matches!(
+                target,
+                KitTarget::Pool | KitTarget::Recharge | KitTarget::BusA | KitTarget::BusB
+            )
+        });
+        for cell in &self.cells {
+            let cell_wakes = routes::lfo_reach_onto(&cell.params().routes, |target| {
+                target == CellTarget::Supply
+            });
+            for (lfo, cell) in wakes.iter_mut().zip(cell_wakes) {
+                *lfo |= cell;
+            }
+        }
+        wakes
     }
 
     /// Exact silence and rest: every charge empty, every engine cleared, the pool full, the LFOs at
@@ -465,22 +493,35 @@ impl Kit {
     }
 
     /// Where a kit standing still from sample `from` next has to render, having made the stretch
-    /// before it, silence, at once. Still is every cell resting, no one-shot playing and no LFO
-    /// moving: until the next event every sample is then the one before it — the same sources, so
-    /// settling changes nothing; the mixer on its settings, as the first such sample puts it; the
-    /// core skipped and the output zero — but for the pool's refill, which runs on until full. So the
-    /// stretch changes no sample and leaves the state each sample would, and an idle kit costs one
-    /// step a block.
+    /// before it, silence, at once. Still is every cell resting, no one-shot playing and no moving
+    /// LFO reaching what could wake a cell or move the pool (`wakes`): until the next event every
+    /// sample is then the one before it — the core skipped, the output zero, the mixer on its
+    /// settings — but for the LFOs' phases and the pool's refill, which run on; what else the LFOs
+    /// move acts only once something sounds. So the stretch steps those two alone, then settles as
+    /// its last sample would, the routes at that sample's sources and the mixer on what they make.
+    /// It changes no sample and leaves the state each sample would, and an idle kit costs a few
+    /// additions a sample at most.
     fn stand_still(&mut self, events: &[Event], next: usize, from: usize, len: usize) -> usize {
         let until = events.get(next).map_or(len, |event| event.offset.min(len));
-        if until <= from
-            || self.reach.contains(&true)
-            || !self.cells_rest()
-            || !self.players_quiet()
-        {
+        let rousing = self
+            .reach
+            .iter()
+            .zip(self.wakes)
+            .any(|(&moves, wakes)| moves && wakes);
+        if until <= from || rousing || !self.cells_rest() || !self.players_quiet() {
             return from;
         }
-        self.settle_mix();
+        if self.reach.contains(&true) {
+            for _ in from + 1..until {
+                self.advance_lfos();
+            }
+            self.settle_now();
+            self.settle_mix();
+            self.advance_lfos();
+        } else {
+            // Nothing moves the sources, so settling again changes nothing.
+            self.settle_mix();
+        }
         for _ in from..until {
             if self.pool.is_full() {
                 break;

@@ -154,8 +154,9 @@ These bind every crate added here; each crate's own `AGENTS.md` restates what it
 - **No entropy.** Unpredictability comes from sensitivity, history and coupling, and every random
   stream is seeded by the patch's Seed.
 - **Doing nothing costs nothing.** Leak never reaches zero and a cell snaps to exact rest below a
-  floor, so an unfed kit comes to rest; at rest it runs none of its core, renders a silent block in
-  one step, and reports a status the host can sleep on.
+  floor, so an unfed kit comes to rest; at rest it runs none of its core, renders a silent block at
+  once (stepping only its moving LFOs' phases), and reports a status the host can sleep on when no
+  LFO is routed.
 - **MIDI in, audio out:** no audio input (the owner, 2026-11-02), no internal sequencer, no built-in
   effects in the first version.
 - **No machine's name** in a label, a preset or a doc of this repository.

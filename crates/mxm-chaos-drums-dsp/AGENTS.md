@@ -74,11 +74,14 @@ twenty-five models render.
   LFOs, the routes and the pool's recharge run on) and the skip changes no sample. A sample whose
   events find every cell at rest begins with Level, Pan, Master and each output on their settings,
   a step nothing sounding can hear, and a rule of the timeline, so no block boundary or host sleep
-  changes the mix. A kit standing still (every cell resting, no one-shot playing, no LFO moving)
+  changes the mix. A kit standing still (every cell resting, no one-shot playing, no moving LFO
+  reaching a bus, the pool, its refill or a cell's Supply, which could wake a cell or move the pool)
   renders the stretch to its next event at once (`Kit::stand_still`): each sample there is the one
-  before it but for the pool's refill, which runs on, so an idle block costs one step and changes
-  no sample (`a_still_stretch_renders_as_its_samples_one_by_one` holds it to the render sample by
-  sample).
+  before it but for the LFOs' phases and the pool's refill, which run on, and whatever else an LFO
+  moves acts only once something sounds; so the stretch steps those two alone and settles as its
+  last sample would. An idle block costs a few additions a sample and changes no sample
+  (`a_still_stretch_renders_as_its_samples_one_by_one` holds it to the render sample by sample, a
+  sample-and-hold LFO on pitch among its cases).
   `Kit::is_at_rest`, the status a host may sleep on, also needs the pool full: its level is what the
   next note draws on. Leak is never infinite, so every unfed cell gets there. A pool
   of no capacity grants nothing, so no bus feeds through it. A kit at rest is still not a fixed
@@ -158,10 +161,11 @@ twenty-five models render.
   the tambourine and the hats, the dearest (2026-11-04: a hat's six phases, a cymbal's loop and
   noise); the same strikes frozen 0.1–4.0%, the reading of one-shots still playing
   (`a_frozen_kit_never_wakes_its_cells` holds that a frozen kit's core stays skipped); a kit at rest
-  0.03%, standing still (3.2% before, stepping every silent sample); a capture 0.3–10 s on its
-  thread. A change that moves these says so. Against the drum machine's `drum_machine_cpu_cost`,
-  whose sixteen cymbals cost 3.0–3.5 µs a sample (29–34% of a core at 96 kHz, 2026-11-03), the
-  heaviest here is two-thirds of its heaviest.
+  0.03%, standing still, and 0.11% with an LFO moving it (3.2% before, stepping every silent
+  sample); a capture 0.3–10 s on its thread. A change that moves these says so. Against the drum
+  machine's `drum_machine_cpu_cost`, whose sixteen cymbals cost 3.0–3.5 µs a sample (29–34% of a
+  core at 96 kHz, 2026-11-03), the heaviest here is two-thirds of its heaviest; silent, a loaded kit
+  there costs 7.2% at 96 kHz (2026-11-04).
 
 ## Verification
 
