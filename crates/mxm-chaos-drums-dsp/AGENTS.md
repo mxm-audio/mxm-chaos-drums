@@ -52,7 +52,7 @@ twenty-five models render.
   appends a line to its golden list, and no line changes.
 - `src/fmath.rs`: `exp2`, semitones and the sine, in basic operations.
 - `examples/charge_grid.rs`: P1's listening grids. `examples/cpu_cost.rs`: sixteen busy cells at
-  96 kHz, as a share of real time. `examples/capture_cost.rs`: Resample's capture, tame and at its
+  96 kHz, live and frozen, and a kit at rest, as a share of real time. `examples/capture_cost.rs`: Resample's capture, tame and at its
   worst.
 - `tests/charge.rs`: the contracts below; `tests/capture.rs`: Resample's.
 
@@ -150,9 +150,11 @@ twenty-five models render.
   three (`voice::WIRES_TONE_UP`, `CLICK_TONE_UP`, `DUST_TONE_UP`): to 14 kHz, 4 kHz and 16 kHz. The
   hats, cymbals and hand percussion were built to it (`HAT_TONE_UP`, `CYMBAL_TONE_UP`,
   `GUIRO_TONE_UP`, `BRUSH_TONE_UP`, a grain law's `tone_up`): to 16 kHz at most.
-- `cpu_cost` measured 9–16% of one core for sixteen busy cells at 96 kHz, and 17–21% for the hats
-  and cymbals, the dearest (2026-11-03: a hat's six phases, a cymbal's loop and noise); a change that
-  moves it says so. Against the drum machine's `drum_machine_cpu_cost`, whose sixteen cymbals cost
+- `cpu_cost` measured 9–16% of one core for sixteen busy cells at 96 kHz, 16–20% for the cymbals,
+  the tambourine and the hats, the dearest (2026-11-04: a hat's six phases, a cymbal's loop and
+  noise); the same strikes frozen 3.0–3.9%, a kit at rest 3.2% (the per-sample rest checks, route
+  settling and mixer, half each; `a_frozen_kit_never_wakes_its_cells` holds that a frozen kit's core
+  stays skipped); a capture 0.3–10 s on its thread; a change that moves it says so. Against the drum machine's `drum_machine_cpu_cost`, whose sixteen cymbals cost
   3.0–3.5 µs a sample (29–34% of a core at 96 kHz, 2026-11-03), the heaviest here is two-thirds of
   its heaviest.
 

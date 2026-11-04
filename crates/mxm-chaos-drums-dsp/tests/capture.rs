@@ -734,3 +734,65 @@ fn a_frozen_cell_has_one_offset_even_over_a_live_tail() {
     );
     assert!(out.iter().all(|frame| frame[0].abs() <= 2.0));
 }
+
+/// Frozen, nothing wakes a cell: strikes held or not, touches, a bus at full and full Temper, Flow
+/// and Coupling leave every cell at rest at every sample, so the kit skips its core and a frozen kit
+/// costs the reading of its one-shots; and the kit rests once the longest one-shot and its declick
+/// end.
+#[test]
+fn a_frozen_kit_never_wakes_its_cells() {
+    let params = KitParams {
+        temper: 1.0,
+        flow: 1.0,
+        coupling: 1.0,
+        bus: [1.0, 0.0],
+        ..KitParams::default()
+    };
+    // Neighbours on the lattice, so Flow and Coupling would reach between them.
+    let mut kit_cells = cells(&[
+        (0, ModelId::RAW_RING),
+        (1, ModelId::LOOP_CRASH),
+        (4, ModelId::LEAKING_OPEN_HAT),
+    ]);
+    for cell in &mut kit_cells {
+        cell.bus = Bus::A;
+        cell.supply = 1.0;
+    }
+    let (mut kit, _) = frozen(params, kit_cells);
+    let mut events = Vec::new();
+    for (n, cell) in [0, 1, 4].into_iter().enumerate() {
+        events.push((
+            n,
+            EventKind::Strike {
+                cell,
+                velocity: 1.0,
+                gate: n != 1,
+            },
+        ));
+        events.push((
+            n,
+            EventKind::TouchOn {
+                cell,
+                velocity: 1.0,
+            },
+        ));
+    }
+    events.push((40, strike(1, 0.5)));
+    let mut sounded = false;
+    let mut n = 0;
+    while !kit.is_at_rest() || n <= 40 {
+        let now: Vec<_> = events
+            .iter()
+            .filter(|&&(at, _)| at == n)
+            .map(|&(_, kind)| (0, kind))
+            .collect();
+        sounded |= render(&mut kit, &now, 1)[0].iter().any(|&s| s != 0.0);
+        assert!(kit.cells_rest(), "a cell woke at sample {n}");
+        n += 1;
+        assert!(
+            (n as f32) < (MAX_CAPTURE_SECONDS + DECLICK_S) * RATE + 41.0,
+            "a frozen kit plays on past its longest one-shot"
+        );
+    }
+    assert!(sounded, "the one-shots played");
+}
