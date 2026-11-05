@@ -125,16 +125,17 @@ P5** (2026-11-02): the first version the owner explores; Resample and Export, P3
 ```bash
 cargo test -p mxm-chaos-drums
 cargo xtask bundle mxm-chaos-drums --release
-clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 35 passed, 3 failed, 6 skipped (2026-11-03)
+clap-validator validate "target/bundled/mxm-chaos-drums.clap"   # 38 passed, 0 failed, 6 skipped (2026-11-05)
 MXM_FLOORS=1 cargo test -p mxm-chaos-drums --lib tree_checks -- --nocapture   # every card's floor
 cargo test -p mxm-chaos-drums --release --lib write_the_factory_kits -- --ignored   # rewrites presets/
 cargo test -p mxm-chaos-drums --release --lib init_and_every_kit_are_balanced -- --ignored --nocapture
 cargo test -p mxm-chaos-drums --release --lib no_two_kits_sound_alike -- --ignored --nocapture
 ```
 
-The validator's three failures are preset discovery, once the factory kits are installed: on Windows
-it wants the factory folder as `/C:\…`, a Unix path, and fails `mxm-fx-eq-n`'s installed set the
-same way. Its parameter fuzz times out if a capture is slow (Resample engaged at activation captures
+On Windows the validator is the patched build: upstream's refuses the installed kits' folder, and
+fails the three preset-discovery tests
+([known issue](https://github.com/mxm-audio/mxm-kit/blob/main/docs/known-issues.md#clap-validator-refuses-every-windows-preset-folder-as-not-absolute)).
+Its parameter fuzz times out if a capture is slow (Resample engaged at activation captures
 then), which `capture_cost` watches.
 
 # Child DOX Index
