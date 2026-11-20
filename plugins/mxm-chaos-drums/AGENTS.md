@@ -63,6 +63,10 @@ P5** (2026-11-02): the first version the owner explores; Resample and Export, P3
   when Reset on play is on (its default, the owner, 2026-11-02).
 - **Layouts.** Main plus sixteen mono outputs first; stereo only second, which MXM Player takes. A
   stereo-only host folds every cell's Output to the main pair.
+- **The host learns which outputs the cells are routed to** (`src/outputs.rs`, mxm-drum-shell's
+  `outputs`, the MXM CLAP extension `dk.mxm.outputs-in-use/1` and VST3 interface `IOutputsInUse`,
+  one source for both; the owner, 2026-11-19 and 2026-11-20), whatever layout is active, so it can
+  give a cell on its own output a track.
 - **Parameters.** 41 a cell (`cell_ids`), 33 for the kit (`KIT_IDS`): 689. Output and Resample are
   instance settings no preset carries; Choke group is a kit setting presets carry. Routes are stored sparsely.
   *Deviation:* four route slots a cell, as the drum machine's, so `routing_checks` does not apply.

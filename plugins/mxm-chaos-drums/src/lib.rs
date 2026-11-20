@@ -17,6 +17,7 @@ pub const CLAP_ID: &str = concat!("dk.mxm.", plugin_name!());
 
 pub mod capture;
 pub mod editor;
+pub mod outputs;
 pub mod pack;
 pub mod params;
 pub mod preset;
@@ -731,6 +732,12 @@ impl ClapPlugin for MxmChaosDrums {
         Some(Arc::new(slot_names::HostNames(self.params.clone())))
     }
 
+    /// The outputs the cells are routed to, each named after its cells, so a host can give each
+    /// its own track (`outputs::HostOutputs`).
+    fn outputs_in_use(&self) -> Option<Arc<dyn OutputsInUse>> {
+        Some(Arc::new(outputs::HostOutputs(self.params.clone())))
+    }
+
     const CLAP_PRESETS: Option<ClapPresets> = Some(mxm_preset::clap::PRESETS);
 
     fn preset_loader(&self) -> Option<Arc<dyn ClapPresetLoader>> {
@@ -750,6 +757,11 @@ impl Vst3Plugin for MxmChaosDrums {
         Vst3SubCategory::Drum,
         Vst3SubCategory::Stereo,
     ];
+
+    /// The same outputs as the CLAP's, through the MXM VST3 interface `IOutputsInUse`.
+    fn outputs_in_use(&self) -> Option<Arc<dyn OutputsInUse>> {
+        Some(Arc::new(outputs::HostOutputs(self.params.clone())))
+    }
 }
 
 nice_export_clap!(MxmChaosDrums);
