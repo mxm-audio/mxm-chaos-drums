@@ -106,8 +106,8 @@ reproducible underneath. It copies no machine.
 
 It is one of the MXM products, each in its own repository under
 [github.com/mxm-audio](https://github.com/mxm-audio), built on the MIT-licensed
-[mxm-kit](https://github.com/mxm-audio/mxm-kit). **Private until it is ready** (the owner,
-2026-11-02). Its plan is the owner's and private; this repository holds the brief and the product.
+[mxm-kit](https://github.com/mxm-audio/mxm-kit). **Public since 2026-11-22**, out to the beta testers (the
+owner: "If they are out in beta, their repos should also be published"). Its plan is the owner's and private; this repository holds the brief and the product.
 
 Reference-quality open source: clarity beats cleverness, and every nontrivial algorithm names the
 technique or paper it comes from.
